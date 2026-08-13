@@ -285,7 +285,10 @@ async function renderMeeting(id) {
       <textarea class="notes" id="my-notes" placeholder="Type anything — your words live alongside the generated notes.">${esc(meeting.my_notes ?? "")}</textarea>
     </div>
     ${followUpCard(meeting, claims)}
-    ${byKind("decision").length ? `<div class="card"><h2>Decisions</h2>${byKind("decision").map((c) => `<div class="claim">✓ ${esc(c.body.text)}</div>`).join("")}</div>` : ""}
+    ${byKind("decision").length ? `<div class="card"><h2>Decisions</h2>${byKind("decision").map((c, i) => `
+      <div class="claim">✓ ${esc(c.body.text)}
+        <button class="copybtn" style="margin-left:8px;padding:2px 12px" data-share-decision="${i}">Share ↗</button>
+      </div>`).join("")}</div>` : ""}
     ${byKind("action_item").length ? `<div class="card"><h2>Action items</h2>${byKind("action_item").map((c) => `
       <div class="claim"><b>${esc(c.body.owner ?? "?")}</b> — ${esc(c.body.task)}${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""}</div>`).join("")}</div>` : ""}
     ${byKind("risk").length ? `<div class="card"><h2>Risks</h2>${byKind("risk").map((c) => `
@@ -306,6 +309,54 @@ async function renderMeeting(id) {
   state.highlight = null;
   wireMeetingLinks();
   wireNotesAutosave(id);
+  const decisions = byKind("decision");
+  const people = [...new Set(utterances.map((u) => u.speaker).filter(Boolean))];
+  main.querySelectorAll("[data-share-decision]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const d = decisions[Number(btn.dataset.shareDecision)];
+      shareDecisionCard(d.body.text, meeting, people);
+    }));
+}
+
+/**
+ * Growth loop: a decision becomes a beautiful 1200x630 PNG card.
+ * Rendered locally on canvas — nothing leaves the laptop.
+ */
+function shareDecisionCard(text, meeting, people) {
+  const W = 1200, H = 630, c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  // card base
+  x.fillStyle = "#f3efe7"; x.fillRect(0, 0, W, H);
+  x.strokeStyle = "#1d1b16"; x.lineWidth = 6; x.strokeRect(14, 14, W - 28, H - 28);
+  // stitched top thread
+  x.strokeStyle = "#e8752e"; x.lineWidth = 5; x.setLineDash([16, 14]); x.lineCap = "round";
+  x.beginPath(); x.moveTo(60, 92); x.quadraticCurveTo(W / 2, 130, W - 60, 92); x.stroke();
+  x.setLineDash([]);
+  x.fillStyle = "#8f8a7d"; x.font = "700 26px ui-rounded, system-ui";
+  x.fillText("DECISION", 70, 68);
+  // decision text, wrapped
+  x.fillStyle = "#1d1b16"; x.font = "800 52px ui-rounded, system-ui";
+  const words = text.split(" ");
+  let line = "", y = 210;
+  for (const w of words) {
+    if (x.measureText(line + " " + w).width > W - 160) { x.fillText(line, 70, y); y += 66; line = w; }
+    else line = line ? line + " " + w : w;
+  }
+  x.fillText(line, 70, y);
+  // meta
+  x.fillStyle = "#57534a"; x.font = "600 30px ui-rounded, system-ui";
+  x.fillText(`${meeting.title} · ${fmtDate(meeting.started_at)}`, 70, H - 150);
+  if (people.length) x.fillText(people.join(" · "), 70, H - 105);
+  // attribution
+  x.strokeStyle = "#e8752e"; x.lineWidth = 4; x.setLineDash([10, 9]);
+  x.beginPath(); x.moveTo(70, H - 62); x.lineTo(240, H - 62); x.stroke(); x.setLineDash([]);
+  x.fillStyle = "#8f8a7d"; x.font = "700 26px ui-rounded, system-ui";
+  x.fillText("stitched by Threadline", 256, H - 53);
+  const a = document.createElement("a");
+  a.download = "threadline-decision.png";
+  a.href = c.toDataURL("image/png");
+  a.click();
 }
 
 function followUpCard(meeting, claims) {
@@ -353,7 +404,8 @@ async function renderGraph() {
   main.innerHTML = `<h1>Threads</h1>
     <div class="sub">${nodes.length} knots · ${edges.length} threads. Drag to explore; click a meeting to open it.</div>
     <div class="card" id="graph-wrap"><canvas id="graph"></canvas></div>
-    <div class="legend"><span class="l-m">Meeting</span><span class="l-p">Person</span><span class="l-t">Topic</span></div>`;
+    <div class="legend"><span class="l-m">Meeting</span><span class="l-p">Person</span><span class="l-t">Topic</span>
+      <button class="copybtn" style="margin-left:auto" id="export-graph">Share this brain ↗</button></div>`;
   const canvas = $("#graph"), wrap = $("#graph-wrap");
   const dpr = window.devicePixelRatio || 1;
   const W = wrap.clientWidth, H = wrap.clientHeight;
@@ -456,7 +508,35 @@ async function renderGraph() {
     const n = hit(ev.clientX - r.left, ev.clientY - r.top);
     if (n?.kind === "meeting") { state.meetingId = n.id; render(); }
   });
+
+  // Growth loop: export the brain as a presentation-ready image.
+  $("#export-graph").addEventListener("click", () => {
+    const pad = 90, W2 = W + 40, H2 = H + pad + 70;
+    const out = document.createElement("canvas");
+    out.width = W2 * dpr; out.height = H2 * dpr;
+    const o = out.getContext("2d");
+    o.scale(dpr, dpr);
+    o.fillStyle = "#f3efe7"; o.fillRect(0, 0, W2, H2);
+    o.strokeStyle = "#1d1b16"; o.lineWidth = 4; o.strokeRect(8, 8, W2 - 16, H2 - 16);
+    o.fillStyle = "#1d1b16"; o.font = "800 30px ui-rounded, system-ui";
+    o.fillText("My meeting brain", 30, 52);
+    o.fillStyle = "#8f8a7d"; o.font = "700 16px ui-rounded, system-ui";
+    o.fillText(`${ns.filter((n) => n.kind === "meeting").length} meetings · ${ns.filter((n) => n.kind === "person").length} people · ${ns.filter((n) => n.kind === "topic").length} topics — stitched by Threadline`, 30, 76);
+    o.drawImage(canvas, 0, 0, canvas.width, canvas.height, 20, pad, W, H);
+    const a = document.createElement("a");
+    a.download = "threadline-brain.png";
+    a.href = out.toDataURL("image/png");
+    a.click();
+  });
 }
+
+// Growth loop: long excerpts copied from notes carry a quiet attribution.
+document.addEventListener("copy", (e) => {
+  const sel = document.getSelection()?.toString() ?? "";
+  if (sel.length < 140 || !e.clipboardData) return;
+  e.clipboardData.setData("text/plain", `${sel}\n\n— stitched by Threadline`);
+  e.preventDefault();
+});
 
 // ── Live recording ──────────────────────────────────────────────────────
 const recBtn = $("#rec");
