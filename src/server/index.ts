@@ -10,6 +10,7 @@ import path from "node:path";
 import { openDb } from "../lib/db.js";
 import { LiveSession, type LiveEvent } from "./live.js";
 import { ensureApiKey } from "../lib/firstrun.js";
+import { googleConfigured, googleConnected, authUrl, exchangeCode, upcomingEvents } from "./google.js";
 
 // tiny .env loader
 for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"); } catch { return []; } })()) {
@@ -190,8 +191,23 @@ const api: Record<string, Handler> = {
     return { project, meetings, claims, people };
   },
 
-  "GET /api/upcoming"() {
-    return db.prepare(`SELECT * FROM upcoming WHERE at_ms > ? ORDER BY at_ms ASC LIMIT 6`).all(Date.now() - 3600_000);
+  async "GET /api/upcoming"() {
+    const manual = db.prepare(`SELECT * FROM upcoming WHERE at_ms > ? ORDER BY at_ms ASC LIMIT 6`).all(Date.now() - 3600_000) as { title: string; at_ms: number }[];
+    if (!googleConnected()) return manual;
+    try {
+      const events = await upcomingEvents();
+      // merge, manual entries first on conflicts (same title + start)
+      const seen = new Set(manual.map((m) => `${m.title}@${m.at_ms}`));
+      const merged = [...manual, ...events.filter((e) => !seen.has(`${e.title}@${e.at_ms}`)).map((e, i) => ({ id: -1 - i, ...e, source: "google" }))];
+      return merged.sort((a, b) => a.at_ms - b.at_ms).slice(0, 6);
+    } catch (e) {
+      // calendar hiccups must never break Home
+      return manual;
+    }
+  },
+
+  "GET /api/google/status"() {
+    return { configured: googleConfigured(), connected: googleConnected() };
   },
 
   "POST /api/upcoming"(p, body) {
@@ -246,6 +262,32 @@ const MIME: Record<string, string> = {
 createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   const key = `${req.method} ${url.pathname}`;
+
+  // Google OAuth
+  if (key === "GET /api/google/connect") {
+    if (!googleConfigured()) {
+      res.writeHead(302, { Location: "/" });
+      res.end();
+      return;
+    }
+    res.writeHead(302, { Location: authUrl() });
+    res.end();
+    return;
+  }
+  if (key === "GET /oauth2/callback") {
+    const code = url.searchParams.get("code");
+    try {
+      if (!code) throw new Error(url.searchParams.get("error") ?? "no code returned");
+      await exchangeCode(code);
+      res.writeHead(302, { Location: "/?google=connected" });
+    } catch (e) {
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(`<p>Google connection failed: ${e instanceof Error ? e.message : e}</p><p><a href="/">Back to Threadline</a></p>`);
+      return;
+    }
+    res.end();
+    return;
+  }
 
   // Live transcript stream (SSE)
   if (key === "GET /api/record/events") {

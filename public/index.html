@@ -299,8 +299,22 @@ const SPOOL_SVG = `<svg width="72" height="72" viewBox="0 0 72 72" fill="none">
 document.querySelectorAll(".side-link").forEach((b) =>
   b.addEventListener("click", () => { state.view = b.dataset.view; state.meetingId = null; state.projectId = null; render(); }));
 
-$("#google-btn").addEventListener("click", () =>
-  alert("Google Workspace connection (Calendar, Drive, Gmail) is on the roadmap — it will fill Upcoming automatically.\n\nFor now, add upcoming meetings with the + in the Up next panel; prep works the same either way."));
+async function refreshGoogleButton() {
+  const s = await api("/api/google/status");
+  const b = $("#google-btn");
+  if (s.connected) { b.textContent = "Google ✓"; b.disabled = true; }
+  else if (s.configured) b.textContent = "Connect Google";
+  b.dataset.state = s.connected ? "connected" : s.configured ? "ready" : "unconfigured";
+}
+refreshGoogleButton();
+if (new URLSearchParams(location.search).get("google") === "connected") history.replaceState({}, "", "/");
+
+$("#google-btn").addEventListener("click", () => {
+  const state = $("#google-btn").dataset.state;
+  if (state === "ready") location.href = "/api/google/connect";
+  else if (state === "unconfigured")
+    alert("Google Calendar needs credentials first: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env (see README), then restart Threadline.\n\nGmail and Drive are on the roadmap.");
+});
 
 $("#add-project").addEventListener("click", async () => {
   const name = prompt("Project name?", "");
