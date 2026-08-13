@@ -522,6 +522,8 @@
   <button id="google-btn" title="Google Workspace">Connect Google</button>
   <button id="pip-btn" title="Pop out the floating companion" style="display:none">⧉</button>
   <button id="rec">● Record</button>
+  <button id="hotkey-help" title="Record from anywhere — hotkey setup"
+    style="border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font:inherit;font-size:13px;padding:7px 11px;border-radius:10px;cursor:pointer">⌨</button>
 </header>
 <div class="shell">
   <aside id="side">
@@ -2982,6 +2984,41 @@ function renderLive(title) {
     }
   };
 }
+
+// ── Hotkey guide (⌨ in the header): both record-from-anywhere methods ────
+$("#hotkey-help").addEventListener("click", async () => {
+  const info = await api("/api/hotkey/info").catch(() => ({ script: "scripts/record-toggle.sh", daemon: false }));
+  document.getElementById("hotkey-modal")?.remove();
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="tl-modal" id="hotkey-modal"><div class="box" style="max-width:560px">
+      <h2>Record from anywhere</h2>
+      <div class="t-meta" style="margin-bottom:14px">Two ways to start/stop recording without touching this window. Both show notifications: ● Recording · ■ Stopped — stitching · ✓ Saved with the meeting's name.</div>
+
+      <div style="font-weight:650;margin-bottom:4px">1 · Double-tap the Fn key ${info.daemon ? "" : "<span class='pill block'>daemon not built</span>"}</div>
+      <div class="t-meta" style="margin-bottom:12px;line-height:1.7">
+        Zero setup if your machine cooperates. Two prerequisites:<br>
+        · <b>Accessibility</b> permission for the app that runs <code>npm run dev</code> (macOS prompts on first launch)<br>
+        · System Settings → Keyboard → “Press 🌐 key to” must be <b>Do Nothing</b> (default is often Show Emoji; a logout may be needed after changing)
+      </div>
+
+      <div style="font-weight:650;margin-bottom:4px">2 · Your own key combo (any key, any machine)</div>
+      <ol style="margin:0 0 8px 18px;line-height:1.9;font-size:14px">
+        <li>macOS <b>Shortcuts</b> app → <b>+</b> new Shortcut → add <b>Run Shell Script</b>, paste:
+          <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+            <code style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px;overflow-x:auto;white-space:nowrap">${esc(info.script)}</code>
+            <button class="copybtn" id="hotkey-copy">Copy</button>
+          </div></li>
+        <li>Shortcuts → Settings → Advanced → ✓ <b>Allow Running Scripts</b></li>
+        <li>On the shortcut, ⓘ → <b>Add Keyboard Shortcut</b> → press your combo (avoid ⌘-combos apps use; ⌃⌥R works well)</li>
+      </ol>
+      <div class="t-meta" style="margin-bottom:14px">Recordings under 15 seconds are discarded as accidental taps. Unnamed meetings title themselves from the conversation.</div>
+      <div style="display:flex;justify-content:flex-end"><button class="copybtn" id="hotkey-done">Done</button></div>
+    </div></div>`);
+  const modal = $("#hotkey-modal");
+  $("#hotkey-copy").addEventListener("click", () => { navigator.clipboard.writeText(info.script); $("#hotkey-copy").textContent = "Copied ✓"; });
+  $("#hotkey-done").addEventListener("click", () => modal.remove());
+  modal.addEventListener("mousedown", (e) => { if (e.target === modal) modal.remove(); });
+});
 
 // ── Post-stop naming (works for button, double-Fn hotkey, or another tab) ──
 // The stopped SSE event fires AFTER processing, so the content-derived
