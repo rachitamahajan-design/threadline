@@ -14,6 +14,7 @@ import { DatabaseSync } from "node:sqlite";
 import { triggerRecap, awaitRecap, PyAIError, type Utterance, type RecapRecord } from "../lib/pyai.js";
 import { Budget, retry, groundedIn, applyGate, decideExit, type StepRecord } from "../lib/harness.js";
 import { upsertNode, addEdge } from "../lib/db.js";
+import { hasOpenAI, openaiExtract } from "../lib/openai.js";
 
 export type MeetingInput = {
   id: string;
@@ -54,9 +55,24 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
   );
   steps.push(recap.record);
 
+  // Recap down but OpenAI configured → same extraction, fallback engine.
+  let record = recap.value?.record ?? null;
+  let headline = recap.value?.headline ?? null;
+  if (!record && hasOpenAI()) {
+    const fb = await retry("fallback:openai-extract", budget, () => openaiExtract(m.utterances), { max: 2 });
+    steps.push(fb.record);
+    if (fb.value) {
+      record = fb.value;
+      headline = fb.value.tldr ?? null;
+      // the core step failed but the run recovered — reflect that honestly
+      const core = steps.find((s) => s.name === "core:recap");
+      if (core) core.name = "recap(pyai-down)";
+    }
+  }
+
   let stored = { passed: 0, blocked: 0 };
-  if (recap.value?.record) {
-    stored = storeClaims(db, m, recap.value.record);
+  if (record) {
+    stored = storeClaims(db, m, record);
     steps.push({
       name: "gate:grounding",
       status: stored.blocked > 0 ? "blocked" : "ok",
@@ -65,9 +81,9 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
       reason: stored.blocked > 0 ? `${stored.blocked} claim(s) had no proof in the transcript` : undefined,
     });
 
-    const rec = recap.value.record;
+    const rec = record;
     db.prepare("UPDATE meetings SET headline = ?, summary = ? WHERE id = ?").run(
-      recap.value.headline ?? rec.tldr ?? null,
+      headline ?? rec.tldr ?? null,
       rec.summary ?? rec.summary_draft ?? null,
       m.id,
     );

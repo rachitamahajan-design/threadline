@@ -8,8 +8,9 @@
  * Silence keeps flowing from both sources, which Hear needs for endpointing.
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, createWriteStream, readFileSync, type WriteStream } from "node:fs";
 import WebSocket from "ws";
+import { hasOpenAI, pcm16ToWav, whisperTranscribe } from "../lib/openai.js";
 import type { DatabaseSync } from "node:sqlite";
 import { streamUrl, type Utterance } from "../lib/pyai.js";
 import { processMeeting } from "../pipeline/extract.js";
@@ -27,6 +28,8 @@ const ROLE: Record<string, "agent" | "customer"> = { You: "agent", Them: "custom
 export class LiveSession {
   private helper: ChildProcess | null = null;
   private sockets: (WebSocket | null)[] = [null, null];
+  /** Audio always lands on disk too, so a PyAI outage never loses a meeting. */
+  private tapes: (WriteStream | null)[] = [null, null];
   private listeners = new Set<(e: LiveEvent) => void>();
   private finals: Utterance[] = [];
   private startedAt = 0;
@@ -57,7 +60,11 @@ export class LiveSession {
       return;
     }
     this.startedAt = Date.now();
-    for (const ch of [0, 1]) this.openSocket(ch);
+    mkdirSync("data/recordings", { recursive: true });
+    for (const ch of [0, 1]) {
+      this.tapes[ch] = createWriteStream(`data/recordings/${this.meetingId}-ch${ch}.pcm`);
+      this.openSocket(ch);
+    }
 
     this.helper = spawn(bin, [], { stdio: ["pipe", "pipe", "pipe"] });
     this.helper.stderr!.on("data", (d: Buffer) =>
@@ -76,6 +83,7 @@ export class LiveSession {
         if (buf.length < 5 + len) break;
         const pcm = buf.subarray(5, 5 + len);
         buf = buf.subarray(5 + len);
+        this.tapes[channel]?.write(pcm);
         const ws = this.sockets[channel];
         if (ws?.readyState === WebSocket.OPEN) ws.send(pcm);
       }
@@ -148,7 +156,25 @@ export class LiveSession {
     for (const ws of this.sockets) ws?.close(1000);
     this.helper?.kill("SIGTERM");
 
+    for (const t of this.tapes) t?.end();
+
     this.finals.sort((a, b) => a.offset_s - b.offset_s);
+    if (this.finals.length === 0 && hasOpenAI()) {
+      // PyAI produced nothing (outage, dead key) — fall back to Whisper over the tape.
+      this.emit({ type: "status", message: "PyAI produced no transcript — falling back to Whisper over the saved recording" });
+      try {
+        for (const [ch, speaker] of [[0, "Them"], [1, "You"]] as const) {
+          const pcm = readFileSync(`data/recordings/${this.meetingId}-ch${ch}.pcm`);
+          if (pcm.length < 16000) continue; // under half a second of audio
+          const utts = await whisperTranscribe(pcm16ToWav(pcm), speaker, ROLE[speaker]);
+          this.finals.push(...utts);
+        }
+        this.finals.sort((a, b) => a.offset_s - b.offset_s);
+        if (this.finals.length) this.emit({ type: "status", message: `Whisper fallback recovered ${this.finals.length} lines` });
+      } catch (e) {
+        this.emit({ type: "status", message: `Whisper fallback failed: ${e instanceof Error ? e.message : e}` });
+      }
+    }
     if (this.finals.length === 0) {
       this.emit({ type: "error", message: "No speech captured — nothing to process." });
       return { meetingId: this.meetingId, exit: "failed" };
