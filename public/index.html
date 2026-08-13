@@ -782,9 +782,9 @@ function wireMeetingLinks() {
 async function renderGraph() {
   const { nodes, edges } = await api("/api/graph");
   main.innerHTML = `<h1>Threads</h1>
-    <div class="sub">${nodes.length} knots · ${edges.length} threads. Drag to explore; click a meeting to open it.</div>
+    <div class="sub">${nodes.length} knots · ${edges.length} threads. Topics grow with every meeting that touches them — click one to pull its thread.</div>
     <div class="card" id="graph-wrap"><canvas id="graph"></canvas></div>
-    <div class="legend"><span class="l-m">Meeting</span><span class="l-p">Person</span><span class="l-t">Topic</span>
+    <div class="legend"><span class="l-t">Topic — sized by how often it comes up</span><span class="l-m">Meeting</span><span class="l-p">Person</span>
       <button class="copybtn" style="margin-left:auto" id="export-graph">Share this brain ↗</button></div>`;
   const canvas = $("#graph"), wrap = $("#graph-wrap");
   const dpr = window.devicePixelRatio || 1;
@@ -795,11 +795,18 @@ async function renderGraph() {
   const css = getComputedStyle(document.documentElement);
   const INK = css.getPropertyValue("--ink"), INK3 = css.getPropertyValue("--ink-3"), THREAD = css.getPropertyValue("--thread"), SURFACE = css.getPropertyValue("--surface").trim();
 
+  // Obsidian-style: TOPICS are the primary nodes, sized by how many threads
+  // touch them; meetings and people are small connectors between them.
+  const degree = {};
+  for (const e of edges) { degree[e.src] = (degree[e.src] ?? 0) + 1; degree[e.dst] = (degree[e.dst] ?? 0) + 1; }
   const ns = nodes.map((n, i) => ({
     ...n, label: n.meeting_title ?? n.label,
     x: W / 2 + 180 * Math.cos((i / nodes.length) * 2 * Math.PI),
     y: H / 2 + 180 * Math.sin((i / nodes.length) * 2 * Math.PI),
-    vx: 0, vy: 0, r: n.kind === "meeting" ? 22 : n.kind === "person" ? 13 : 9,
+    vx: 0, vy: 0,
+    r: n.kind === "topic" ? 10 + 5 * Math.sqrt(degree[n.id] ?? 0)
+     : n.kind === "person" ? 6 + 1.5 * Math.sqrt(degree[n.id] ?? 0)
+     : 7,
   }));
   const byId = Object.fromEntries(ns.map((n) => [n.id, n]));
   const es = edges.filter((e) => byId[e.src] && byId[e.dst]);
@@ -819,7 +826,7 @@ async function renderGraph() {
     for (const e of es) {
       const a = byId[e.src], b = byId[e.dst];
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.max(Math.hypot(dx, dy), 1);
-      const f = (d - 110) * 0.012;
+      const f = (d - (80 + a.r + b.r)) * 0.012; // hubs need breathing room
       a.vx += (dx / d) * f; a.vy += (dy / d) * f;
       b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
     }
@@ -834,40 +841,39 @@ async function renderGraph() {
   function draw() {
     ctx.clearRect(0, 0, W, H);
     // threads: fine solid curves with a gentle sag — silk, not sketch
-    ctx.lineWidth = 1.4; ctx.lineCap = "round"; ctx.strokeStyle = THREAD;
+    ctx.lineCap = "round"; ctx.strokeStyle = THREAD;
     for (const e of es) {
       const a = byId[e.src], b = byId[e.dst];
-      ctx.globalAlpha = 0.32;
+      // related topic~topic threads are thematic, not evidential — draw them
+      // as faint dashes; mention/attended threads stay solid silk.
+      if (e.kind === "related") { ctx.setLineDash([3, 5]); ctx.lineWidth = 1.1; ctx.globalAlpha = 0.25; }
+      else { ctx.setLineDash([]); ctx.lineWidth = 1.4; ctx.globalAlpha = 0.32; }
       const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + Math.min(28, Math.hypot(b.x - a.x, b.y - a.y) * 0.1);
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx, my, b.x, b.y); ctx.stroke();
     }
-    ctx.globalAlpha = 1;
-    for (const n of ns) {
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r, 0, 2 * Math.PI);
-      if (n.kind === "meeting") {
-        ctx.fillStyle = THREAD; ctx.fill();
-      } else if (n.kind === "person") {
-        ctx.fillStyle = SURFACE; ctx.fill();
-        ctx.strokeStyle = INK3; ctx.lineWidth = 1.5; ctx.stroke();
-      } else {
-        ctx.fillStyle = INK3; ctx.globalAlpha = 0.65; ctx.fill(); ctx.globalAlpha = 1;
-      }
-      if (n.kind === "meeting" || n.kind === "person") {
-        ctx.fillStyle = INK; ctx.font = "600 11.5px -apple-system, system-ui"; ctx.textAlign = "center";
-        const label = n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label;
-        ctx.fillText(label, n.x, n.y + n.r + 15);
-      }
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    // connectors first, hubs on top
+    for (const n of ns.filter((x) => x.kind !== "topic")) {
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 2 * Math.PI);
+      if (n.kind === "meeting") { ctx.fillStyle = SURFACE; ctx.fill(); ctx.strokeStyle = THREAD; ctx.lineWidth = 1.5; ctx.stroke(); }
+      else { ctx.fillStyle = SURFACE; ctx.fill(); ctx.strokeStyle = INK3; ctx.lineWidth = 1.5; ctx.stroke(); }
+      ctx.fillStyle = INK3; ctx.font = "500 10.5px -apple-system, system-ui"; ctx.textAlign = "center";
+      const label = n.label.length > 18 ? n.label.slice(0, 17) + "…" : n.label;
+      ctx.fillText(label, n.x, n.y + n.r + 12);
+    }
+    for (const n of ns.filter((x) => x.kind === "topic")) {
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 2 * Math.PI);
+      ctx.fillStyle = THREAD; ctx.globalAlpha = 0.9; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = INK; ctx.textAlign = "center";
+      const size = Math.min(14, 10.5 + n.r * 0.12);
+      ctx.font = `600 ${size}px -apple-system, system-ui`;
+      const label = n.label.length > 24 ? n.label.slice(0, 23) + "…" : n.label;
+      ctx.fillText(label, n.x, n.y + n.r + size + 3);
     }
   }
 
   let frames = 0;
-  (function loop() { tick(); draw(); if (++frames < 600 || drag) requestAnimationFrame(loop); else drawLabelsFinal(); })();
-  function drawLabelsFinal() {
-    draw();
-    ctx.fillStyle = INK3; ctx.font = "500 11px -apple-system, system-ui"; ctx.textAlign = "center";
-    for (const n of ns) if (n.kind === "topic") ctx.fillText(n.label.length > 18 ? n.label.slice(0, 17) + "…" : n.label, n.x, n.y + n.r + 13);
-  }
+  (function loop() { tick(); draw(); if (++frames < 600 || drag) requestAnimationFrame(loop); })();
 
   const hit = (mx, my) => ns.find((n) => Math.hypot(n.x - mx, n.y - my) <= n.r + 4);
   canvas.addEventListener("mousedown", (ev) => {
@@ -885,6 +891,13 @@ async function renderGraph() {
     const r = canvas.getBoundingClientRect();
     const n = hit(ev.clientX - r.left, ev.clientY - r.top);
     if (n?.kind === "meeting") { state.meetingId = n.id; render(); }
+    // Clicking a topic pulls its thread: global search across every meeting.
+    else if (n?.kind === "topic" || n?.kind === "person") {
+      const s = $("#search");
+      s.value = n.label;
+      s.dispatchEvent(new Event("input"));
+      s.focus();
+    }
   });
 
   // Growth loop: export the brain as a presentation-ready image.
