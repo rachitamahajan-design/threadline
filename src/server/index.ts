@@ -364,6 +364,15 @@ const api: Record<string, Handler> = {
     return { recording: !!live, meetingId: live?.meetingId ?? null, title: live?.title ?? null };
   },
 
+  // The in-app hotkey guide needs this machine's absolute script path and
+  // whether the double-Fn daemon is actually alive.
+  "GET /api/hotkey/info"() {
+    return {
+      script: path.resolve("scripts/record-toggle.sh"),
+      daemon: existsSync("capture/threadline-hotkey"),
+    };
+  },
+
   "GET /api/projects"() {
     return db
       .prepare(
