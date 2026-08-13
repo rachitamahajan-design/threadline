@@ -256,6 +256,30 @@ const api: Record<string, Handler> = {
     }
   },
 
+  /** Mid-recording metadata: mode and topic, applied at stop. */
+  "POST /api/record/meta"(p, body) {
+    if (!live) return { error: "not recording" };
+    const { mode, topic_id } = (body ?? {}) as { mode?: string; topic_id?: number };
+    live.setMeta({ mode, topicId: topic_id });
+    return { ok: true };
+  },
+
+  /** Delete a meeting and everything hanging off it. */
+  "POST /api/meeting/delete"(p, body) {
+    const { id } = (body ?? {}) as { id?: string };
+    if (!id) return { error: "missing id" };
+    const tryRun = (sql: string, ...args: unknown[]) => { try { db.prepare(sql).run(...(args as [])); } catch {} };
+    tryRun("DELETE FROM chunk_fts WHERE rowid IN (SELECT id FROM chunks WHERE meeting_id = ?)", id);
+    for (const t of ["chunks", "entity_mentions", "claims", "utterances", "runs", "meeting_projects", "search",
+                     "summary_versions", "corrections", "notes_versions", "correction_events"])
+      tryRun(`DELETE FROM ${t} WHERE meeting_id = ?`, id);
+    tryRun("DELETE FROM edges WHERE meeting_id = ? OR src = ? OR dst = ?", id, id, id);
+    tryRun("DELETE FROM nodes WHERE id = ?", id);
+    tryRun("DELETE FROM meetings WHERE id = ?", id);
+    tryRun("DELETE FROM nodes WHERE kind != 'meeting' AND id NOT IN (SELECT src FROM edges UNION SELECT dst FROM edges)");
+    return { ok: true };
+  },
+
   "GET /api/record/state"() {
     return { recording: !!live, meetingId: live?.meetingId ?? null, title: live?.title ?? null };
   },

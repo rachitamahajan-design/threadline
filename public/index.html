@@ -135,9 +135,8 @@
   .todo.done .receipt::before { background: var(--thread); }
   .stitch-connector { display: block; margin: -24px 0 -2px 56px; }
   #rail-needle {
-    position: absolute; left: -13px; top: -9px; z-index: 3; pointer-events: none;
-    transform: rotate(38deg); transform-origin: 14% 50%;
-    filter: drop-shadow(0 1.5px 1.5px rgb(40 40 60 / 0.22));
+    position: absolute; left: -11px; top: -12px; z-index: 3; pointer-events: none;
+    filter: drop-shadow(0 1px 1px rgb(40 40 60 / 0.18));
     transition: opacity .25s;
   }
   .open-stitch { display: none; width: 18px; height: 1.5px; margin-left: 10px; vertical-align: 4px; border-radius: 2px;
@@ -173,6 +172,12 @@
   .pill.block { background: color-mix(in srgb, var(--block) 12%, transparent); color: var(--block); }
 
   .m-row { display: flex; gap: 16px; padding: 14px 0; cursor: pointer; align-items: baseline; }
+  .topic-select {
+    appearance: none; -webkit-appearance: none; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink-3); font: 500 11.5px -apple-system, system-ui;
+    padding: 3px 8px; cursor: pointer; max-width: 110px;
+  }
+  .topic-select:hover { border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); color: var(--thread); }
   .m-row + .m-row { border-top: 1px solid var(--line); }
   .m-row:hover .m-title { color: var(--thread); }
   .m-title { font-weight: 570; font-size: 14.5px; transition: color .12s; }
@@ -440,7 +445,7 @@
   .up-item:first-child::before { background: repeating-linear-gradient(to bottom, var(--thread) 0 11px, transparent 11px 19px); opacity: .5; }
   .up-title { font-weight: 620; font-size: 15.5px; letter-spacing: -0.01em; margin: 1px 0 1px; }
   .up-item:first-child .up-title { font-weight: 650; font-size: 18.5px; letter-spacing: -0.015em; line-height: 1.3; margin: 1px 0 2px; }
-  .up-needle {
+    .up-needle {
     position: absolute; left: -9px; top: 1px; transform: rotate(58deg); transform-origin: 14% 50%;
     filter: drop-shadow(0 1px 1px rgb(40 40 60 / 0.18)); pointer-events: none;
   }
@@ -515,7 +520,7 @@
       <button class="side-link" data-view="meetings">🗎&nbsp; Meetings</button>
     </div>
     <div class="side-section">
-      <div class="side-head">Projects <button id="add-project" title="New project">+</button></div>
+      <div class="side-head">Topics <button id="add-project" title="New topic">+</button></div>
       <div id="project-list"></div>
     </div>
     <div class="side-section">
@@ -534,6 +539,76 @@ const fmtDate = (ms) => new Date(ms).toLocaleDateString(undefined, { month: "sho
 const fmtTs = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const api = (p) => fetch(p).then((r) => r.json());
+
+const MODES = ["discovery", "investor", "1:1", "team meeting", "standup"];
+
+/** Suggestion chips + delete, appended onto whichever meeting page rendered. */
+/** Mode + topic pickers shown while a recording is running. */
+async function liveMetaBar() {
+  await new Promise((r) => setTimeout(r, 120));
+  if (!recording || document.getElementById("live-meta")) return;
+  const host = main.querySelector("h1");
+  if (!host) return;
+  const { html } = await topicOptions([]);
+  const bar = document.createElement("div");
+  bar.id = "live-meta";
+  bar.style.cssText = "margin:-10px 0 18px;display:flex;gap:10px;align-items:center";
+  bar.innerHTML = `
+    <select class="topic-select" id="live-mode" title="Meeting mode">${MODES.map((m) => `<option ${m === "discovery" ? "selected" : ""}>${m}</option>`).join("")}</select>
+    <select class="topic-select" id="live-topic" title="Topic">${html}</select>
+    <span class="t-meta">mode &amp; topic ride with the meeting</span>`;
+  host.after(bar);
+  $("#live-mode").addEventListener("change", (e) =>
+    fetch("/api/record/meta", { method: "POST", body: JSON.stringify({ mode: e.target.value }) }));
+  $("#live-topic").addEventListener("change", (e) =>
+    topicSelectChange(e.target, (tid) =>
+      fetch("/api/record/meta", { method: "POST", body: JSON.stringify({ topic_id: tid }) })));
+}
+
+async function meetExtras(mid) {
+  await new Promise((r) => setTimeout(r, 80));
+  if (document.getElementById("meet-extras") || !main.querySelector("h1") || state.meetingId !== mid) return;
+  const det = await api(`/api/meeting?id=${encodeURIComponent(mid)}`);
+  const mentions = det.mentions ?? [], topicIds = det.topicIds ?? [];
+  const { list } = await topicOptions(topicIds);
+  const names = new Map(list.map((t) => [t.name.toLowerCase(), t]));
+  const sugg = [...new Set(mentions.map((x) => names.get(x.toLowerCase())).filter((t) => t && !topicIds.includes(t.id)))];
+  const bar = document.createElement("div");
+  bar.id = "meet-extras";
+  bar.style.cssText = "margin:-14px 0 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap";
+  bar.innerHTML = `
+    ${sugg.slice(0, 2).map((t) => `<button class="copybtn" data-sugg="${t.id}" style="margin:0">Mentions “${esc(t.name)}” — add to topic?</button>`).join("")}
+    <button class="copybtn" id="meet-del" style="margin:0;color:var(--block);border-color:color-mix(in srgb, var(--block) 30%, var(--line))">Delete meeting</button>`;
+  main.querySelector("h1").after(bar);
+  bar.querySelectorAll("[data-sugg]").forEach((b) => b.addEventListener("click", async () => {
+    await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: Number(b.dataset.sugg), meeting_id: mid }) });
+    b.textContent = "Added ✓"; b.disabled = true; loadSidebar();
+  }));
+  document.getElementById("meet-del").addEventListener("click", async () => {
+    if (!confirm("Delete this meeting and its notes, transcript and threads? This cannot be undone.")) return;
+    await fetch("/api/meeting/delete", { method: "POST", body: JSON.stringify({ id: mid }) });
+    state.meetingId = null; state.view = "today"; render();
+  });
+}
+async function topicOptions(selectedIds = []) {
+  const ts = await api("/api/projects");
+  return { list: ts, html: `<option value="">no topic</option>` +
+    ts.map((t) => `<option value="${t.id}" ${selectedIds.includes(t.id) ? "selected" : ""}>${esc(t.name)}</option>`).join("") +
+    `<option value="__new">＋ New topic…</option>` };
+}
+async function topicSelectChange(sel, onPick) {
+  let v = sel.value;
+  if (v === "__new") {
+    const name = prompt("Topic name?", "");
+    if (!name?.trim()) { sel.value = ""; return; }
+    const t = await fetch("/api/project", { method: "POST", body: JSON.stringify({ name }) }).then((x) => x.json());
+    loadSidebar();
+    v = String(t.id);
+    sel.insertAdjacentHTML("afterbegin", `<option value="${t.id}">${esc(t.name)}</option>`);
+    sel.value = v;
+  }
+  if (v) onPick(Number(v));
+}
 
 const SPOOL_SVG = `<svg width="72" height="72" viewBox="0 0 72 72" fill="none">
   <rect x="22" y="14" width="28" height="44" rx="5" stroke="currentColor" stroke-width="3"/>
@@ -606,7 +681,7 @@ async function loadSidebar() {
   $("#project-list").innerHTML = projects.map((p) => `
     <button class="side-link ${state.view === "project" && state.projectId === p.id ? "active" : ""}" data-project="${p.id}">
       ▸&nbsp; ${esc(p.name)} <span style="opacity:.55;font-size:12px">${p.n_open ? p.n_open + " open" : ""}</span>
-    </button>`).join("") || `<div style="padding:0 10px;font-size:12.5px;color:var(--ink-3)">No projects yet — hit +</div>`;
+    </button>`).join("") || `<div style="padding:0 10px;font-size:12.5px;color:var(--ink-3)">No topics yet — hit +</div>`;
   $("#project-list").querySelectorAll("[data-project]").forEach((b) =>
     b.addEventListener("click", () => { state.view = "project"; state.projectId = Number(b.dataset.project); state.meetingId = null; render(); }));
 }
@@ -614,7 +689,12 @@ async function loadSidebar() {
 async function render() {
   document.querySelectorAll(".side-link[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === state.view && !state.meetingId));
   loadSidebar();
-  if (state.meetingId) return renderMeeting(state.meetingId);
+  if (state.meetingId) {
+    const mid = state.meetingId;
+    const out = renderMeeting(mid);
+    Promise.resolve(out).then(() => meetExtras(mid));
+    return out;
+  }
   if (state.view === "today") return renderToday();
   if (state.view === "meetings") return renderMeetings();
   if (state.view === "graph") return renderGraph();
@@ -1036,7 +1116,8 @@ async function renderToday() {
         ${meetings.slice(0, 5).map((m) => `
           <div class="m-row" data-mid="${m.id}">
             <div class="m-date">${fmtDate(m.started_at)}</div>
-            <div><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
+            <div style="flex:1"><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
+            <select class="topic-select" data-tmid="${m.id}" title="Topic"></select>
           </div>`).join("")}
       </div>
     </div>
@@ -1049,20 +1130,7 @@ async function renderToday() {
     </svg>
     <div class="card"><h2>Loose ends · pulled from your meetings</h2>
       <div class="loose-rail" id="loose-rail">
-      <div id="rail-needle" aria-hidden="true">
-        <svg width="40" height="15" viewBox="0 0 40 15" fill="none">
-          <defs>
-            <linearGradient id="rn-g" x1="6" y1="3.4" x2="12" y2="11.6" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stop-color="#f4f6f8"/><stop offset="0.42" stop-color="#c8ccd3"/>
-              <stop offset="0.7" stop-color="#8f959f"/><stop offset="1" stop-color="#6f757f"/>
-            </linearGradient>
-          </defs>
-          <path d="M2.9 4.2 C 1.2 5.1, 1.2 9.9, 2.9 10.8 L 11 9.9 L 33 8.15 L 38.4 7.5 L 33 6.85 L 11 5.1 Z" fill="url(#rn-g)"/>
-          <path d="M3.4 5.1 L 32 6.95" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round" opacity="0.75"/>
-          <ellipse cx="6.4" cy="7.5" rx="1.05" ry="2.15" fill="var(--bg)" stroke="#7d838d" stroke-width="0.55"/>
-          <path d="M6.4 6 C 2.5 3.2, -1.6 3.6, -4.4 6.6" stroke="var(--thread)" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.55"/>
-        </svg>
-      </div>
+      <div id="rail-needle" aria-hidden="true" style="font-size:17px">🧵</div>
       ${(() => {
         // priority: dated items first (sooner-sounding first), then recent meetings
         const rank = (t) => {
@@ -1108,6 +1176,19 @@ async function renderToday() {
     drawRailThread();
     main.querySelectorAll("#rest-todos .todo input").forEach(wireTodo);
   });
+  (async () => {
+    const assigned = {};
+    for (const sel of main.querySelectorAll(".topic-select")) {
+      const mid = sel.dataset.tmid;
+      const det = await api(`/api/meeting?id=${encodeURIComponent(mid)}`);
+      const { html } = await topicOptions(det.topicIds ?? []);
+      sel.innerHTML = html;
+      sel.addEventListener("click", (e) => e.stopPropagation());
+      sel.addEventListener("change", () =>
+        topicSelectChange(sel, (tid) =>
+          fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: tid, meeting_id: mid }) }).then(loadSidebar)));
+    }
+  })();
   drawRailThread();
   loadUpcoming();
   $("#notify-bell")?.addEventListener("click", async () => {
@@ -1727,8 +1808,8 @@ async function renderMeeting(id, opts = {}) {
       renderMeeting(id);
     } else if (pick === "2") {
       const projects = await api("/api/projects");
-      if (!projects.length) return alert("No projects yet — create one with + in the sidebar first.");
-      const p = projects[Number(prompt("File this meeting in which project?\n" + projects.map((x, i) => `${i + 1}. ${x.name}`).join("\n"), "1")) - 1];
+      if (!projects.length) return alert("No topics yet — create one with + in the sidebar first.");
+      const p = projects[Number(prompt("Tag this meeting with which topic?\n" + projects.map((x, i) => `${i + 1}. ${x.name}`).join("\n"), "1")) - 1];
       if (!p) return;
       await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: p.id, meeting_id: id }) });
       loadSidebar();
@@ -2187,7 +2268,8 @@ function wireMeetingLinks() {
 }
 
 async function renderGraph() {
-  const [{ nodes, edges }, meetingsList] = await Promise.all([api("/api/graph"), api("/api/meetings")]);
+  const [{ nodes, edges }, meetingsList, topicBuckets] = await Promise.all([api("/api/graph"), api("/api/meetings"), api("/api/projects")]);
+  const bucketNames = new Set(topicBuckets.map((t) => t.name.toLowerCase()));
   const meetById = Object.fromEntries(meetingsList.map((m) => [m.id, m]));
   // degree = how many meetings each person/topic touches, for the tooltip meta
   const meetingNeighbors = {};
@@ -2259,7 +2341,7 @@ async function renderGraph() {
     x: W / 2 + (n.kind === "meeting" ? 150 : n.kind === "person" ? 215 : 275) * Math.cos((i / visible.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
     y: H / 2 + (n.kind === "meeting" ? 130 : n.kind === "person" ? 200 : 250) * Math.sin((i / visible.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
     vx: 0, vy: 0, seed: (i * 2.399) % 6.2832,
-    r: n.kind === "meeting" ? 18 : n.kind === "person" ? 11 : 6 + 2.4 * Math.sqrt(meetingNeighbors[n.id]?.size ?? 1),
+    r: n.kind === "meeting" ? 18 : n.kind === "person" ? 11 : (bucketNames.has((n.label ?? "").toLowerCase()) ? 11 : 6) + 2.4 * Math.sqrt(meetingNeighbors[n.id]?.size ?? 1),
   }));
   ns.forEach((n) => { n.meta = metaOf(n); });
   const byId = Object.fromEntries(ns.map((n) => [n.id, n]));
@@ -2562,6 +2644,7 @@ async function startRecording(title) {
   $("#pip-btn").style.display = "";
   state.meetingId = r.meetingId;
   renderMeeting(r.meetingId, { live: true });
+  liveMetaBar();
   openCompanion(title); // best effort — the header ⧉ button is the sure path
   return true;
 }
@@ -2619,6 +2702,14 @@ async function openCompanion(title, manual) {
     .ib:hover { border-color:#a3aee8; color:#5b74e0; }
     .ib.stop { color:#cf5a52; font-weight:700; }
     #feed { display:none; flex:1; overflow-y:auto; padding:2px 12px 10px; border-top:1px solid #eee9e1; }
+    #pipbar { display:none; gap:6px; padding:6px 12px 0; align-items:center; }
+    #pipbar select { border:1px solid #eee9e1; border-radius:7px; background:#fff; color:#6b675f; font:500 11px -apple-system,system-ui; padding:2px 6px; }
+    #askrow { display:none; gap:6px; padding:8px 12px 10px; border-top:1px solid #eee9e1; }
+    #askrow input { flex:1; border:1px solid #eee9e1; border-radius:8px; padding:5px 9px; font:12px -apple-system,system-ui; outline:none; }
+    #askrow button { width:auto; padding:5px 12px; background:#5b74e0; font-size:12px; }
+    .qa { margin:8px 0; padding:8px 10px; background:#f4f2ec; border-radius:9px; font-size:12px; }
+    .qa b { color:#21201c; } .qa .src { color:#a39e94; font-size:10.5px; margin-top:4px; }
+    body.open #pipbar, body.open #askrow { display:flex; }
     #feed .u { margin-top:6px; font-size:12px; color:#21201c; }
     #feed .u b { color:#5b74e0; font-weight:600; margin-right:5px; }
     #feed .partial { color:#a39e94; font-style:italic; }
@@ -2630,7 +2721,12 @@ async function openCompanion(title, manual) {
       <button class="ib" id="px" title="Live transcription">⌄</button>
       <button class="ib stop" id="ps" title="Stop &amp; process">■</button>
     </header>
-    <div id="feed"></div>`;
+    <div id="pipbar">
+      <select id="pmode" title="Meeting mode"></select>
+      <span style="font-size:10.5px;color:#a39e94">mode</span>
+    </div>
+    <div id="feed"></div>
+    <div id="askrow"><input id="pq" placeholder="Ask your brain — this meeting &amp; past ones"><button id="pgo">Ask</button></div>`;
   const t0 = Date.now();
   const iv = setInterval(() => {
     if (!pipWin) return clearInterval(iv);
@@ -2639,6 +2735,37 @@ async function openCompanion(title, manual) {
     if (el) el.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   }, 1000);
   doc.getElementById("ps").addEventListener("click", () => { window.focus(); stopRecording(); });
+  const pm = doc.getElementById("pmode");
+  pm.innerHTML = MODES.map((m) => `<option ${m === "discovery" ? "selected" : ""}>${m}</option>`).join("");
+  pm.addEventListener("change", () => {
+    fetch("/api/record/meta", { method: "POST", body: JSON.stringify({ mode: pm.value }) });
+    const lm = document.getElementById("live-mode");
+    if (lm) lm.value = pm.value;
+  });
+  const feedEl = doc.getElementById("feed");
+  const ask = async () => {
+    const q = doc.getElementById("pq").value.trim();
+    if (!q) return;
+    doc.getElementById("pq").value = "";
+    doc.body.classList.add("open");
+    const box = doc.createElement("div");
+    box.className = "qa";
+    box.innerHTML = `<b>${esc(q)}</b><div class="a" style="color:#6b675f;margin-top:3px">thinking…</div>`;
+    feedEl.appendChild(box); feedEl.scrollTop = 1e9;
+    try {
+      const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
+      const pts = (r.answer ?? []).slice(0, 3);
+      const srcs = [...new Set(pts.map((p) => p.meeting_title))];
+      box.querySelector(".a").innerHTML =
+        (r.summary ? esc(r.summary) : pts.map((p) => esc(p.text)).join(" ")) || "Nothing solid in the brain for that yet.";
+      if (srcs.length) box.insertAdjacentHTML("beforeend", `<div class="src">from: ${srcs.map(esc).join(" · ")}</div>`);
+    } catch (e) {
+      box.querySelector(".a").textContent = "Ask failed — is the brain busy?";
+    }
+    feedEl.scrollTop = 1e9;
+  };
+  doc.getElementById("pgo").addEventListener("click", ask);
+  doc.getElementById("pq").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
   doc.getElementById("px").addEventListener("click", () => {
     const open = doc.body.classList.toggle("open");
     doc.getElementById("px").textContent = open ? "⌃" : "⌄";
@@ -2705,7 +2832,7 @@ setInterval(async () => {
     recBtn.textContent = "■ Stop";
     recBtn.classList.add("recording");
     $("#pip-btn").style.display = "";
-    if (s.meetingId) { state.meetingId = s.meetingId; renderMeeting(s.meetingId, { live: true }); }
+    if (s.meetingId) { state.meetingId = s.meetingId; renderMeeting(s.meetingId, { live: true }); liveMetaBar(); }
   } else if (!s.recording && recording && !recBtn.disabled) {
     recording = false;
     recBtn.textContent = "● Record";

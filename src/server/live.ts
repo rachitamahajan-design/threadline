@@ -174,6 +174,14 @@ export class LiveSession {
   }
   private themRecent: { text: string; at: number }[] = [];
 
+  /** Mode / topic chosen mid-recording; applied when the meeting is stitched. */
+  pendingMode: string | null = null;
+  pendingTopicId: number | null = null;
+  setMeta(meta: { mode?: string; topicId?: number }) {
+    if (meta.mode) this.pendingMode = meta.mode;
+    if (meta.topicId != null) this.pendingTopicId = meta.topicId;
+  }
+
   /** The transcript captured so far, for mid-meeting notes. */
   snapshot(): Utterance[] {
     return [...this.finals].sort((a, b) => a.offset_s - b.offset_s);
@@ -249,10 +257,13 @@ export class LiveSession {
     const res = await processMeeting(this.db, this.apiKey, {
       id: this.meetingId,
       title: this.title,
-      mode: this.mode,
+      mode: this.pendingMode ?? this.mode,
       startedAt: this.startedAt,
       utterances,
     });
+    if (this.pendingMode) this.db.prepare("UPDATE meetings SET mode = ? WHERE id = ?").run(this.pendingMode, this.meetingId);
+    if (this.pendingTopicId != null)
+      this.db.prepare("INSERT INTO meeting_projects (meeting_id, project_id) VALUES (?, ?) ON CONFLICT DO NOTHING").run(this.meetingId, this.pendingTopicId);
     this.emit({ type: "stopped", meetingId: this.meetingId, exit: res.exit });
     return { meetingId: this.meetingId, exit: res.exit };
   }
