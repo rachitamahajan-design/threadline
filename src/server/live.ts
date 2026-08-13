@@ -95,6 +95,16 @@ export class LiveSession {
       } else if (msg.type === "final" && msg.text?.trim()) {
         const offsetS = Math.max(0, ((msg.t_ms ?? 0) - (msg.audio_ms ?? 0)) / 1000);
         const durationS = (msg.audio_ms ?? 0) / 1000;
+        if (speaker === "Them") {
+          this.themRecent.push({ text: msg.text, at: Date.now() });
+          if (this.themRecent.length > 30) this.themRecent.shift();
+        }
+        // Echo gate: a mic line that repeats a recent system-audio line is the
+        // speakers leaking into the mic, not the user talking. Block it.
+        if (speaker === "You" && this.isEcho(msg.text)) {
+          this.emit({ type: "status", message: `echo gate blocked a duplicated mic line` });
+          return;
+        }
         this.finals.push({ speaker, speaker_role: ROLE[speaker], text: msg.text, offset_s: offsetS, duration_s: durationS });
         this.emit({ type: "final", speaker, text: msg.text, offsetS, durationS });
       } else if (msg.type === "error") {
@@ -110,6 +120,22 @@ export class LiveSession {
     });
     ws.on("error", (e) => this.emit({ type: "status", message: `${speaker} socket: ${e.message}` }));
   }
+
+  /** True if this mic text substantially overlaps a recent "Them" line. */
+  private isEcho(text: string): boolean {
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter((w) => w.length > 2);
+    const words = norm(text);
+    if (words.length < 4) return false;
+    const cutoff = Date.now() - 20_000;
+    for (const f of this.themRecent) {
+      if (f.at < cutoff) continue;
+      const theirs = new Set(norm(f.text));
+      const hits = words.filter((w) => theirs.has(w)).length;
+      if (hits / words.length >= 0.6) return true;
+    }
+    return false;
+  }
+  private themRecent: { text: string; at: number }[] = [];
 
   /** Stop capture, flush finals, then run the extraction pipeline. */
   async stop(): Promise<{ meetingId: string; exit: string }> {
