@@ -2522,7 +2522,12 @@ async function openCompanion(title) {
   if (!("documentPictureInPicture" in window) || pipWin) return;
   try {
     pipWin = await documentPictureInPicture.requestWindow({ width: 330, height: 168 });
-  } catch (e) { pipWin = null; return; } // no gesture / unsupported — quiet no-op
+  } catch (e) {
+    pipWin = null;
+    const b = $("#popout-btn");
+    if (b) { b.style.color = "var(--thread)"; b.style.borderColor = "var(--thread)"; }
+    return; // needs a fresh click — the Pop out button provides one
+  }
   const doc = pipWin.document;
   doc.head.innerHTML = `<style>
     body { margin:0; background:#faf8f5; color:#21201c; font:13px/1.5 -apple-system,system-ui;
