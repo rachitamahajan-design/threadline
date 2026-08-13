@@ -438,7 +438,14 @@ async function renderToday() {
     cb.addEventListener("change", async () => {
       const item = cb.closest(".todo");
       fetch("/api/todo", { method: "POST", body: JSON.stringify({ id: Number(cb.dataset.id), done: cb.checked }) });
-      item.classList.toggle("done", cb.checked);
+      if (cb.checked) {
+        // the list holds still; the needle weaves; the drawn thread rests on the row
+        await needleRunTo(cb);
+        item.classList.add("done");
+      } else {
+        item.classList.remove("done");
+        document.querySelectorAll(`.weave-svg[data-claim="${cb.dataset.id}"]`).forEach((s) => s.remove());
+      }
     }));
   wireMeetingLinks();
 }
@@ -471,6 +478,76 @@ function drawRailThread() {
   p.setAttribute("opacity", "0.35");
   svg.appendChild(p);
   rail.appendChild(svg);
+}
+
+/**
+ * Completing a task: the needle leaves its rest, glides down the slack
+ * thread, and weaves through the row — under, through the checkbox's
+ * eyelet (the thread vanishes behind it and re-emerges), over, and out —
+ * drawing a fresh thread behind itself the whole way.
+ */
+function needleRunTo(checkbox) {
+  return new Promise((done) => {
+    const rail = document.getElementById("loose-rail");
+    const rest = document.getElementById("rail-needle");
+    if (!rail || !checkbox) return done();
+    const rb = rail.getBoundingClientRect(), cb = checkbox.getBoundingClientRect();
+    const cx = cb.left - rb.left + cb.width / 2, cy = cb.top - rb.top + cb.height / 2;
+    // one graceful slack sweep down the rail, then two wide soft arcs:
+    // over, then under through the eyelet, then a gentle rising exit
+    const x0 = Math.max(0, cx - 54);
+    const d = `M 9 6
+      C 24 ${cy * 0.25}, -6 ${cy * 0.55}, 8 ${cy * 0.8}
+      S ${x0 - 14} ${cy + 12}, ${x0} ${cy + 7}
+      c 12 -13, 26 -13, 36 -1
+      c 8 9, 20 9, 28 0
+      c 8 -9, 20 -9, 34 -6`;
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("class", "weave-svg");
+    svg.setAttribute("data-claim", checkbox.dataset.id ?? "");
+    svg.setAttribute("width", rail.clientWidth); svg.setAttribute("height", rail.scrollHeight);
+    const p = document.createElementNS(ns, "path");
+    p.setAttribute("d", d);
+    p.setAttribute("fill", "none");
+    p.setAttribute("stroke", "var(--thread)");
+    p.setAttribute("stroke-width", "1.4");
+    p.setAttribute("stroke-linecap", "round");
+    p.setAttribute("opacity", "0.75");
+    svg.appendChild(p);
+    rail.appendChild(svg);
+
+    const L = p.getTotalLength();
+    p.style.strokeDasharray = String(L);
+    p.style.strokeDashoffset = String(L);
+
+    const flyer = document.createElement("div");
+    flyer.className = "needle-flyer";
+    flyer.innerHTML = document.getElementById("rail-needle")?.innerHTML ?? "";
+    flyer.style.offsetPath = `path('${d.replace(/\s+/g, " ")}')`;
+    flyer.style.offsetRotate = "auto";
+    flyer.style.offsetAnchor = "85% 50%";
+    rail.appendChild(flyer);
+    if (rest) rest.style.opacity = "0";
+
+    const DUR = 1700, EASE = "cubic-bezier(.5,.06,.22,.99)";
+    p.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: DUR, easing: EASE, fill: "forwards" });
+    const fa = flyer.animate(
+      [{ offsetDistance: "0%", opacity: 1 }, { offsetDistance: "94%", opacity: 1, offset: 0.9 }, { offsetDistance: "100%", opacity: 0 }],
+      { duration: DUR, easing: EASE, fill: "forwards" },
+    );
+    checkbox.animate(
+      [{ transform: "scale(1)" }, { transform: "scale(1.1)" }, { transform: "scale(1)" }],
+      { duration: 320, delay: DUR * 0.68, easing: "ease-in-out" },
+    );
+    fa.onfinish = () => {
+      // the stitch stays — only the needle has left. Thread softens to rest.
+      p.animate([{ opacity: 0.75 }, { opacity: 0.45 }], { duration: 900, fill: "forwards" });
+      flyer.remove();
+      if (rest) rest.style.opacity = "1";
+      done();
+    };
+  });
 }
 
 function parseWhen(s) {
