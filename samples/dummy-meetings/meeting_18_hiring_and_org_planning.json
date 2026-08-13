@@ -1,0 +1,101 @@
+{
+  "id": "meeting_18",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Hiring and Org Planning",
+  "started_at": "2026-08-10T14:00:00+05:30",
+  "duration_minutes": 41,
+  "participants": [
+    {
+      "name": "Priya Sethi",
+      "role": "Head of People"
+    },
+    {
+      "name": "Aditi Rao",
+      "role": "CEO"
+    },
+    {
+      "name": "Rohan Mehta",
+      "role": "CTO"
+    },
+    {
+      "name": "Meera Iyer",
+      "role": "VP Sales"
+    },
+    {
+      "name": "Nisha Kapoor",
+      "role": "VP Customer Success"
+    }
+  ],
+  "topics": [
+    "Hiring",
+    "Org design",
+    "Enterprise",
+    "Engineering"
+  ],
+  "summary": "Discussion covered Hiring, Org design, Enterprise, Engineering. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Open six critical roles immediately",
+    "Delay broad product and marketing hiring until Q4 planning"
+  ],
+  "action_items": [
+    {
+      "owner": "Aditi Rao",
+      "task": "Open six critical roles immediately",
+      "due": "2026-08-17"
+    },
+    {
+      "owner": "Rohan Mehta",
+      "task": "Delay broad product and marketing hiring until Q4 planning",
+      "due": "2026-08-18"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Priya Sethi",
+      "text": "Let's focus today's discussion on Hiring, Org design, Enterprise."
+    },
+    {
+      "offset_seconds": 115,
+      "speaker": "Aditi Rao",
+      "text": "I want us to be explicit about the trade-off and the outcome we are optimizing for."
+    },
+    {
+      "offset_seconds": 244,
+      "speaker": "Rohan Mehta",
+      "text": "From the platform side, we can support this, but we should define the technical boundary clearly."
+    },
+    {
+      "offset_seconds": 390,
+      "speaker": "Meera Iyer",
+      "text": "The market signal is consistent across the larger deals, especially in the US enterprise segment."
+    },
+    {
+      "offset_seconds": 533,
+      "speaker": "Nisha Kapoor",
+      "text": "The customer pattern matters more than the loudest individual request. We should act on repeat behavior."
+    },
+    {
+      "offset_seconds": 637,
+      "speaker": "Priya Sethi",
+      "text": "My recommendation is that we open six critical roles immediately."
+    },
+    {
+      "offset_seconds": 770,
+      "speaker": "Aditi Rao",
+      "text": "My recommendation is that we delay broad product and marketing hiring until Q4 planning."
+    },
+    {
+      "offset_seconds": 890,
+      "speaker": "Priya Sethi",
+      "text": "Okay, we are aligned on delay broad product and marketing hiring until q4 planning. Let's capture owners and move."
+    }
+  ]
+}

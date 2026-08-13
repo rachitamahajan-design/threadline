@@ -200,6 +200,25 @@ export function openDb(dir = "data"): DatabaseSync {
       INSERT INTO chunk_fts(chunk_fts, rowid, text, speakers) VALUES('delete', old.id, old.text, old.speakers);
     END;
 
+    -- Needle: conversations with the brain. Messages carry their receipts and
+    -- the chunk ids they retrieved, so later turns ground against the union of
+    -- everything the conversation has already seen.
+    CREATE TABLE IF NOT EXISTS conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      project_id INTEGER,             -- optional scope
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+      role TEXT NOT NULL,             -- user | assistant
+      content TEXT NOT NULL,          -- user text, or assistant summary
+      payload TEXT,                   -- assistant: JSON {points, blocked, mode, exit, chunk_ids}
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, id);
+
     CREATE INDEX IF NOT EXISTS idx_alias_norm       ON entity_aliases(norm);
     CREATE INDEX IF NOT EXISTS idx_mentions_entity  ON entity_mentions(entity_id, meeting_id);
     CREATE INDEX IF NOT EXISTS idx_mentions_meeting ON entity_mentions(meeting_id, gate);

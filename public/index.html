@@ -65,6 +65,11 @@
     transition: border-color .15s, color .15s;
   }
   #google-btn:hover { border-color: var(--ink-3); color: var(--ink); }
+  #pip-btn {
+    border: 1px solid var(--line); background: var(--surface); font: inherit; font-weight: 600; font-size: 14px;
+    padding: 7px 12px; border-radius: 10px; cursor: pointer; color: var(--thread);
+  }
+  #pip-btn:hover { border-color: var(--thread); }
   #rec {
     border: 0; font: inherit; font-weight: 600; font-size: 13.5px; cursor: pointer;
     padding: 8px 17px; border-radius: 10px; color: #fff; background: var(--thread);
@@ -106,9 +111,10 @@
     border-radius: 14px; padding: 24px 26px; margin-bottom: 22px; box-shadow: var(--shadow);
   }
   .card h2 {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-3);
-    margin-bottom: 16px; font-weight: 600;
+    font-size: 16.5px; letter-spacing: -0.01em; color: var(--ink);
+    margin-bottom: 16px; font-weight: 650;
   }
+  .card h2 .h2-note { font-size: 12.5px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
   .stats { display: flex; gap: 44px; margin: 4px 0 34px; }
   .stat b { display: block; font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
   .stat span { font-size: 12.5px; color: var(--ink-3); }
@@ -130,9 +136,8 @@
   .todo.done .receipt::before { background: var(--thread); }
   .stitch-connector { display: block; margin: -24px 0 -2px 56px; }
   #rail-needle {
-    position: absolute; left: -13px; top: -9px; z-index: 3; pointer-events: none;
-    transform: rotate(38deg); transform-origin: 14% 50%;
-    filter: drop-shadow(0 1.5px 1.5px rgb(40 40 60 / 0.22));
+    position: absolute; left: -11px; top: -12px; z-index: 3; pointer-events: none;
+    filter: drop-shadow(0 1px 1px rgb(40 40 60 / 0.18));
     transition: opacity .25s;
   }
   .open-stitch { display: none; width: 18px; height: 1.5px; margin-left: 10px; vertical-align: 4px; border-radius: 2px;
@@ -168,6 +173,12 @@
   .pill.block { background: color-mix(in srgb, var(--block) 12%, transparent); color: var(--block); }
 
   .m-row { display: flex; gap: 16px; padding: 14px 0; cursor: pointer; align-items: baseline; }
+  .topic-select {
+    appearance: none; -webkit-appearance: none; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--surface); color: var(--ink-3); font: 500 11.5px -apple-system, system-ui;
+    padding: 3px 8px; cursor: pointer; max-width: 110px;
+  }
+  .topic-select:hover { border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); color: var(--thread); }
   .m-row + .m-row { border-top: 1px solid var(--line); }
   .m-row:hover .m-title { color: var(--thread); }
   .m-title { font-weight: 570; font-size: 14.5px; transition: color .12s; }
@@ -194,6 +205,22 @@
   }
   #graph-tip b { display: block; font-weight: 650; font-size: 13px; letter-spacing: -0.01em; }
   #graph-tip span { color: var(--ink-3); font-size: 11.5px; }
+  #brain-q {
+    position: absolute; left: 14px; top: 14px; z-index: 2; width: 210px;
+    border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--surface) 92%, transparent);
+    padding: 6px 11px; font: 12.5px -apple-system, system-ui; color: var(--ink); outline: none;
+  }
+  #brain-q:focus { border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); }
+  #graph-ctl {
+    position: absolute; right: 14px; bottom: 14px; z-index: 2;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  #graph-ctl button {
+    width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink-2); font-size: 15px; font-weight: 600;
+    cursor: pointer; box-shadow: var(--shadow); line-height: 1;
+  }
+  #graph-ctl button:hover { border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); color: var(--thread); }
   #graph-panel {
     position: absolute; right: 0; top: 0; bottom: 0; width: 372px; z-index: 2;
     background: var(--surface); border-left: 1px solid var(--line);
@@ -216,9 +243,10 @@
   .legend { display: flex; gap: 20px; align-items: center; padding: 14px 6px 0; font-size: 12.5px; color: var(--ink-2); }
   .legend i { font-style: normal; color: var(--ink-3); font-size: 11.5px; }
   .legend span::before { content: ""; display: inline-block; margin-right: 7px; vertical-align: -1px; }
-  .legend .l-m::before { width: 10px; height: 10px; border-radius: 50%; background: var(--thread); }
-  .legend .l-p::before { width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--ink-3); }
-  .legend .l-t::before { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
+  .legend { font-size: 13.5px; color: var(--ink-2); font-weight: 550; }
+  .legend .l-m::before { width: 11px; height: 11px; border-radius: 50%; background: #5b74e0; box-shadow: 0 0 7px rgb(91 116 224 / 0.75); }
+  .legend .l-p::before { width: 8px; height: 8px; border-radius: 50%; background: #a39e94; }
+  .legend .l-t::before { width: 12px; height: 12px; border-radius: 50%; background: #cf9a35; box-shadow: 0 0 7px rgb(207 154 53 / 0.7); }
 
   .empty { color: var(--ink-3); text-align: center; padding: 44px 0; font-size: 13.5px; }
   .empty svg { display: none; }
@@ -463,6 +491,8 @@
   .people-chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; cursor: pointer; }
   .people-chip:hover { border-color: var(--thread); }
   .up-item { position: relative; padding-left: 22px; }
+  .up-item.compact { padding: 10px 0 10px 22px; }
+  .up-item.compact::before { top: 8px; bottom: 8px; }
   .up-item::before {
     content: ""; position: absolute; left: 5px; top: 20px; bottom: 6px; width: 1.4px; opacity: .45;
     background: repeating-linear-gradient(to bottom, var(--ink-3) 0 11px, transparent 11px 19px);
@@ -470,7 +500,7 @@
   .up-item:first-child::before { background: repeating-linear-gradient(to bottom, var(--thread) 0 11px, transparent 11px 19px); opacity: .5; }
   .up-title { font-weight: 620; font-size: 15.5px; letter-spacing: -0.01em; margin: 1px 0 1px; }
   .up-item:first-child .up-title { font-weight: 650; font-size: 18.5px; letter-spacing: -0.015em; line-height: 1.3; margin: 1px 0 2px; }
-  .up-needle {
+    .up-needle {
     position: absolute; left: -9px; top: 1px; transform: rotate(58deg); transform-origin: 14% 50%;
     filter: drop-shadow(0 1px 1px rgb(40 40 60 / 0.18)); pointer-events: none;
   }
@@ -678,7 +708,10 @@
   </div>
   <input id="search" placeholder="Pull a thread… search every meeting">
   <button id="google-btn" title="Google Workspace">Connect Google</button>
+  <button id="pip-btn" title="Pop out the floating companion" style="display:none">⧉</button>
   <button id="rec">● Record</button>
+  <button id="hotkey-help" title="Start or stop recording from any app — setup guide"
+    style="border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font:inherit;font-size:13px;padding:7px 12px;border-radius:10px;cursor:pointer">Global recording</button>
 </header>
 <div class="shell">
   <aside id="side">
@@ -687,11 +720,12 @@
       <button class="side-link" data-view="meetings">🗎&nbsp; Meetings</button>
     </div>
     <div class="side-section">
-      <div class="side-head">Projects <button id="add-project" title="New project">+</button></div>
+      <div class="side-head">Topics <button id="add-project" title="New topic">+</button></div>
       <div id="project-list"></div>
     </div>
     <div class="side-section">
       <button class="side-link" data-view="graph">✳&nbsp; Brain</button>
+      <button class="side-link" data-view="needle">🪡&nbsp; Needle</button>
     </div>
   </aside>
   <main id="main"></main>
@@ -705,6 +739,72 @@ const fmtDate = (ms) => new Date(ms).toLocaleDateString(undefined, { month: "sho
 const fmtTs = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const api = (p) => fetch(p).then((r) => r.json());
+
+const MODES = ["discovery", "investor", "1:1", "team meeting", "standup"];
+
+/** Suggestion chips + delete, appended onto whichever meeting page rendered. */
+/** Mode + topic pickers shown while a recording is running. */
+async function liveMetaBar() {
+  await new Promise((r) => setTimeout(r, 120));
+  if (!recording || document.getElementById("live-meta")) return;
+  const host = main.querySelector("h1");
+  if (!host) return;
+  const { html } = await topicOptions([]);
+  const bar = document.createElement("div");
+  bar.id = "live-meta";
+  bar.style.cssText = "margin:-10px 0 18px;display:flex;gap:10px;align-items:center";
+  bar.innerHTML = `
+    <select class="topic-select" id="live-mode" title="Meeting mode">${MODES.map((m) => `<option ${m === "discovery" ? "selected" : ""}>${m}</option>`).join("")}</select>
+    <select class="topic-select" id="live-topic" title="Topic">${html}</select>
+    <span class="t-meta">mode &amp; topic ride with the meeting</span>`;
+  host.after(bar);
+  $("#live-mode").addEventListener("change", (e) =>
+    fetch("/api/record/meta", { method: "POST", body: JSON.stringify({ mode: e.target.value }) }));
+  $("#live-topic").addEventListener("change", (e) =>
+    topicSelectChange(e.target, (tid) =>
+      fetch("/api/record/meta", { method: "POST", body: JSON.stringify({ topic_id: tid }) })));
+}
+
+async function meetExtras(mid) {
+  await new Promise((r) => setTimeout(r, 80));
+  if (document.getElementById("meet-extras") || !main.querySelector("h1") || state.meetingId !== mid) return;
+  const det = await api(`/api/meeting?id=${encodeURIComponent(mid)}`);
+  const mentions = det.mentions ?? [], topicIds = det.topicIds ?? [];
+  const { list } = await topicOptions(topicIds);
+  const names = new Map(list.map((t) => [t.name.toLowerCase(), t]));
+  const sugg = [...new Set(mentions.map((x) => names.get(x.toLowerCase())).filter((t) => t && !topicIds.includes(t.id)))];
+  if (!sugg.length) return;
+  const chips = document.createElement("div");
+  chips.id = "meet-extras";
+  chips.style.cssText = "margin:2px 0 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap";
+  chips.innerHTML = sugg.slice(0, 2).map((t) => `<button class="copybtn" data-sugg="${t.id}" style="margin:0;font-size:12px;padding:3px 11px">Mentions “${esc(t.name)}” — add to topic?</button>`).join("");
+  (main.querySelector(".sub") ?? main.querySelector("h1")).after(chips);
+  chips.querySelectorAll("[data-sugg]").forEach((b) => b.addEventListener("click", async () => {
+    await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: Number(b.dataset.sugg), meeting_id: mid }) });
+    b.textContent = "Added ✓"; b.disabled = true; loadSidebar();
+  }));
+}
+
+
+async function topicOptions(selectedIds = []) {
+  const ts = await api("/api/projects");
+  return { list: ts, html: `<option value="">no topic</option>` +
+    ts.map((t) => `<option value="${t.id}" ${selectedIds.includes(t.id) ? "selected" : ""}>${esc(t.name)}</option>`).join("") +
+    `<option value="__new">＋ New topic…</option>` };
+}
+async function topicSelectChange(sel, onPick) {
+  let v = sel.value;
+  if (v === "__new") {
+    const name = prompt("Topic name?", "");
+    if (!name?.trim()) { sel.value = ""; return; }
+    const t = await fetch("/api/project", { method: "POST", body: JSON.stringify({ name }) }).then((x) => x.json());
+    loadSidebar();
+    v = String(t.id);
+    sel.insertAdjacentHTML("afterbegin", `<option value="${t.id}">${esc(t.name)}</option>`);
+    sel.value = v;
+  }
+  if (v) onPick(Number(v));
+}
 
 const SPOOL_SVG = `<svg width="72" height="72" viewBox="0 0 72 72" fill="none">
   <rect x="22" y="14" width="28" height="44" rx="5" stroke="currentColor" stroke-width="3"/>
@@ -777,7 +877,7 @@ async function loadSidebar() {
   $("#project-list").innerHTML = projects.map((p) => `
     <button class="side-link ${state.view === "project" && state.projectId === p.id ? "active" : ""}" data-project="${p.id}">
       ▸&nbsp; ${esc(p.name)} <span style="opacity:.55;font-size:12px">${p.n_open ? p.n_open + " open" : ""}</span>
-    </button>`).join("") || `<div style="padding:0 10px;font-size:12.5px;color:var(--ink-3)">No projects yet — hit +</div>`;
+    </button>`).join("") || `<div style="padding:0 10px;font-size:12.5px;color:var(--ink-3)">No topics yet — hit +</div>`;
   $("#project-list").querySelectorAll("[data-project]").forEach((b) =>
     b.addEventListener("click", () => { state.view = "project"; state.projectId = Number(b.dataset.project); state.meetingId = null; render(); }));
 }
@@ -786,16 +886,192 @@ async function render() {
   document.querySelectorAll(".side-link[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === state.view && !state.meetingId));
   loadSidebar();
   main.classList.toggle("wide", !!state.meetingId);
-  if (state.meetingId) return renderMeeting(state.meetingId);
+  if (state.meetingId) {
+    const mid = state.meetingId;
+    const out = renderMeeting(mid);
+    Promise.resolve(out).then(() => meetExtras(mid));
+    return out;
+  }
   if (state.view === "today") return renderToday();
   if (state.view === "meetings") return renderMeetings();
   if (state.view === "graph") return renderGraph();
+  if (state.view === "needle") return renderNeedle();
   if (state.view === "project") return renderProject(state.projectId);
   if (state.view === "doc") return renderDoc(state.docId);
 }
 
+// ── Needle: a conversation threaded through every meeting ────────────────
+async function renderNeedle() {
+  const convs = await api("/api/needle/conversations");
+  const active = state.needleId ?? convs[0]?.id ?? null;
+  state.needleId = active;
+  main.innerHTML = `<h1>Needle</h1>
+    <div class="sub">Pull one thread through every meeting — answers only from what was actually said.</div>
+    <div style="display:grid;grid-template-columns:220px 1fr;gap:22px;align-items:start">
+      <div class="card" style="padding:14px">
+        <button class="copybtn" id="needle-new" style="width:100%;margin-bottom:10px">+ New thread</button>
+        ${convs.map((c) => `
+          <div class="needle-thread" data-conv="${c.id}" style="display:flex;align-items:center;gap:4px">
+            <button class="side-link ${c.id === active ? "active" : ""}" data-open="${c.id}" data-title="${esc(c.title)}"
+              title="Double-click to rename" style="font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              ${esc(c.title.slice(0, 26))}<span style="opacity:.5"> · ${c.n_messages}</span></button>
+            <button class="thread-del" data-del="${c.id}" title="Delete thread"
+              style="border:0;background:none;color:var(--ink-3);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:6px;visibility:hidden">×</button>
+          </div>`).join("") || `<div class="t-meta">No threads yet.</div>`}
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;min-height:480px">
+        <div id="needle-feed" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-bottom:14px"></div>
+        <form id="needle-form" style="display:flex;gap:10px;border-top:1px solid var(--line);padding-top:14px">
+          <input id="needle-input" placeholder="${active ? "Ask across every meeting…" : "Start a new thread first"}" ${active ? "" : "disabled"}
+            style="flex:1;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit">
+          <button class="copybtn" ${active ? "" : "disabled"}>Sew ↵</button>
+        </form>
+      </div>
+    </div>`;
+  $("#needle-new").addEventListener("click", async () => {
+    const { id } = await fetch("/api/needle/new", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then((r) => r.json());
+    state.needleId = id; renderNeedle();
+  });
+  main.querySelectorAll(".needle-thread").forEach((row) => {
+    row.addEventListener("mouseenter", () => { row.querySelector(".thread-del").style.visibility = "visible"; });
+    row.addEventListener("mouseleave", () => { row.querySelector(".thread-del").style.visibility = "hidden"; });
+  });
+  main.querySelectorAll("[data-open]").forEach((el) => {
+    // Single click re-renders the list, which would destroy this element
+    // before a double-click's second click lands — so: clicking the active
+    // thread is a no-op, and switching waits a beat for a possible dblclick.
+    let clickTimer = null;
+    el.addEventListener("click", () => {
+      const id = Number(el.dataset.open);
+      if (id === state.needleId) return; // already open — leave DOM alone for dblclick
+      clearTimeout(clickTimer);
+      clickTimer = setTimeout(() => { state.needleId = id; renderNeedle(); }, 260);
+    });
+    // Double-click: rename inline. Enter saves, Esc cancels.
+    el.addEventListener("dblclick", () => {
+      clearTimeout(clickTimer); // cancel the pending thread-switch
+      const id = Number(el.dataset.open);
+      const input = document.createElement("input");
+      input.value = el.dataset.title;
+      input.style.cssText = "width:100%;font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--thread);border-radius:8px;background:var(--surface);color:var(--ink)";
+      el.replaceWith(input);
+      input.focus(); input.select();
+      const commit = async () => {
+        const title = input.value.trim();
+        if (title && title !== el.dataset.title)
+          await fetch("/api/needle/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, title }) });
+        renderNeedle();
+      };
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") renderNeedle(); });
+      input.addEventListener("blur", commit);
+    });
+  });
+  main.querySelectorAll("[data-del]").forEach((el) =>
+    el.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = Number(el.dataset.del);
+      if (!confirm("Delete this thread and its messages?")) return;
+      await fetch("/api/needle/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      if (state.needleId === id) state.needleId = null;
+      renderNeedle();
+    }));
+  if (active) await needleLoad(active);
+  $("#needle-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = $("#needle-input"), text = input.value.trim();
+    if (!text || !state.needleId) return;
+    input.value = "";
+    needleBubble("user", text, null);
+    needleBubble("assistant", "…", { thinking: true });
+    const r = await fetch("/api/needle/send", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation_id: state.needleId, text }) }).then((x) => x.json());
+    const feed = $("#needle-feed");
+    feed.lastElementChild?.remove(); // the thinking bubble
+    needleBubble("assistant", r.content, r.payload);
+  });
+}
+
+async function needleLoad(id) {
+  const msgs = await api(`/api/needle/messages?id=${id}`);
+  const feed = $("#needle-feed");
+  feed.innerHTML = "";
+  for (const m of msgs) needleBubble(m.role, m.content, m.payload);
+}
+
+function needleBubble(role, content, payload) {
+  const feed = $("#needle-feed");
+  if (!feed) return;
+  const user = role === "user";
+  const points = payload?.points ?? [];
+  const chips = points.map((p) =>
+    `<span class="backlink" data-mid="${p.meeting_id}" data-off="${p.offset_s}" title="${esc(p.quote)}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span>`).join(" ");
+  const enumerated = payload?.mode === "enumerated"
+    ? points.map((p) => `<div class="claim" style="padding:4px 0">☐ ${esc(p.text)} <span class="backlink" data-mid="${p.meeting_id}" data-off="${p.offset_s}">${esc(p.meeting_title)}</span></div>`).join("")
+    : "";
+  const sugg = payload?.suggestions?.length
+    ? `<div class="t-meta" style="margin-top:6px">Threads I do have: ${payload.suggestions.map((s) => esc(s)).join(" · ")}</div>` : "";
+  feed.insertAdjacentHTML("beforeend", `
+    <div style="max-width:78%;align-self:${user ? "flex-end" : "flex-start"};
+                background:${user ? "var(--thread-soft)" : "var(--bg)"};
+                border:1px solid var(--line);border-radius:12px;padding:10px 14px">
+      <div style="font-size:14px;line-height:1.55">${payload?.thinking ? '<span class="t-meta">stitching…</span>' : esc(content)}</div>
+      ${enumerated}${!enumerated && chips ? `<div style="margin-top:8px">${chips}</div>` : ""}${sugg}
+      ${payload?.blocked ? `<div class="t-meta" style="margin-top:4px">${payload.blocked} ungrounded sentence(s) dropped</div>` : ""}
+    </div>`);
+  feed.querySelectorAll("[data-mid]").forEach((el) => {
+    if (el.dataset.wired) return; el.dataset.wired = "1";
+    el.addEventListener("click", () => { state.meetingId = el.dataset.mid; if (el.dataset.off) state.deepLink = Number(el.dataset.off); render(); window.scrollTo(0, 0); });
+  });
+  feed.scrollTop = feed.scrollHeight;
+}
+
+/**
+ * Project mindmap: the project at center, colored branches per facet,
+ * leaves are the project's own meetings, decisions, people, open items
+ * and topics. Fixed categorical hue order; leaves click through.
+ */
+function projectMindmap(project, groups) {
+  const LEAF_H = 26, GROUP_GAP = 30, PAD = 46;
+  const Wm = 960, cx = Wm / 2;
+  const sides = { left: [], right: [] };
+  groups.forEach((g, i) => sides[i % 2 ? "left" : "right"].push(g));
+  const sideH = (arr) => arr.reduce((s, g) => s + Math.max(1, g.items.length) * LEAF_H + GROUP_GAP, 0);
+  const H = Math.max(sideH(sides.left), sideH(sides.right), 260) + PAD * 2;
+  const cy = H / 2;
+  let out = "";
+  const branch = (x1, y1, x2, y2, color, w, op) =>
+    `<path d="M ${x1} ${y1} C ${x1 + (x2 - x1) * 0.45} ${y1}, ${x1 + (x2 - x1) * 0.55} ${y2}, ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
+  for (const [side, arr] of Object.entries(sides)) {
+    const dir = side === "right" ? 1 : -1;
+    let y = cy - sideH(arr) / 2 + GROUP_GAP / 2;
+    for (const g of arr) {
+      const blockH = Math.max(1, g.items.length) * LEAF_H;
+      const gy = y + blockH / 2, gx = cx + dir * 165;
+      const labelW = 18 + g.label.length * 8.2;
+      out += branch(cx + dir * 66, cy, gx, gy, g.color, 2.6, 0.9);
+      out += `<circle cx="${gx}" cy="${gy}" r="3.2" fill="${g.color}"/>`;
+      out += `<text x="${gx + dir * 11}" y="${gy + 4.5}" text-anchor="${dir > 0 ? "start" : "end"}" style="font:650 13.5px -apple-system,system-ui;fill:var(--ink)">${esc(g.label)}</text>`;
+      const startX = gx + dir * (labelW + 4);
+      const lx = gx + dir * (labelW + 74);
+      const avail = dir > 0 ? Wm - lx - 16 : lx - 16;
+      const maxCh = Math.max(10, Math.floor(avail / 6.6));
+      g.items.forEach((it, k) => {
+        const ly = y + k * LEAF_H + LEAF_H / 2;
+        out += branch(startX, gy, lx - dir * 7, ly, g.color, 1.4, 0.55);
+        const t = it.label.length > maxCh ? it.label.slice(0, maxCh - 1) + "…" : it.label;
+        out += `<text x="${lx}" y="${ly + 4}" text-anchor="${dir > 0 ? "start" : "end"}" ${it.mid ? `data-mid="${it.mid}" style="cursor:pointer;font:500 12.5px -apple-system,system-ui;fill:${g.color};text-decoration:underline;text-underline-offset:3px"` : `style="font:500 12.5px -apple-system,system-ui;fill:var(--ink-2)"`}>${esc(t)}</text>`;
+      });
+      y += blockH + GROUP_GAP;
+    }
+  }
+  const nameW = Math.max(96, project.name.length * 9.4 + 34);
+  out += `<rect x="${cx - nameW / 2}" y="${cy - 21}" width="${nameW}" height="42" rx="11" fill="var(--surface)" stroke="var(--line)" stroke-width="1.4" filter="drop-shadow(0 1px 2px rgb(60 50 30 / 0.10))"/>
+    <text x="${cx}" y="${cy + 5}" text-anchor="middle" style="font:650 15px -apple-system,system-ui;fill:var(--ink)">${esc(project.name)}</text>`;
+  return `<svg viewBox="0 0 ${Wm} ${H}" style="width:100%;display:block">${out}</svg>`;
+}
+
 async function renderProject(id) {
-  const { project, meetings, claims, people, speakers = [], docs = [], items = [], error } = await api(`/api/project?id=${id}`);
+  const { project, meetings, claims, people, speakers = [], docs = [], items = [], topics = [], error } = await api(`/api/project?id=${id}`);
   if (error) { main.innerHTML = `<div class="empty">${esc(error)}</div>`; return; }
   const decisions = claims.filter((c) => c.kind === "decision");
   // Meeting-extracted + manual project items, one list: pending first.
@@ -818,6 +1094,18 @@ async function renderProject(id) {
     <h1>${esc(project.name)}</h1>
     <div class="proj-desc" id="proj-desc" title="Click to edit">${project.description ? esc(project.description) : `<span style="color:var(--ink-3)">What's this project about? Click to add — it helps file meetings automatically.</span>`}</div>
     <div class="sub">${meetings.length} meeting${meetings.length === 1 ? "" : "s"} · ${docs.length} doc${docs.length === 1 ? "" : "s"} · ${actions.filter((a) => !a.c.done).length} open</div>
+    <div class="card">${projectMindmap(project, (() => {
+      const more = (arr, n) => (arr.length > n ? [{ label: `+ ${arr.length - n} more` }] : []);
+      const open = claims.filter((c) => c.kind === "action_item" && !c.done);
+      const who = people.length ? people.map((p) => ({ label: p.name })) : speakers.map((s) => ({ label: s.speaker }));
+      return [
+        { label: "Meetings", color: "#5b74e0", items: [...meetings.slice(0, 5).map((m) => ({ label: m.title, mid: m.id })), ...more(meetings, 5)] },
+        { label: "People", color: "#1baf7a", items: who.slice(0, 5) },
+        { label: "Decisions", color: "#eb6834", items: [...decisions.slice(0, 4).map((d) => ({ label: d.body.text, mid: d.meeting_id })), ...more(decisions, 4)] },
+        { label: "Open items", color: "#e87ba4", items: [...open.slice(0, 4).map((o) => ({ label: o.body.task, mid: o.meeting_id })), ...more(open, 4)] },
+        { label: "Topics", color: "#cf9a35", items: topics.slice(0, 5).map((t) => ({ label: t.label })) },
+      ].filter((g) => g.items.length);
+    })())}</div>
     <div class="proj-grid">
       <div class="card"><h2>People</h2>
         <div class="people-chips" id="proj-people">
@@ -1023,14 +1311,15 @@ async function renderToday() {
       <div class="stat"><b>${stats?.decisions ?? 0}</b><span>decisions</span></div>
     </div>
     <div class="home-grid">
-      <div class="card"><h2>Up next · <button id="add-upcoming" style="border:0;background:none;font:inherit;font-weight:800;color:var(--thread);cursor:pointer">+ add</button></h2>
+      <div class="card"><h2>Up next <button id="notify-bell" title="Notify me when meetings start" style="border:0;background:none;cursor:pointer;font-size:12px">🔔</button> <button id="add-upcoming" style="border:0;background:none;font:inherit;font-weight:800;color:var(--thread);cursor:pointer">+ add</button></h2>
         <div id="upcoming-box"><div class="empty" style="padding:16px 0">Nothing scheduled. Connect Google (soon) or add one.</div></div>
       </div>
       <div class="card"><h2>Past meetings</h2>
         ${meetings.slice(0, 5).map((m) => `
           <div class="m-row" data-mid="${m.id}">
             <div class="m-date">${fmtDate(m.started_at)}</div>
-            <div><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
+            <div style="flex:1"><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
+            <select class="topic-select" data-tmid="${m.id}" title="Topic"></select>
           </div>`).join("")}
       </div>
     </div>
@@ -1041,23 +1330,30 @@ async function renderToday() {
         <ellipse cx="5" cy="41" rx="2.6" ry="1.7" transform="rotate(-52 5 41)"/>
       </g>
     </svg>
-    <div class="card"><h2>Loose ends · pulled from your meetings</h2>
+    <div class="card"><h2>Loose ends <span class="h2-note">· pulled from your meetings</span></h2>
       <div class="loose-rail" id="loose-rail">
       <div id="rail-needle" aria-hidden="true">
-        <svg width="40" height="15" viewBox="0 0 40 15" fill="none">
-          <defs>
-            <linearGradient id="rn-g" x1="6" y1="3.4" x2="12" y2="11.6" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stop-color="#f4f6f8"/><stop offset="0.42" stop-color="#c8ccd3"/>
-              <stop offset="0.7" stop-color="#8f959f"/><stop offset="1" stop-color="#6f757f"/>
-            </linearGradient>
-          </defs>
+        <div style="font-size:17px;line-height:1">🧵</div>
+        <svg width="34" height="13" viewBox="0 0 40 15" fill="none" style="transform:rotate(38deg);transform-origin:14% 50%;margin:2px 0 0 6px;filter:drop-shadow(0 1px 1px rgb(40 40 60 / .2))">
           <path d="M2.9 4.2 C 1.2 5.1, 1.2 9.9, 2.9 10.8 L 11 9.9 L 33 8.15 L 38.4 7.5 L 33 6.85 L 11 5.1 Z" fill="url(#rn-g)"/>
           <path d="M3.4 5.1 L 32 6.95" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round" opacity="0.75"/>
           <ellipse cx="6.4" cy="7.5" rx="1.05" ry="2.15" fill="var(--bg)" stroke="#7d838d" stroke-width="0.55"/>
           <path d="M6.4 6 C 2.5 3.2, -1.6 3.6, -4.4 6.6" stroke="var(--thread)" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.55"/>
         </svg>
       </div>
-      ${todos.length ? todos.map((t) => `
+      ${(() => {
+        // priority: dated items first (sooner-sounding first), then recent meetings
+        const rank = (t) => {
+          const due = (t.body.due ?? "").toLowerCase();
+          if (/today|tonight|asap|now/.test(due)) return 0;
+          if (/tomorrow/.test(due)) return 1;
+          if (/week|friday|monday|tuesday|wednesday|thursday/.test(due)) return 2;
+          if (due) return 3;
+          return 4;
+        };
+        const openT = todos.filter((t) => !t.done).sort((a, b) => rank(a) - rank(b) || b.started_at - a.started_at);
+        const doneT = todos.filter((t) => t.done);
+        const row = (t) => `
         <div class="todo ${t.done ? "done" : ""}">
           <input type="checkbox" ${t.done ? "checked" : ""} data-id="${t.id}">
           <div>
@@ -1065,7 +1361,13 @@ async function renderToday() {
             <div class="t-meta">${t.body.owner ? esc(t.body.owner) : "unassigned"}${t.body.due ? ` · due ${esc(t.body.due)}` : ""}</div>
             <div class="receipt" data-mid="${t.meeting_id}" data-q="${esc(t.body.task)}">"${esc(t.quote ?? t.body.task)}" — ${esc(t.meeting_title)}</div>
           </div>
-        </div>`).join("") : `<div class="empty">${SPOOL_SVG}No loose ends yet. Run <code>npm run demo</code> or hit ● Record.</div>`}
+        </div>`;
+        if (!todos.length) return `<div class="empty">No loose ends yet. Run <code>npm run seed</code> or hit ● Record.</div>`;
+        const top = openT.slice(0, 6), rest = [...openT.slice(6), ...doneT];
+        return top.map(row).join("") + (rest.length ? `
+          <button id="more-todos" class="copybtn" style="margin:14px 0 4px">Show ${rest.length} more</button>
+          <div id="rest-todos" style="display:none">${rest.map(row).join("")}</div>` : "");
+      })()}
       </div>
     </div>
     `;
@@ -1078,8 +1380,32 @@ async function renderToday() {
       if (n && a) { n.setAttribute("opacity", "1"); a.beginElement(); setTimeout(() => n.setAttribute("opacity", "0"), 1300); }
     }, 400);
   }
+  $("#more-todos")?.addEventListener("click", () => {
+    $("#rest-todos").style.display = "block";
+    $("#more-todos").remove();
+    drawRailThread();
+    main.querySelectorAll("#rest-todos .todo input").forEach(wireTodo);
+  });
+  (async () => {
+    const assigned = {};
+    for (const sel of main.querySelectorAll(".topic-select")) {
+      const mid = sel.dataset.tmid;
+      const det = await api(`/api/meeting?id=${encodeURIComponent(mid)}`);
+      const { html } = await topicOptions(det.topicIds ?? []);
+      sel.innerHTML = html;
+      sel.addEventListener("click", (e) => e.stopPropagation());
+      sel.addEventListener("change", () =>
+        topicSelectChange(sel, (tid) =>
+          fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: tid, meeting_id: mid }) }).then(loadSidebar)));
+    }
+  })();
   drawRailThread();
   loadUpcoming();
+  $("#notify-bell")?.addEventListener("click", async () => {
+    const p = await Notification.requestPermission();
+    alert(p === "granted" ? "You'll get a notification when an Up next meeting starts." : "Notifications are blocked for this site — enable them in the browser's site settings.");
+  });
+  if (Notification.permission === "granted") { const b = $("#notify-bell"); if (b) b.style.opacity = ".45"; }
   $("#add-upcoming").addEventListener("click", async () => {
     const title = prompt("Meeting title?");
     if (!title?.trim()) return;
@@ -1090,7 +1416,7 @@ async function renderToday() {
     await fetch("/api/upcoming", { method: "POST", body: JSON.stringify({ title, at_ms: at, participants }) });
     loadUpcoming();
   });
-  main.querySelectorAll(".todo input").forEach((cb) =>
+  const wireTodo = (cb) =>
     cb.addEventListener("change", async () => {
       const item = cb.closest(".todo");
       fetch("/api/todo", { method: "POST", body: JSON.stringify({ id: Number(cb.dataset.id), done: cb.checked }) });
@@ -1100,7 +1426,8 @@ async function renderToday() {
         endWeave(cb.dataset.id ?? "x");
         document.querySelectorAll(`.weave-svg[data-claim="${cb.dataset.id}"]`).forEach((s) => s.remove());
       }
-    }));
+    });
+  main.querySelectorAll(".todo input").forEach(wireTodo);
   wireMeetingLinks();
 }
 
@@ -1160,7 +1487,11 @@ function needleRunTo(checkbox) {
     const rb = rail.getBoundingClientRect(), cb = checkbox.getBoundingClientRect();
     const cx = cb.left - rb.left + cb.width / 2, cy = cb.top - rb.top + cb.height / 2;
     const x0 = Math.max(0, cx - 54);
-    const d = `M 9 6 C 24 ${cy * 0.25}, -6 ${cy * 0.55}, 8 ${cy * 0.8} S ${x0 - 14} ${cy + 12}, ${x0} ${cy + 7} c 12 -13, 26 -13, 36 -1 c 8 9, 20 9, 28 0 c 8 -9, 20 -9, 34 -6`;
+    const weave = `c 12 -13, 26 -13, 36 -1 c 8 9, 20 9, 28 0 c 8 -9, 20 -9, 34 -6`;
+    // top rows get a short approach; lower rows ride the long slack descent
+    const d = cy < 96
+      ? `M 9 ${Math.max(2, cy - 26)} C 6 ${cy}, ${x0 * 0.5} ${cy + 10}, ${x0} ${cy + 7} ${weave}`
+      : `M 9 6 C 24 ${cy * 0.25}, -6 ${cy * 0.55}, 8 ${cy * 0.8} S ${x0 - 14} ${cy + 12}, ${x0} ${cy + 7} ${weave}`;
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("class", "weave-svg");
@@ -1255,12 +1586,19 @@ async function loadUpcoming() {
   box.innerHTML = ups.map((u, i) => {
     const mins = Math.round((u.at_ms - Date.now()) / 60000);
     const when = mins < 60 ? `In ${mins} min` : new Date(u.at_ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    const dateTag = new Date(u.at_ms).getDate() !== new Date().getDate() ? " · " + fmtDate(u.at_ms) : "";
+    if (i > 0)
+      return `<div class="up-item compact" data-up="${u.id}">
+        <span class="up-when">${when}${dateTag}</span>
+        <span style="font-weight:600;font-size:13.5px;margin-left:10px">${esc(u.title)}</span>
+        ${u.participants ? `<span class="t-meta" style="margin-left:8px">${esc(u.participants)}</span>` : ""}
+      </div>`;
     return `<div class="up-item" data-up="${u.id}" data-people="${esc(u.participants ?? "")}">
-      ${i === 0 ? `<div class="up-needle"><svg width="30" height="12" viewBox="0 0 40 15" fill="none">
+      <div class="up-needle"><svg width="30" height="12" viewBox="0 0 40 15" fill="none">
         <path d="M2.9 4.2 C 1.2 5.1, 1.2 9.9, 2.9 10.8 L 11 9.9 L 33 8.15 L 38.4 7.5 L 33 6.85 L 11 5.1 Z" fill="url(#rn-g)"/>
         <ellipse cx="6.4" cy="7.5" rx="1.05" ry="2.15" fill="var(--bg)" stroke="#7d838d" stroke-width="0.55"/>
-      </svg></div>` : ""}
-      <div class="up-when">${when}${new Date(u.at_ms).getDate() !== new Date().getDate() ? " · " + fmtDate(u.at_ms) : ""}</div>
+      </svg></div>
+      <div class="up-when">${when}${dateTag}</div>
       <div class="up-title">${esc(u.title)}</div>
       ${u.participants ? `<div class="t-meta">${esc(u.participants)}</div>` : ""}
       <div class="prep-slot"></div>
@@ -1273,7 +1611,7 @@ async function loadUpcoming() {
     const prep = await api(`/api/prep?people=${encodeURIComponent(people)}`);
     const slot = el.querySelector(".prep-slot");
     const bits = [];
-    for (const o of prep.open.slice(0, 2))
+    for (const o of prep.open)
       bits.push(`<div class="prep"><b>Still open — ${esc(o.body.owner)}</b>${esc(o.body.task)}${o.body.due ? ` (due ${esc(o.body.due)})` : ""}</div>`);
     for (const r of prep.recent.slice(0, 2))
       bits.push(`<div class="prep past" data-mid="${r.id}" style="cursor:pointer"><b>Last time — ${esc(r.title)}</b>${fmtDate(r.started_at)}</div>`);
@@ -1647,18 +1985,22 @@ async function renderMeeting(id, opts = {}) {
 
   // Overflow menu (regenerate / file / advanced correct)
   $("#more").addEventListener("click", async () => {
-    const pick = prompt("1. Regenerate extraction\n2. File in project…\n3. Advanced find & replace…", "1");
+    const pick = prompt("1. Regenerate extraction\n2. Tag topic…\n3. Advanced find & replace…\n4. Delete meeting", "1");
     if (pick === "1") {
       const out = await fetch("/api/meeting/regenerate", { method: "POST", body: JSON.stringify({ id }) }).then((r) => r.json());
       if (out.error) return alert(out.error);
       renderMeeting(id);
     } else if (pick === "2") {
       const projects = await api("/api/projects");
-      if (!projects.length) return alert("No projects yet — create one with + in the sidebar first.");
-      const p = projects[Number(prompt("File this meeting in which project?\n" + projects.map((x, i) => `${i + 1}. ${x.name}`).join("\n"), "1")) - 1];
+      if (!projects.length) return alert("No topics yet — create one with + in the sidebar first.");
+      const p = projects[Number(prompt("Tag this meeting with which topic?\n" + projects.map((x, i) => `${i + 1}. ${x.name}`).join("\n"), "1")) - 1];
       if (!p) return;
       await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: p.id, meeting_id: id }) });
       loadSidebar();
+    } else if (pick === "4") {
+      if (!confirm("Delete this meeting and its notes, transcript and threads? This cannot be undone.")) return;
+      await fetch("/api/meeting/delete", { method: "POST", body: JSON.stringify({ id }) });
+      state.meetingId = null; state.view = "today"; render();
     } else if (pick === "3") {
       const from = prompt("Find:", ""); if (!from?.trim()) return;
       const to = prompt(`Replace "${from}" with:`, ""); if (!to?.trim()) return;
@@ -2797,37 +3139,9 @@ function wireMeetingLinks() {
 }
 
 async function renderGraph() {
-  const [{ nodes, edges }, meetingsList] = await Promise.all([api("/api/graph"), api("/api/meetings")]);
+  const [{ nodes, edges }, meetingsList, topicBuckets] = await Promise.all([api("/api/graph"), api("/api/meetings"), api("/api/projects")]);
+  const bucketNames = new Set(topicBuckets.map((t) => t.name.toLowerCase()));
   const meetById = Object.fromEntries(meetingsList.map((m) => [m.id, m]));
-  main.innerHTML = `<h1>Threads</h1>
-    <div class="sub">${nodes.length} knots · ${edges.length} threads. Drag to explore; click a meeting to open it.</div>
-    <div class="card" id="graph-wrap">
-      <canvas id="graph"></canvas>
-      <div id="graph-tip"></div>
-      <aside id="graph-panel"></aside>
-    </div>
-    <div class="legend">
-      <span style="display:flex;align-items:center;gap:8px">
-        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8.5" fill="var(--thread)"/><circle cx="11" cy="11" r="6.1" fill="none" stroke="#fff" stroke-width="1.1" stroke-dasharray="2 2.4" opacity=".55"/><path d="M7.6 8.4 L14.4 8.4 M7.6 13.6 L14.4 13.6" stroke="#fff" stroke-width="1.9" stroke-linecap="round" opacity=".95"/><circle cx="7.6" cy="8.4" r="1.3" fill="#33459c"/><circle cx="14.4" cy="8.4" r="1.3" fill="#33459c"/><circle cx="7.6" cy="13.6" r="1.3" fill="#33459c"/><circle cx="14.4" cy="13.6" r="1.3" fill="#33459c"/></svg>
-        Meeting <i>· a button sewn to the cloth</i></span>
-      <span style="display:flex;align-items:center;gap:8px">
-        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="6.4" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.6"/><circle cx="11" cy="11" r="2.4" fill="none" stroke="var(--ink-3)" stroke-width="1.1"/></svg>
-        Person <i>· an eyelet</i></span>
-      <span style="display:flex;align-items:center;gap:8px">
-        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="3.4" fill="var(--ink-3)"/><path d="M13.6 12.6 C 16 13.6, 17.6 12.2, 19 13.4" stroke="var(--ink-3)" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"/></svg>
-        Topic <i>· a knot with a loose end</i></span>
-      <button class="copybtn" style="margin:0 0 0 auto" id="export-graph">Share this brain ↗</button></div>`;
-
-  const canvas = $("#graph"), wrap = $("#graph-wrap"), tip = $("#graph-tip"), panel = $("#graph-panel");
-  const dpr = window.devicePixelRatio || 1;
-  const W = wrap.clientWidth, H = wrap.clientHeight;
-  canvas.width = W * dpr; canvas.height = H * dpr;
-  const ctx = canvas.getContext("2d");
-  ctx.scale(dpr, dpr);
-  const css = getComputedStyle(document.documentElement);
-  const INK = css.getPropertyValue("--ink").trim(), INK3 = css.getPropertyValue("--ink-3").trim(),
-    THREAD = css.getPropertyValue("--thread").trim(), SURFACE = css.getPropertyValue("--surface").trim();
-
   // degree = how many meetings each person/topic touches, for the tooltip meta
   const meetingNeighbors = {};
   for (const e of edges) {
@@ -2844,232 +3158,346 @@ async function renderGraph() {
     const k = meetingNeighbors[n.id]?.size ?? 0;
     return `in ${k} meeting${k === 1 ? "" : "s"}`;
   };
+  // Editorial cut: a knot earns its place by tying meetings together.
+  // Fragment topics touching one meeting are noise, not memory.
+  const topicDeg = (n) => meetingNeighbors[n.id]?.size ?? 0;
+  const keptTopics = nodes
+    .filter((n) => n.kind === "topic" && topicDeg(n) >= 2)
+    .sort((a, b) => topicDeg(b) - topicDeg(a))
+    .slice(0, 24);
+  const keptIds = new Set([
+    ...nodes.filter((n) => n.kind !== "topic").map((n) => n.id),
+    ...keptTopics.map((n) => n.id),
+  ]);
+  const totalTopics = nodes.filter((n) => n.kind === "topic").length;
+  const visible = nodes.filter((n) => keptIds.has(n.id));
 
-  const ns = nodes.map((n, i) => ({
+  main.innerHTML = `<h1>Threads</h1>
+    <div class="sub">${visible.filter((n) => n.kind === 'meeting').length} meetings · ${visible.filter((n) => n.kind === 'person').length} people · ${keptTopics.length} shared topic${keptTopics.length===1?'':'s'} (of ${totalTopics}). Drag to rotate · scroll to zoom · click a meeting to open it.</div>
+    <div class="card" id="graph-wrap">
+      <canvas id="graph"></canvas>
+      <div id="graph-tip"></div>
+      <input id="brain-q" placeholder="Spotlight… (word or name)" autocomplete="off">
+      <div id="graph-ctl">
+        <button id="gz-in" title="Zoom in">+</button>
+        <button id="gz-out" title="Zoom out">−</button>
+        <button id="gz-spin" title="Pause / play rotation">⏸</button>
+      </div>
+      <aside id="graph-panel"></aside>
+    </div>
+    <div class="legend">
+      <span style="display:flex;align-items:center;gap:8px">
+        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8.5" fill="var(--thread)"/><circle cx="11" cy="11" r="6.1" fill="none" stroke="#fff" stroke-width="1.1" stroke-dasharray="2 2.4" opacity=".55"/><path d="M7.6 8.4 L14.4 8.4 M7.6 13.6 L14.4 13.6" stroke="#fff" stroke-width="1.9" stroke-linecap="round" opacity=".95"/><circle cx="7.6" cy="8.4" r="1.3" fill="#33459c"/><circle cx="14.4" cy="8.4" r="1.3" fill="#33459c"/><circle cx="7.6" cy="13.6" r="1.3" fill="#33459c"/><circle cx="14.4" cy="13.6" r="1.3" fill="#33459c"/></svg>
+        Meeting <i>· a button sewn to the cloth</i></span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="6.4" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.6"/><circle cx="11" cy="11" r="2.4" fill="none" stroke="var(--ink-3)" stroke-width="1.1"/></svg>
+        Person <i>· an eyelet</i></span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="3.4" fill="var(--ink-3)"/><path d="M13.6 12.6 C 16 13.6, 17.6 12.2, 19 13.4" stroke="var(--ink-3)" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"/></svg>
+        Topic <i>· a knot with a loose end</i></span>
+      <button class="copybtn" style="margin:0 0 0 auto" id="ctx-md">Copy context .md of selection</button></div>`;
+
+  const canvas = $("#graph"), wrap = $("#graph-wrap"), tip = $("#graph-tip"), panel = $("#graph-panel");
+  const dpr = window.devicePixelRatio || 1;
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  const css = getComputedStyle(document.documentElement);
+  const INK = css.getPropertyValue("--ink").trim(), INK3 = css.getPropertyValue("--ink-3").trim(),
+    THREAD = css.getPropertyValue("--thread").trim(), SURFACE = css.getPropertyValue("--surface").trim();
+
+
+  const ns = visible.map((n, i) => ({
     ...n, label: n.meeting_title ?? n.label, meta: "",
-    x: W / 2 + (n.kind === "meeting" ? 150 : n.kind === "person" ? 215 : 275) * Math.cos((i / nodes.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
-    y: H / 2 + (n.kind === "meeting" ? 130 : n.kind === "person" ? 200 : 250) * Math.sin((i / nodes.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
+    x: W / 2 + (n.kind === "meeting" ? 150 : n.kind === "person" ? 215 : 275) * Math.cos((i / visible.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
+    y: H / 2 + (n.kind === "meeting" ? 130 : n.kind === "person" ? 200 : 250) * Math.sin((i / visible.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
     vx: 0, vy: 0, seed: (i * 2.399) % 6.2832,
-    r: n.kind === "meeting" ? 22 : n.kind === "person" ? 13 : 8,
+    r: n.kind === "meeting" ? 18 : n.kind === "person" ? 11 : (bucketNames.has((n.label ?? "").toLowerCase()) ? 11 : 6) + 2.4 * Math.sqrt(meetingNeighbors[n.id]?.size ?? 1),
   }));
   ns.forEach((n) => { n.meta = metaOf(n); });
   const byId = Object.fromEntries(ns.map((n) => [n.id, n]));
   const es = edges.filter((e) => byId[e.src] && byId[e.dst]).map((e) => ({ a: byId[e.src], b: byId[e.dst], kind: e.kind }));
-  let drag = null, hover = null, selected = null, frames = 0, stopped = false;
-
-  function tick() {
-    for (const a of ns) {
-      for (const b of ns) {
-        if (a === b) continue;
-        const dx = a.x - b.x, dy = a.y - b.y;
-        const d2 = Math.max(dx * dx + dy * dy, 40);
-        const same = a.kind === b.kind;
-        const k = same ? (a.kind === "meeting" ? 120000 : 34000) : 15000;
-        const f = k / d2;
-        a.vx += (dx / Math.sqrt(d2)) * f; a.vy += (dy / Math.sqrt(d2)) * f;
+  let hover = null, selected = null, stopped = false;
+  let spot = null; // Set of node ids under the spotlight, or null
+  let qTimer;
+  $("#brain-q").addEventListener("input", (e) => {
+    clearTimeout(qTimer);
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) { spot = null; return; }
+    qTimer = setTimeout(async () => {
+      const ids = new Set(ns.filter((n) => (n.label ?? "").toLowerCase().includes(q)).map((n) => n.id));
+      try {
+        for (const hit of await api(`/api/search?q=${encodeURIComponent(q)}`)) ids.add(hit.meeting_id);
+      } catch (e) {}
+      // a matched person or topic brings every meeting threaded to it —
+      // "mentions Rahul" includes the meetings Rahul was simply in
+      for (const e2 of es) {
+        const aM = ids.has(e2.a.id) && e2.a.kind !== "meeting", bM = ids.has(e2.b.id) && e2.b.kind !== "meeting";
+        if (aM && e2.b.kind === "meeting") ids.add(e2.b.id);
+        if (bM && e2.a.kind === "meeting") ids.add(e2.a.id);
       }
-      a.vx += (W / 2 - a.x) * 0.0022; a.vy += (H / 2 - a.y) * 0.0026;
-    }
-    for (const e of es) {
-      const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.max(Math.hypot(dx, dy), 1);
-      const rest = (e.a.kind === "topic" || e.b.kind === "topic") ? 145 : 125;
-      const f = (d - rest) * 0.008;
-      e.a.vx += (dx / d) * f; e.a.vy += (dy / d) * f;
-      e.b.vx -= (dx / d) * f; e.b.vy -= (dy / d) * f;
-    }
-    separate();
-    for (const n of ns) {
-      if (n === drag) continue;
-      n.vx *= 0.84; n.vy *= 0.84;
-      const cap = 9;
-      n.vx = Math.max(-cap, Math.min(cap, n.vx)); n.vy = Math.max(-cap, Math.min(cap, n.vy));
-      n.x = Math.max(n.r + 30, Math.min(W - n.r - 30, n.x + n.vx));
-      n.y = Math.max(n.r + 16, Math.min(H - n.r - 26, n.y + n.vy));
-    }
-    separate(); // run the constraint after integration too, so it can't be outrun
-  }
+      spot = ids.size ? ids : new Set(["__none__"]);
+    }, 220);
+  });
 
-  // hard minimum separation so no two knots ever overlap
-  function separate() {
-    for (let pass = 0; pass < 2; pass++) {
-      for (let i = 0; i < ns.length; i++) {
-        for (let j = i + 1; j < ns.length; j++) {
-          const a = ns[i], b = ns[j];
-          const min = a.r + b.r + (a.kind === "meeting" && b.kind === "meeting" ? 120 : 46);
-          const dx = b.x - a.x, dy = b.y - a.y, d = Math.max(Math.hypot(dx, dy), 0.6);
-          if (d < min) {
-            const push = (min - d) / 2, ux = dx / d, uy = dy / d;
-            if (a !== drag) { a.x -= ux * push; a.y -= uy * push; }
-            if (b !== drag) { b.x += ux * push; b.y += uy * push; }
-          }
+  // ── settle a 2D force layout, then lift into 3D ──
+  function settle(iterations) {
+    for (let it = 0; it < iterations; it++) {
+      for (const a of ns) {
+        for (const b of ns) {
+          if (a === b) continue;
+          const dx = a.x - b.x, dy = a.y - b.y;
+          const d2 = Math.max(dx * dx + dy * dy, 40);
+          const k = a.kind === b.kind ? 30000 : 15000;
+          const f = k / d2;
+          a.vx += (dx / Math.sqrt(d2)) * f; a.vy += (dy / Math.sqrt(d2)) * f;
         }
+        a.vx += (W / 2 - a.x) * 0.003; a.vy += (H / 2 - a.y) * 0.003;
+      }
+      for (const e of es) {
+        const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.max(Math.hypot(dx, dy), 1);
+        const f = (d - 110) * 0.01;
+        e.a.vx += (dx / d) * f; e.a.vy += (dy / d) * f;
+        e.b.vx -= (dx / d) * f; e.b.vy -= (dy / d) * f;
+      }
+      for (const n of ns) {
+        n.vx *= 0.8; n.vy *= 0.8;
+        n.x += Math.max(-8, Math.min(8, n.vx));
+        n.y += Math.max(-8, Math.min(8, n.vy));
       }
     }
   }
-
-  // a meeting is a button sewn onto the cloth: rim, four holes, crossed thread
-  function drawButton(n, hot) {
-    const r = n.r + (hot ? 1.5 : 0);
-    ctx.save();
-    ctx.shadowColor = "rgba(40,45,90,.28)"; ctx.shadowBlur = hot ? 12 : 6; ctx.shadowOffsetY = 2;
-    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
-    ctx.fillStyle = hot ? "#4a63cf" : THREAD; ctx.fill();
-    ctx.restore();
-    ctx.save();
-    ctx.setLineDash([3, 3.6]);
-    ctx.beginPath(); ctx.arc(n.x, n.y, r - 5, 0, 6.2832);
-    ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.2; ctx.stroke();
-    ctx.restore();
-    const o = r * 0.42;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "rgba(30,40,110,.35)"; ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(n.x - o, n.y - o + 0.8); ctx.lineTo(n.x + o, n.y - o + 0.8);
-    ctx.moveTo(n.x - o, n.y + o + 0.8); ctx.lineTo(n.x + o, n.y + o + 0.8);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(255,255,255,.95)"; ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(n.x - o, n.y - o); ctx.lineTo(n.x + o, n.y - o);
-    ctx.moveTo(n.x - o, n.y + o); ctx.lineTo(n.x + o, n.y + o);
-    ctx.stroke();
-    for (const [dx, dy] of [[-o, -o], [o, -o], [-o, o], [o, o]]) {
-      ctx.beginPath(); ctx.arc(n.x + dx, n.y + dy, 2.5, 0, 6.2832);
-      ctx.fillStyle = "#33459c"; ctx.fill();
-      ctx.beginPath(); ctx.arc(n.x + dx, n.y + dy + 0.5, 2.2, 0.5, 2.4);
-      ctx.strokeStyle = "rgba(255,255,255,.4)"; ctx.lineWidth = 0.9; ctx.stroke();
-    }
+  settle(260);
+  // lift: layout xy becomes atlas xy, z from a stable per-node hash
+  const spread = Math.min(W, H) * 0.44;
+  const maxR = Math.max(...ns.map((n) => Math.hypot(n.x - W / 2, n.y - H / 2)), 1);
+  for (const n of ns) {
+    n.px = ((n.x - W / 2) / maxR) * spread;
+    n.py = ((n.y - H / 2) / maxR) * spread * 0.78;
+    n.pz = (((n.seed * 733) % 1) - 0.5) * spread * 0.9;
   }
 
-  // a person is an eyelet punched in the cloth: ring, hole, stitched rim
-  function drawEyelet(n, hot) {
-    const r = n.r + (hot ? 1.5 : 0);
-    ctx.save();
-    ctx.shadowColor = "rgba(60,50,30,.18)"; ctx.shadowBlur = hot ? 9 : 4; ctx.shadowOffsetY = 1.5;
-    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
-    ctx.fillStyle = SURFACE; ctx.fill();
-    ctx.restore();
-    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
-    ctx.strokeStyle = hot ? THREAD : INK3; ctx.lineWidth = 1.7; ctx.stroke();
-    ctx.beginPath(); ctx.arc(n.x, n.y, r * 0.38, 0, 6.2832);
-    ctx.strokeStyle = hot ? THREAD : INK3; ctx.lineWidth = 1.2; ctx.stroke();
-    ctx.strokeStyle = hot ? "rgba(91,116,224,.55)" : "rgba(163,158,148,.5)"; ctx.lineWidth = 1.1;
-    for (let i = 0; i < 8; i++) {
-      const a = n.seed + (i / 8) * 6.2832;
-      ctx.beginPath();
-      ctx.moveTo(n.x + Math.cos(a) * (r * 0.58), n.y + Math.sin(a) * (r * 0.58));
-      ctx.lineTo(n.x + Math.cos(a) * (r * 0.82), n.y + Math.sin(a) * (r * 0.82));
-      ctx.stroke();
-    }
+  // ── the atlas camera ──
+  let angA = 0.6, angB = -0.18, zoom = 1, autoSpin = true;
+  let dragging = false, downX = 0, downY = 0, moved = 0;
+  const FOV = 780;
+
+  function project(n) {
+    const ca = Math.cos(angA), sa = Math.sin(angA), cb = Math.cos(angB), sb = Math.sin(angB);
+    const X = n.px * ca + n.pz * sa;
+    const Z0 = -n.px * sa + n.pz * ca;
+    const Y = n.py * cb - Z0 * sb;
+    const Z = n.py * sb + Z0 * cb;
+    const p = (FOV / (FOV + Z)) * zoom;
+    return { x: W / 2 + X * p, y: H / 2 + Y * p, s: p, z: Z };
   }
 
-  // a topic is a knot with one loose end trailing off
-  function drawKnot(n, hot) {
-    const r = n.r + (hot ? 1 : 0);
-    ctx.beginPath(); ctx.arc(n.x, n.y, r * 0.62, 0, 6.2832);
-    ctx.fillStyle = hot ? THREAD : INK3; ctx.fill();
-    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
-    ctx.strokeStyle = hot ? "rgba(91,116,224,.5)" : "rgba(163,158,148,.45)"; ctx.lineWidth = 1.2; ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(n.x + r * 0.7, n.y + r * 0.5);
-    ctx.quadraticCurveTo(n.x + r * 2.2, n.y + r * 1.5, n.x + r * 3.4, n.y + r * 0.7);
-    ctx.strokeStyle = hot ? "rgba(91,116,224,.6)" : "rgba(163,158,148,.5)";
-    ctx.lineWidth = 1.1; ctx.stroke();
+  const STAR_N = 170;
+  const stars = Array.from({ length: STAR_N }, (_, i) => {
+    const a = (i * 2.399963) % 6.2832, rr = 0.06 + ((i * 0.6180339) % 1) * 0.48;
+    return { x: W / 2 + Math.cos(a) * W * rr, y: H / 2 + Math.sin(a) * H * rr * 0.92, s: 0.5 + ((i * 0.414) % 1) * 1.1, o: 0.04 + ((i * 0.271) % 1) * 0.09 };
+  });
+
+  function glowDot(x, y, r, color, glow, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = color; ctx.shadowBlur = glow;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(x, y, Math.max(0.6, r * 0.45), 0, 6.2832);
+    ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fill();
+    ctx.restore();
   }
 
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    const lit = (n) => !hover || n === hover || es.some((e) => (e.a === hover && e.b === n) || (e.b === hover && e.a === n));
+    ctx.fillStyle = "#fdfcf9"; ctx.fillRect(0, 0, W, H);
+    const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.9);
+    vg.addColorStop(0, "rgba(255,255,255,0)"); vg.addColorStop(1, "rgba(90,80,55,.07)");
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+    for (const s of stars) {
+      ctx.globalAlpha = s.o;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, 6.2832);
+      ctx.fillStyle = "#b3ac9d"; ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    const proj = new Map(ns.map((n) => [n, project(n)]));
+    const inSpot = (n) => !spot || spot.has(n.id);
+    const lit = (n) => (!hover || n === hover || es.some((e) => (e.a === hover && e.b === n) || (e.b === hover && e.a === n))) && inSpot(n);
+    const depthAlpha = (z) => 0.35 + 0.65 * Math.max(0, Math.min(1, (240 - z) / 480));
 
     ctx.lineCap = "round";
     for (const e of es) {
-      const on = !hover || e.a === hover || e.b === hover;
-      ctx.strokeStyle = THREAD;
-      ctx.globalAlpha = on ? (hover ? 0.6 : 0.3) : 0.08;
-      ctx.lineWidth = on && hover ? 1.8 : 1.3;
-      const sag = Math.min(30, Math.hypot(e.b.x - e.a.x, e.b.y - e.a.y) * 0.11);
-      ctx.beginPath();
-      ctx.moveTo(e.a.x, e.a.y);
-      ctx.quadraticCurveTo((e.a.x + e.b.x) / 2, (e.a.y + e.b.y) / 2 + sag, e.b.x, e.b.y);
-      ctx.stroke();
+      const a = proj.get(e.a), b = proj.get(e.b);
+      if (spot && !(spot.has(e.a.id) && spot.has(e.b.id))) continue;
+      const on = hover && (e.a === hover || e.b === hover);
+      const da = Math.min(depthAlpha(a.z), depthAlpha(b.z));
+      ctx.strokeStyle = on ? "rgba(91,116,224,.5)" : `rgba(33,32,28,${(0.09 * da).toFixed(3)})`;
+      ctx.lineWidth = on ? 1.2 : 0.8;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
-    ctx.globalAlpha = 1;
 
+    // back-to-front
+    for (const n of [...ns].sort((x, y) => proj.get(y).z - proj.get(x).z)) {
+      if (spot && !spot.has(n.id)) continue;
+      const p = proj.get(n);
+      const on = lit(n);
+      const hot = n === hover || n.id === selected;
+      const da = depthAlpha(p.z);
+      if (n.kind === "topic") glowDot(p.x, p.y, Math.max(3, n.r * 0.5 * p.s), "#cf9a35", hot ? 24 : 13, (on ? 1 : 0.3) * da);
+      else if (n.kind === "meeting") glowDot(p.x, p.y, 5 * p.s, hot ? "#4a63cf" : "#5b74e0", hot ? 22 : 10, (on ? 0.95 : 0.3) * da);
+      else glowDot(p.x, p.y, 2.5 * p.s, "#a39e94", hot ? 12 : 4, (on ? 0.7 : 0.2) * da);
+    }
+
+    // labels: topic hubs in caps; front hemisphere reads clearest
+    ctx.textAlign = "left";
     for (const n of ns) {
-      ctx.globalAlpha = lit(n) ? 1 : 0.22;
-      if (n.kind === "meeting") drawButton(n, n === hover || n.id === selected);
-      else if (n.kind === "person") drawEyelet(n, n === hover);
-      else drawKnot(n, n === hover);
-    }
-    ctx.globalAlpha = 1;
-
-    // labels — biggest knots claim their space first; a label that would
-    // collide steps below, and gives up rather than printing over another
-    ctx.textAlign = "center";
-    const boxes = ns.map((n) => ({ l: n.x - n.r - 3, r: n.x + n.r + 3, t: n.y - n.r, b: n.y + n.r + 2 }));
-    const order = [...ns].sort((a, b) => b.r - a.r);
-    for (const n of order) {
-      if (n.kind === "topic") { ctx.fillStyle = INK3; ctx.font = "500 11px -apple-system, system-ui"; }
-      else { ctx.fillStyle = INK; ctx.font = "600 11.5px -apple-system, system-ui"; }
-      const t = n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label;
-      if (selected && n.x > W - 386) continue;
-      const w = ctx.measureText(t).width, hh = 13;
-      const cx2 = Math.max(w / 2 + 6, Math.min(W - w / 2 - 6, n.x));
-      let y = n.y + n.r + (n.kind === "topic" ? 13 : 16);
-      let placed = false;
-      for (let step = 0; step < 4; step++) {
-        const box = { l: cx2 - w / 2 - 3, r: cx2 + w / 2 + 3, t: y - hh + 2, b: y + 4 };
-        if (!boxes.some((o) => box.l < o.r && box.r > o.l && box.t < o.b && box.b > o.t)) {
-          boxes.push(box); placed = true; break;
-        }
-        y += hh + 2;
+      if (spot && !spot.has(n.id)) continue;
+      if (spot && n.kind !== "topic") {
+        const p = proj.get(n);
+        ctx.fillStyle = "rgba(33,32,28,.9)";
+        ctx.font = "600 11.5px -apple-system, system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(n.label.slice(0, 28), p.x, p.y + 18);
+        ctx.textAlign = "left";
+        continue;
       }
-      if (!placed && n !== hover) continue;
-      ctx.globalAlpha = lit(n) ? 1 : 0.2;
-      ctx.fillText(t, cx2, y);
+      if (n.kind !== "topic") continue;
+      const p = proj.get(n);
+      const da = depthAlpha(p.z);
+      if (da < 0.55 && n !== hover) continue;
+      const deg = meetingNeighbors[n.id]?.size ?? 0;
+      const on = lit(n);
+      ctx.globalAlpha = (on ? 1 : 0.25) * da;
+      ctx.fillStyle = "rgba(33,32,28,.85)";
+      ctx.font = "700 11px ui-monospace, SFMono-Regular, monospace";
+      ctx.fillText(n.label.toUpperCase().slice(0, 26), p.x + 9, p.y - 2);
+      ctx.fillStyle = "rgba(150,143,130,.95)";
+      ctx.font = "500 9.5px ui-monospace, SFMono-Regular, monospace";
+      ctx.fillText(`${deg} MEETING${deg === 1 ? "" : "S"}`, p.x + 9, p.y + 9);
+      ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
+    if (hover && hover.kind !== "topic") {
+      const p = proj.get(hover);
+      ctx.fillStyle = "rgba(33,32,28,.9)";
+      ctx.font = "600 11px -apple-system, system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText(hover.label.slice(0, 28), p.x, p.y + 16);
+      ctx.textAlign = "left";
+    }
   }
 
-  function loop() {
+  (function loop() {
     if (stopped || !document.body.contains(canvas)) { stopped = true; return; }
-    tick(); draw();
-    if (++frames < 620 || drag) requestAnimationFrame(loop);
-  }
-  loop();
+    if (autoSpin && !dragging) angA += 0.0016;
+    draw();
+    requestAnimationFrame(loop);
+  })();
 
-  const hit = (ev) => {
-    const r = canvas.getBoundingClientRect();
-    const mx = ev.clientX - r.left, my = ev.clientY - r.top;
-    return ns.find((n) => Math.hypot(n.x - mx, n.y - my) <= n.r + 5);
+  const hitAt = (mx, my) => {
+    let best = null, bd = 1e9;
+    for (const n of ns) {
+      const p = project(n);
+      const rr = (n.kind === "meeting" ? 8 : n.kind === "topic" ? Math.max(5, n.r * 0.5) : 5) * p.s + 4;
+      const d = Math.hypot(p.x - mx, p.y - my);
+      if (d <= rr && p.z < bd) { best = n; bd = p.z; }
+    }
+    return best;
   };
   canvas.addEventListener("mousedown", (ev) => {
-    drag = hit(ev) ?? null;
-    if (drag) { frames = 0; loop(); }
+    dragging = true; moved = 0;
+    downX = ev.clientX; downY = ev.clientY;
   });
   canvas.addEventListener("mousemove", (ev) => {
     const r = canvas.getBoundingClientRect();
-    if (drag) { drag.x = ev.clientX - r.left; drag.y = ev.clientY - r.top; return; }
-    const h = hit(ev);
-    canvas.style.cursor = h ? "pointer" : "grab";
-    if (h !== hover) {
-      hover = h;
-      if (h) {
-        tip.innerHTML = `<b>${esc(h.label)}</b><span>${esc(h.meta)}</span>`;
-        tip.style.left = Math.round(h.x + 18) + "px";
-        tip.style.top = Math.round(h.y - 34) + "px";
+    if (dragging) {
+      const dx = ev.clientX - downX, dy = ev.clientY - downY;
+      downX = ev.clientX; downY = ev.clientY;
+      moved += Math.abs(dx) + Math.abs(dy);
+      angA += dx * 0.005;
+      angB = Math.max(-0.9, Math.min(0.9, angB + dy * 0.004));
+      return;
+    }
+    const hnode = hitAt(ev.clientX - r.left, ev.clientY - r.top);
+    canvas.style.cursor = hnode ? "pointer" : "grab";
+    if (hnode !== hover) {
+      hover = hnode;
+      if (hnode) {
+        const p = project(hnode);
+        tip.innerHTML = `<b>${esc(hnode.label)}</b><span>${esc(hnode.meta)}</span>`;
+        tip.style.left = Math.round(p.x + 16) + "px";
+        tip.style.top = Math.round(p.y - 32) + "px";
         tip.style.opacity = "1";
       } else tip.style.opacity = "0";
-      draw();
     }
   });
-  canvas.addEventListener("mouseleave", () => { hover = null; tip.style.opacity = "0"; draw(); });
-  window.addEventListener("mouseup", () => { drag = null; });
+  canvas.addEventListener("mouseleave", () => { hover = null; tip.style.opacity = "0"; dragging = false; });
+  window.addEventListener("mouseup", () => { dragging = false; });
+  const spinBtn = $("#gz-spin");
+  const setSpin = (on) => { autoSpin = on; spinBtn.textContent = on ? "⏸" : "▶"; };
   canvas.addEventListener("click", async (ev) => {
-    const n = hit(ev);
-    if (n?.kind === "meeting") { selected = n.id; await openPanel(n.id); }
-    else { selected = null; panel.classList.remove("open"); }
-    draw();
+    if (moved > 6) return; // that was a rotate, not a click
+    const r = canvas.getBoundingClientRect();
+    const n = hitAt(ev.clientX - r.left, ev.clientY - r.top);
+    if (n?.kind === "meeting") { selected = n.id; await openPanel(n.id); return; }
+    if (n) { selected = n.id; await openNodePanel(n); return; }
+    if (selected) { selected = null; panel.classList.remove("open"); return; }
+    setSpin(!autoSpin); // empty cloth: pause / resume the slow turn
   });
+  $("#gz-in").addEventListener("click", () => { zoom = Math.min(2, zoom * 1.18); });
+  $("#gz-out").addEventListener("click", () => { zoom = Math.max(0.55, zoom * 0.85); });
+  spinBtn.addEventListener("click", () => setSpin(!autoSpin));
+  canvas.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+    zoom = Math.max(0.55, Math.min(2, zoom * (ev.deltaY > 0 ? 0.94 : 1.06)));
+  }, { passive: false });
+
+  async function ctxActions(nodeId) {
+    const r = await api(`/api/node/context?id=${encodeURIComponent(nodeId)}`);
+    if (r.error) { alert(r.error); return null; }
+    return r;
+  }
+  window.__brainCtxDownload = async (nodeId) => {
+    const r = await ctxActions(nodeId);
+    if (!r) return;
+    const a = document.createElement("a");
+    a.download = r.filename;
+    a.href = URL.createObjectURL(new Blob([r.markdown], { type: "text/markdown" }));
+    a.click();
+  };
+  window.__brainCtxCopy = async (nodeId, btn) => {
+    const r = await ctxActions(nodeId);
+    if (!r) return;
+    await navigator.clipboard.writeText(r.markdown);
+    if (btn) { const t = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(() => (btn.textContent = t), 1400); }
+  };
+
+  /** Peek panel for people and topics — the node's story without leaving the graph. */
+  async function openNodePanel(n) {
+    const r = await ctxActions(n.id);
+    if (!r) return;
+    panel.innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:2px">
+        <div>
+          <div class="gp-k" style="margin:0">${n.kind === "person" ? "Person" : "Topic"}</div>
+          <div style="font-weight:650;font-size:17px;letter-spacing:-.015em;line-height:1.3;margin-top:3px">${esc(n.label)}</div>
+          <div style="color:var(--ink-3);font-size:12.5px;margin-top:2px">${esc(n.meta)}</div>
+        </div>
+        <button id="gp-close" style="margin-left:auto;flex:none;border:1px solid var(--line);background:var(--surface);width:26px;height:26px;border-radius:8px;cursor:pointer;color:var(--ink-3);font-size:14px;line-height:1">✕</button>
+      </div>
+      <pre style="white-space:pre-wrap;font:12px/1.55 ui-monospace,monospace;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:16px;max-height:52vh;overflow-y:auto">${esc(r.markdown)}</pre>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="copybtn" style="margin:0" id="gp-copy">Copy .md for your LLM</button>
+        <button class="copybtn" style="margin:0" id="gp-dl">Download</button>
+      </div>`;
+    panel.classList.add("open");
+    $("#gp-close").addEventListener("click", () => { selected = null; panel.classList.remove("open"); });
+    $("#gp-copy").addEventListener("click", (e) => window.__brainCtxCopy(n.id, e.currentTarget));
+    $("#gp-dl").addEventListener("click", () => window.__brainCtxDownload(n.id));
+  }
 
   async function openPanel(id) {
     const { meeting, claims } = await api(`/api/meeting?id=${encodeURIComponent(id)}`);
@@ -3105,65 +3533,37 @@ async function renderGraph() {
         ${decisions.map((d) => `<div style="font-size:13px;line-height:1.55;padding:7px 0;border-top:1px solid var(--line)">✓ ${esc(d.body.text)}</div>`).join("")}</div>` : ""}
       ${meeting.my_notes ? `<div style="margin-top:22px"><div class="gp-k">Your notes</div>
         <div style="font-size:13px;line-height:1.6;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;white-space:pre-wrap">${esc(meeting.my_notes)}</div></div>` : ""}
-      <button id="gp-open" style="margin-top:20px;width:100%;border:0;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;padding:10px 16px;border-radius:10px;color:#fff;background:var(--thread);text-align:left;box-shadow:0 1px 2px rgb(50 60 140 / 0.25)">Open the full meeting →</button>`;
+      <button id="gp-open" style="margin-top:20px;width:100%;border:0;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;padding:10px 16px;border-radius:10px;color:#fff;background:var(--thread);text-align:left;box-shadow:0 1px 2px rgb(50 60 140 / 0.25)">Open the full meeting →</button>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="copybtn" style="margin:0" id="gp-copy">Copy .md for your LLM</button>
+        <button class="copybtn" style="margin:0" id="gp-dl">Download</button>
+      </div>`;
     panel.classList.add("open");
     $("#gp-close").addEventListener("click", () => { selected = null; panel.classList.remove("open"); draw(); });
     $("#gp-open").addEventListener("click", () => { state.meetingId = id; render(); });
+    $("#gp-copy").addEventListener("click", (e) => window.__brainCtxCopy(id, e.currentTarget));
+    $("#gp-dl").addEventListener("click", () => window.__brainCtxDownload(id));
   }
 
-  $("#export-graph").addEventListener("click", () => {
-    const pad = 84, W2 = W + 40, H2 = H + pad + 60;
-    const out = document.createElement("canvas");
-    out.width = W2 * dpr; out.height = H2 * dpr;
-    const o = out.getContext("2d");
-    o.scale(dpr, dpr);
-    o.fillStyle = "#ffffff"; o.fillRect(0, 0, W2, H2);
-    o.strokeStyle = "#e7e9ee"; o.lineWidth = 2; o.strokeRect(1, 1, W2 - 2, H2 - 2);
-    o.fillStyle = "#21201c"; o.font = "650 26px -apple-system, system-ui";
-    o.fillText("My meeting brain", 30, 48);
-    o.fillStyle = "#a39e94"; o.font = "500 15px -apple-system, system-ui";
-    o.fillText(`${ns.filter((n) => n.kind === "meeting").length} meetings · ${ns.filter((n) => n.kind === "person").length} people · ${ns.filter((n) => n.kind === "topic").length} topics · 🪡 Threadline`, 30, 72);
-    o.drawImage(canvas, 0, 0, canvas.width, canvas.height, 20, pad, W, H);
-    const a = document.createElement("a");
-    a.download = "threadline-brain.png";
-    a.href = out.toDataURL("image/png");
-    a.click();
+  $("#ctx-md").addEventListener("click", (e) => {
+    if (!selected) { alert("Click a node first — then this copies its context as markdown for your LLM."); return; }
+    window.__brainCtxCopy(selected, e.currentTarget);
   });
 }
 
 // ── Live recording ──────────────────────────────────────────────────────
 const recBtn = $("#rec");
-let recording = false, evtSource = null;
+let recording = false, evtSource = null, pipWin = null, recTitle = "";
+
+$("#pip-btn").addEventListener("click", () => openCompanion(recTitle || "Recording", true));
 
 recBtn.addEventListener("click", async () => {
   try {
   if (!recording) {
-    const title = prompt("Meeting title?", "Untitled meeting");
-    if (title === null) return;
-    const resp = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
-    if (!resp.ok) throw new Error(`server responded ${resp.status}`);
-    const r = await resp.json();
-    if (r.error) return alert(r.error);
-    recording = true;
-    recBtn.textContent = "■ Stop & stitch";
-    recBtn.classList.add("recording");
-    state.meetingId = r.meetingId;
-    renderMeeting(r.meetingId, { live: true });
-  } else {
-    recBtn.textContent = "… stitching";
-    recBtn.disabled = true;
-    const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
-    recording = false;
-    recBtn.disabled = false;
-    recBtn.textContent = "● Record";
-    recBtn.classList.remove("recording");
-    evtSource?.close();
-    if (r.meetingId && r.exit !== "failed") {
-      sessionStorage.setItem("tl-thread-anim", "1"); // Home plays the needle run: meeting → loose ends
-      state.meetingId = r.meetingId; render();
-    }
-    else { alert(r.reason ?? "Nothing was captured."); render(); }
-  }
+    // No pre-record dialog: naming happens at stop, prefilled from the
+    // conversation itself. Starting is one click / one hotkey.
+    await startRecording();
+  } else await stopRecording();
   } catch (err) {
     recording = false;
     recBtn.disabled = false;
@@ -3173,6 +3573,334 @@ recBtn.addEventListener("click", async () => {
     alert(`Recording failed: ${err.message}\n\nMake sure you opened http://localhost:4640 (served by \`npm run dev\`), not the file directly or another preview server.`);
   }
 });
+
+async function startRecording(title) {
+  const resp = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
+  if (!resp.ok) throw new Error(`server responded ${resp.status}`);
+  const r = await resp.json();
+  if (r.error) { alert(r.error); return false; }
+  recording = true;
+  recTitle = title;
+  recBtn.textContent = "■ Stop & stitch";
+  recBtn.classList.add("recording");
+  $("#pip-btn").style.display = "";
+  state.meetingId = r.meetingId;
+  renderMeeting(r.meetingId, { live: true });
+  liveMetaBar();
+  openCompanion(title); // best effort — the header ⧉ button is the sure path
+  return true;
+}
+
+async function stopRecording() {
+  recBtn.textContent = "… stitching";
+  recBtn.disabled = true;
+  const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
+  recording = false;
+  recBtn.disabled = false;
+  recBtn.textContent = "● Record";
+  recBtn.classList.remove("recording");
+  $("#pip-btn").style.display = "none";
+  evtSource?.close();
+  try { pipWin?.close(); } catch (e) {}
+  pipWin = null;
+  if (r.meetingId && r.exit !== "failed" && r.exit !== "discarded") {
+    sessionStorage.setItem("tl-thread-anim", "1"); // Home plays the needle run: meeting → loose ends
+    state.meetingId = r.meetingId; render();
+  }
+  else { alert(r.reason ?? "Nothing was captured."); render(); }
+}
+
+/**
+ * The floating companion: an always-on-top mini window (Document
+ * Picture-in-Picture) with the timer, the live line, and Stop — so the
+ * meeting stays visible over Zoom, docs, everything. Chrome/Arc/Edge.
+ */
+async function openCompanion(title, manual) {
+  if (pipWin) return;
+  if (!("documentPictureInPicture" in window)) {
+    if (manual) alert("This browser can't make always-on-top windows (needs Chrome, Arc or Edge, version 116+). The recording itself is unaffected.");
+    return;
+  }
+  try {
+    pipWin = await documentPictureInPicture.requestWindow({ width: 272, height: 74, disallowReturnToOpener: true });
+  } catch (e) {
+    pipWin = null;
+    if (manual) alert("Couldn't open the floating window: " + (e && e.message ? e.message : e));
+    const b = $("#popout-btn");
+    if (b) { b.style.color = "var(--thread)"; b.style.borderColor = "var(--thread)"; }
+    return; // needs a fresh click — the Pop out button provides one
+  }
+  const doc = pipWin.document;
+  doc.head.innerHTML = `<style>
+    body { margin:0; background:#faf8f5; color:#21201c; font:12.5px/1.5 -apple-system,system-ui;
+      -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+    header { display:flex; align-items:center; gap:7px; padding:9px 10px; flex:none; }
+    .dot { width:7px; height:7px; border-radius:50%; background:#cf5a52; animation:p 1.6s ease-in-out infinite; flex:none; }
+    @keyframes p { 50% { opacity:.4 } }
+    .t { font-weight:650; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0; }
+    .clock { font-variant-numeric:tabular-nums; color:#6b675f; font-size:11.5px; flex:none; }
+    .ib { border:1px solid #eee9e1; background:#fff; border-radius:7px; width:24px; height:24px;
+      cursor:pointer; color:#6b675f; font-size:12px; line-height:1; flex:none; padding:0; }
+    .ib:hover { border-color:#a3aee8; color:#5b74e0; }
+    .ib.stop { color:#cf5a52; font-weight:700; }
+    #feed { display:none; flex:1; overflow-y:auto; padding:2px 12px 10px; border-top:1px solid #eee9e1; }
+    #pipbar { display:none; gap:6px; padding:6px 12px 0; align-items:center; }
+    #pipbar select { border:1px solid #eee9e1; border-radius:7px; background:#fff; color:#6b675f; font:500 11px -apple-system,system-ui; padding:2px 6px; }
+    #askrow { display:none; gap:6px; padding:8px 12px 10px; border-top:1px solid #eee9e1; }
+    #askrow input { flex:1; border:1px solid #eee9e1; border-radius:8px; padding:5px 9px; font:12px -apple-system,system-ui; outline:none; }
+    #askrow button { width:auto; padding:5px 12px; background:#5b74e0; font-size:12px; }
+    .qa { margin:8px 0; padding:8px 10px; background:#f4f2ec; border-radius:9px; font-size:12px; }
+    .qa b { color:#21201c; } .qa .src { color:#a39e94; font-size:10.5px; margin-top:4px; }
+    body.open #pipbar, body.open #askrow { display:flex; }
+    #feed .u { margin-top:6px; font-size:12px; color:#21201c; }
+    #feed .u b { color:#5b74e0; font-weight:600; margin-right:5px; }
+    #feed .partial { color:#a39e94; font-style:italic; }
+    body.open #feed { display:block; }
+  </style>`;
+  doc.body.innerHTML = `
+    <header>
+      <span class="dot"></span><span class="t">${esc(title)}</span><span class="clock" id="pc">00:00</span>
+      <button class="ib" id="px" title="Live transcription">⌄</button>
+      <button class="ib stop" id="ps" title="Stop &amp; process">■</button>
+    </header>
+    <div id="pipbar">
+      <select id="pmode" title="Meeting mode"></select>
+      <span style="font-size:10.5px;color:#a39e94">mode</span>
+    </div>
+    <div id="feed"></div>
+    <div id="askrow"><input id="pq" placeholder="Ask your brain — this meeting &amp; past ones"><button id="pgo">Ask</button></div>`;
+  const t0 = Date.now();
+  const iv = setInterval(() => {
+    if (!pipWin) return clearInterval(iv);
+    const s = Math.floor((Date.now() - t0) / 1000);
+    const el = doc.getElementById("pc");
+    if (el) el.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  }, 1000);
+  doc.getElementById("ps").addEventListener("click", () => { window.focus(); stopRecording(); });
+  const pm = doc.getElementById("pmode");
+  pm.innerHTML = MODES.map((m) => `<option ${m === "discovery" ? "selected" : ""}>${m}</option>`).join("");
+  pm.addEventListener("change", () => {
+    fetch("/api/record/meta", { method: "POST", body: JSON.stringify({ mode: pm.value }) });
+    const lm = document.getElementById("live-mode");
+    if (lm) lm.value = pm.value;
+  });
+  const feedEl = doc.getElementById("feed");
+  const ask = async () => {
+    const q = doc.getElementById("pq").value.trim();
+    if (!q) return;
+    doc.getElementById("pq").value = "";
+    doc.body.classList.add("open");
+    const box = doc.createElement("div");
+    box.className = "qa";
+    box.innerHTML = `<b>${esc(q)}</b><div class="a" style="color:#6b675f;margin-top:3px">thinking…</div>`;
+    feedEl.appendChild(box); feedEl.scrollTop = 1e9;
+    try {
+      const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
+      const pts = (r.answer ?? []).slice(0, 3);
+      const srcs = [...new Set(pts.map((p) => p.meeting_title))];
+      box.querySelector(".a").innerHTML =
+        (r.summary ? esc(r.summary) : pts.map((p) => esc(p.text)).join(" ")) || "Nothing solid in the brain for that yet.";
+      if (srcs.length) box.insertAdjacentHTML("beforeend", `<div class="src">from: ${srcs.map(esc).join(" · ")}</div>`);
+    } catch (e) {
+      box.querySelector(".a").textContent = "Ask failed — is the brain busy?";
+    }
+    feedEl.scrollTop = 1e9;
+  };
+  doc.getElementById("pgo").addEventListener("click", ask);
+  doc.getElementById("pq").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+  doc.getElementById("px").addEventListener("click", () => {
+    const open = doc.body.classList.toggle("open");
+    doc.getElementById("px").textContent = open ? "⌃" : "⌄";
+    try { pipWin.resizeTo(open ? 340 : 272, open ? 330 : 74); } catch (e) { /* browser may refuse; user can drag-resize */ }
+  });
+  pipWin.addEventListener("pagehide", () => { pipWin = null; });
+}
+
+/** live partial: updates the pill's sense of "now" inside the feed */
+function companionLine(speaker, text) {
+  const doc = pipWin?.document;
+  if (!doc) return;
+  const feed = doc.getElementById("feed");
+  let p = doc.getElementById("pp");
+  if (!p) {
+    p = doc.createElement("div");
+    p.id = "pp"; p.className = "u partial";
+    feed.appendChild(p);
+  }
+  p.innerHTML = `<b>${esc(speaker)}</b>${esc(text)}`;
+  feed.scrollTop = 1e9;
+}
+
+/** a finished line joins the transcript feed */
+function companionFinal(speaker, text) {
+  const doc = pipWin?.document;
+  if (!doc) return;
+  const feed = doc.getElementById("feed");
+  doc.getElementById("pp")?.remove();
+  const d = doc.createElement("div");
+  d.className = "u";
+  d.innerHTML = `<b>${esc(speaker)}</b>${esc(text)}`;
+  feed.appendChild(d);
+  while (feed.children.length > 60) feed.firstChild.remove();
+  feed.scrollTop = 1e9;
+}
+
+// ── Meeting-start notifications ─────────────────────────────────────────
+async function checkUpcomingNotifications() {
+  if (Notification.permission !== "granted" || recording) return;
+  const ups = await api("/api/upcoming").catch(() => []);
+  for (const u of ups) {
+    const dt = u.at_ms - Date.now();
+    if (dt > -60_000 && dt <= 120_000 && !localStorage.getItem("tl-notified-" + u.title + u.at_ms)) {
+      localStorage.setItem("tl-notified-" + u.title + u.at_ms, "1");
+      const n = new Notification(`${u.title} is starting`, {
+        body: `${u.participants ? u.participants + " — " : ""}Click to record with Threadline`,
+        tag: "tl-meeting",
+      });
+      n.onclick = () => { window.focus(); startRecording(u.title); n.close(); };
+    }
+  }
+}
+setInterval(checkUpcomingNotifications, 30_000);
+
+// If a recording is started/stopped from outside (the double-Fn hotkey),
+// the page notices within a few seconds and syncs its UI.
+setInterval(async () => {
+  const s = await api("/api/record/state").catch(() => null);
+  if (!s) return;
+  if (s.recording && !recording) {
+    recording = true;
+    recTitle = s.title ?? "Recording";
+    recBtn.textContent = "■ Stop";
+    recBtn.classList.add("recording");
+    $("#pip-btn").style.display = "";
+    if (s.meetingId) { state.meetingId = s.meetingId; renderMeeting(s.meetingId, { live: true }); liveMetaBar(); }
+  } else if (!s.recording && recording && !recBtn.disabled) {
+    recording = false;
+    recBtn.textContent = "● Record";
+    recBtn.classList.remove("recording");
+    $("#pip-btn").style.display = "none";
+    evtSource?.close();
+    try { pipWin?.close(); } catch (e) {}
+    pipWin = null;
+    render();
+  }
+}, 4000);
+
+function renderLive(title) {
+  main.innerHTML = `<h1>${esc(title)}</h1><div class="sub">Recording — no bot in your call. Words land as they're said.</div>
+    <div class="card"><h2>Your notes · type while you talk</h2>
+      <textarea class="notes" id="live-notes" placeholder="Jot anything — it's saved with the meeting when you stop."></textarea></div>
+    <div class="card"><h2>Live transcript</h2><div id="live-feed"><div class="empty">${SPOOL_SVG}listening…</div></div></div>
+    <div class="card"><h2>Capture status</h2><div id="live-status"></div></div>`;
+  const feed = $("#live-feed"), statusBox = $("#live-status");
+  const partials = {};
+  evtSource = new EventSource("/api/record/events");
+  evtSource.onmessage = (ev) => {
+    const e = JSON.parse(ev.data);
+    if (e.type === "status") {
+      statusBox.insertAdjacentHTML("beforeend", `<div class="live-status">${esc(e.message)}</div>`);
+    } else if (e.type === "partial") {
+      if (feed.querySelector(".empty")) feed.innerHTML = "";
+      let el = partials[e.speaker];
+      if (!el) {
+        feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}" id="p-${e.speaker}"><div class="who">${e.speaker}</div><div class="live-partial"></div></div>`);
+        el = partials[e.speaker] = feed.lastElementChild;
+      }
+      el.querySelector(".live-partial").textContent = e.text;
+      companionLine(e.speaker, e.text);
+    } else if (e.type === "final") {
+      if (feed.querySelector(".empty")) feed.innerHTML = "";
+      const el = partials[e.speaker];
+      if (el) { delete partials[e.speaker]; el.remove(); }
+      feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}"><div class="ts">${fmtTs(e.offsetS)}</div><div class="who">${e.speaker}</div><div>${esc(e.text)}</div></div>`);
+      companionFinal(e.speaker, e.text);
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+  };
+}
+
+// ── Hotkey guide (⌨ in the header): both record-from-anywhere methods ────
+$("#hotkey-help").addEventListener("click", async () => {
+  const info = await api("/api/hotkey/info").catch(() => ({ script: "scripts/record-toggle.sh", daemon: false }));
+  document.getElementById("hotkey-modal")?.remove();
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="tl-modal" id="hotkey-modal"><div class="box" style="max-width:560px">
+      <h2>Global recording</h2>
+      <div class="t-meta" style="margin-bottom:14px">Start or stop recording from any app — Zoom, Slack, anywhere — without switching to this window. Two ways to set it up; both show notifications for every step: ● Recording · ■ Stopped — stitching · ✓ Saved with the meeting's name.</div>
+
+      <div style="font-weight:650;margin-bottom:4px">1 · Double-tap the Fn key ${info.daemon ? "" : "<span class='pill block'>daemon not built</span>"}</div>
+      <div class="t-meta" style="margin-bottom:12px;line-height:1.7">
+        Zero setup if your machine cooperates. Two prerequisites:<br>
+        · <b>Accessibility</b> permission for the app that runs <code>npm run dev</code> (macOS prompts on first launch)<br>
+        · System Settings → Keyboard → “Press 🌐 key to” must be <b>Do Nothing</b> (default is often Show Emoji; a logout may be needed after changing)
+      </div>
+
+      <div style="font-weight:650;margin-bottom:4px">2 · Your own key combo (any key, any machine)</div>
+      <ol style="margin:0 0 8px 18px;line-height:1.9;font-size:14px">
+        <li>macOS <b>Shortcuts</b> app → <b>+</b> new Shortcut → add <b>Run Shell Script</b>, paste:
+          <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
+            <code style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px;overflow-x:auto;white-space:nowrap">${esc(info.script)}</code>
+            <button class="copybtn" id="hotkey-copy">Copy</button>
+          </div></li>
+        <li>Shortcuts → Settings → Advanced → ✓ <b>Allow Running Scripts</b></li>
+        <li>On the shortcut, ⓘ → <b>Add Keyboard Shortcut</b> → press your combo (avoid ⌘-combos apps use; ⌃⌥R works well)</li>
+      </ol>
+      <div class="t-meta" style="margin-bottom:14px">Recordings under 15 seconds are discarded as accidental taps. Unnamed meetings title themselves from the conversation.</div>
+      <div style="display:flex;justify-content:flex-end"><button class="copybtn" id="hotkey-done">Done</button></div>
+    </div></div>`);
+  const modal = $("#hotkey-modal");
+  $("#hotkey-copy").addEventListener("click", () => { navigator.clipboard.writeText(info.script); $("#hotkey-copy").textContent = "Copied ✓"; });
+  $("#hotkey-done").addEventListener("click", () => modal.remove());
+  modal.addEventListener("mousedown", (e) => { if (e.target === modal) modal.remove(); });
+});
+
+// ── Post-stop naming (works for button, double-Fn hotkey, or another tab) ──
+// The stopped SSE event fires AFTER processing, so the content-derived
+// auto-name already exists and becomes the prefill.
+function namedAlready(mid) {
+  const k = `tl-named-${mid}`;
+  if (localStorage.getItem(k)) return true;
+  localStorage.setItem(k, "1");
+  return false;
+}
+async function showNamingModal(meetingId) {
+  if (namedAlready(meetingId)) return; // SSE replays old events to new tabs
+  const { meeting } = await api(`/api/meeting?id=${meetingId}`);
+  if (!meeting || meeting.error) return;
+  document.getElementById("name-modal")?.remove();
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="tl-modal" id="name-modal"><div class="box">
+      <h2>Name this meeting</h2>
+      <div class="t-meta" style="margin-bottom:10px">Named from the conversation — keep it or type your own.</div>
+      <input id="name-input" value="${esc(meeting.title)}" style="width:100%;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink)">
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button class="copybtn" id="name-keep">Keep</button>
+        <button class="copybtn" id="name-save" style="background:var(--thread);color:#fff;border-color:transparent">Save</button>
+      </div>
+    </div></div>`);
+  const modal = $("#name-modal"), input = $("#name-input");
+  input.focus(); input.select();
+  const close = () => modal.remove();
+  const save = async () => {
+    const title = input.value.trim();
+    if (title && title !== meeting.title)
+      await fetch("/api/meeting/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: meetingId, title }) });
+    close();
+    if (state.meetingId === meetingId) render();
+  };
+  $("#name-save").addEventListener("click", save);
+  $("#name-keep").addEventListener("click", close);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); if (e.key === "Escape") close(); });
+  modal.addEventListener("mousedown", (e) => { if (e.target === modal) close(); });
+}
+(function watchForStops() {
+  const src = new EventSource("/api/record/events");
+  src.onmessage = (ev) => {
+    let e; try { e = JSON.parse(ev.data); } catch { return; }
+    if (e.type === "stopped" && e.exit !== "failed" && e.exit !== "discarded") showNamingModal(e.meetingId);
+  };
+})();
 
 let searchTimer;
 let askSeq = 0; // superseded asks must not overwrite newer ones
@@ -3222,8 +3950,23 @@ async function runAsk(q) {
         <span class="backlink" data-mid="${p.meeting_id}" data-off="${p.offset_s}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span></div>`).join("")
       : `<div class="t-meta">Couldn't ground an answer — the receipts below are what matched.</div>`}
     ${r.blocked.length ? `<div class="t-meta" style="margin-top:8px">${r.blocked.length} sentence(s) dropped — no receipt in the retrieved snippets</div>` : ""}
+    ${r.summary || r.answer.length ? `<div style="margin-top:10px"><button class="copybtn" id="askcard-continue">Continue in Needle 🪡</button></div>` : ""}
   </div>`;
   wireMeetingLinks();
+  $("#askcard-continue")?.addEventListener("click", async () => {
+    const seed = {
+      question: q,
+      content: r.summary || (r.answer[0]?.text ?? ""),
+      payload: { mode: r.mode, exit: r.exit,
+        points: r.answer.map((p) => ({ text: p.text, quote: p.quote, meeting_id: p.meeting_id, meeting_title: p.meeting_title, offset_s: p.offset_s })),
+        chunk_ids: r.receipts.map((s) => s.chunk_id) },
+    };
+    const { id } = await fetch("/api/needle/new", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seed }) }).then((x) => x.json());
+    $("#search").value = "";
+    state.needleId = id; state.view = "needle"; state.meetingId = null;
+    render();
+  });
 }
 
 // ── Command palette: Spotlight for your meetings ─────────────────────────
@@ -3307,7 +4050,24 @@ palInput.addEventListener("keydown", async (e) => {
         <span class="backlink" data-pmid="${p.meeting_id}" data-poff="${p.offset_s}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span></div>`).join("")
       : `<div class="pal-hint">Nothing in your meetings supports an answer to that — refusing rather than guessing.</div>`}
     ${r.blocked.length ? `<div class="pal-hint">${r.blocked.length} sentence(s) dropped — no receipt in the notes</div>` : ""}
+    ${r.summary || r.answer.length ? `<div style="padding:6px 10px 4px"><button class="copybtn" id="pal-continue">Continue in Needle 🪡</button></div>` : ""}
   </div>`;
+  $("#pal-continue")?.addEventListener("click", async () => {
+    // Seed a thread with this exchange AND its retrieved chunks, so the first
+    // follow-up already has an evidence corpus to ground against.
+    const seed = {
+      question: q,
+      content: r.summary || (r.answer[0]?.text ?? ""),
+      payload: { mode: r.mode, exit: r.exit,
+        points: r.answer.map((p) => ({ text: p.text, quote: p.quote, meeting_id: p.meeting_id, meeting_title: p.meeting_title, offset_s: p.offset_s })),
+        chunk_ids: r.receipts.map((s) => s.chunk_id) },
+    };
+    const { id } = await fetch("/api/needle/new", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seed }) }).then((x) => x.json());
+    palClose();
+    state.needleId = id; state.view = "needle"; state.meetingId = null;
+    render();
+  });
   palBody.querySelectorAll("[data-pmid]").forEach((el) =>
     el.addEventListener("click", () => palGoto(el.dataset.pmid, el.dataset.poff)));
 });

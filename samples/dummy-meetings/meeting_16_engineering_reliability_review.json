@@ -1,0 +1,92 @@
+{
+  "id": "meeting_16",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Engineering Reliability Review",
+  "started_at": "2026-08-07T16:30:00+05:30",
+  "duration_minutes": 52,
+  "participants": [
+    {
+      "name": "Rohan Mehta",
+      "role": "CTO"
+    },
+    {
+      "name": "Vikram Joshi",
+      "role": "Director of Engineering"
+    },
+    {
+      "name": "Sanjay Pillai",
+      "role": "Data Platform Lead"
+    },
+    {
+      "name": "Dev Khanna",
+      "role": "Head of AI"
+    }
+  ],
+  "topics": [
+    "Reliability",
+    "AI workloads",
+    "Latency",
+    "Architecture"
+  ],
+  "summary": "Discussion covered Reliability, AI workloads, Latency, Architecture. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Separate AI processing queues from core workflow execution",
+    "Add latency budgets and circuit breakers for AI features"
+  ],
+  "action_items": [
+    {
+      "owner": "Vikram Joshi",
+      "task": "Separate AI processing queues from core workflow execution",
+      "due": "2026-08-14"
+    },
+    {
+      "owner": "Sanjay Pillai",
+      "task": "Add latency budgets and circuit breakers for AI features",
+      "due": "2026-08-15"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Rohan Mehta",
+      "text": "Let's focus today's discussion on Reliability, AI workloads, Latency."
+    },
+    {
+      "offset_seconds": 108,
+      "speaker": "Vikram Joshi",
+      "text": "This is feasible, but we should isolate the risk before we put it on the main execution path."
+    },
+    {
+      "offset_seconds": 214,
+      "speaker": "Sanjay Pillai",
+      "text": "We should store the relationship explicitly rather than trying to infer it every time at query time."
+    },
+    {
+      "offset_seconds": 303,
+      "speaker": "Dev Khanna",
+      "text": "We can use model output here, but it needs citations and a clear failure path."
+    },
+    {
+      "offset_seconds": 385,
+      "speaker": "Rohan Mehta",
+      "text": "My recommendation is that we separate AI processing queues from core workflow execution."
+    },
+    {
+      "offset_seconds": 532,
+      "speaker": "Vikram Joshi",
+      "text": "My recommendation is that we add latency budgets and circuit breakers for AI features."
+    },
+    {
+      "offset_seconds": 677,
+      "speaker": "Rohan Mehta",
+      "text": "Okay, we are aligned on add latency budgets and circuit breakers for ai features. Let's capture owners and move."
+    }
+  ]
+}

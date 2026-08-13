@@ -174,6 +174,19 @@ export class LiveSession {
   }
   private themRecent: { text: string; at: number }[] = [];
 
+  /** Mode / topic chosen mid-recording; applied when the meeting is stitched. */
+  pendingMode: string | null = null;
+  pendingTopicId: number | null = null;
+  setMeta(meta: { mode?: string; topicId?: number }) {
+    if (meta.mode) this.pendingMode = meta.mode;
+    if (meta.topicId != null) this.pendingTopicId = meta.topicId;
+  }
+
+  /** The transcript captured so far, for mid-meeting notes. */
+  snapshot(): Utterance[] {
+    return [...this.finals].sort((a, b) => a.offset_s - b.offset_s);
+  }
+
   /** Stop capture, flush finals, then run the extraction pipeline. */
   async stop(): Promise<{ meetingId: string; exit: string; reason?: string }> {
     this.stopping = true;
@@ -231,6 +244,29 @@ export class LiveSession {
       }
       return { meetingId: this.meetingId, exit: "failed", reason };
     }
+
+    // Fat-finger guard: a hotkey double-tap or accidental toggle produces a
+    // few seconds of ambient audio that would otherwise become a junk meeting,
+    // complete with hallucinated-from-silence claims polluting the brain.
+    // Under 15s of captured audio on a fresh (non-resume) recording → discard
+    // with a named reason instead of processing. Deliberate short dictations
+    // survive by being >15s or by resuming an existing meeting.
+    const totalAudioS = (this.audioBytes[0] + this.audioBytes[1]) / 64_000;
+    if (!this.resuming && totalAudioS < 15) {
+      const reason = `Recording too short (${Math.max(1, Math.round(totalAudioS))}s) — discarded. Hold the recording for at least 15 seconds to keep it.`;
+      this.emit({ type: "error", message: reason });
+      const stub = this.db.prepare("SELECT my_notes FROM meetings WHERE id = ?").get(this.meetingId) as
+        | { my_notes: string | null }
+        | undefined;
+      if (stub && !stub.my_notes?.trim()) {
+        this.db.prepare("DELETE FROM notes_versions WHERE meeting_id = ?").run(this.meetingId);
+        this.db.prepare("DELETE FROM meetings WHERE id = ?").run(this.meetingId);
+      } else if (stub) {
+        this.db.prepare("UPDATE meetings SET exit = 'failed' WHERE id = ?").run(this.meetingId);
+      }
+      return { meetingId: this.meetingId, exit: "discarded", reason };
+    }
+
     // Resuming an earlier meeting: this session's finals extend what's stored.
     let utterances = this.finals;
     if (this.resuming) {
@@ -244,10 +280,13 @@ export class LiveSession {
     const res = await processMeeting(this.db, this.apiKey, {
       id: this.meetingId,
       title: this.title,
-      mode: this.mode,
+      mode: this.pendingMode ?? this.mode,
       startedAt: this.startedAt,
       utterances,
     });
+    if (this.pendingMode) this.db.prepare("UPDATE meetings SET mode = ? WHERE id = ?").run(this.pendingMode, this.meetingId);
+    if (this.pendingTopicId != null)
+      this.db.prepare("INSERT INTO meeting_projects (meeting_id, project_id) VALUES (?, ?) ON CONFLICT DO NOTHING").run(this.meetingId, this.pendingTopicId);
     this.emit({ type: "stopped", meetingId: this.meetingId, exit: res.exit });
     return { meetingId: this.meetingId, exit: res.exit };
   }

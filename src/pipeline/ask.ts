@@ -29,9 +29,9 @@ export type AskResult = {
   steps: StepRecord[];
 };
 
-type RawPoint = { text?: string; chunk_id?: number; quote?: string };
+export type RawPoint = { text?: string; chunk_id?: number; quote?: string };
 
-function gates(snippets: Snippet[]): Gate<RawPoint> {
+export function gates(snippets: Snippet[]): Gate<RawPoint> {
   const byId = new Map(snippets.map((s) => [s.chunk_id, s]));
   const corpus = normalize(snippets.map((s) => s.text).join(" "));
 

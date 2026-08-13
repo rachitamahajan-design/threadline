@@ -1,0 +1,92 @@
+{
+  "id": "meeting_12",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Partner Channel Review",
+  "started_at": "2026-07-31T16:30:00+05:30",
+  "duration_minutes": 57,
+  "participants": [
+    {
+      "name": "Sameer Batra",
+      "role": "Head of Partnerships"
+    },
+    {
+      "name": "Meera Iyer",
+      "role": "VP Sales"
+    },
+    {
+      "name": "Tara Menon",
+      "role": "VP Marketing"
+    },
+    {
+      "name": "Farhan Ali",
+      "role": "Solutions Engineering Lead"
+    }
+  ],
+  "topics": [
+    "Partnerships",
+    "Enterprise",
+    "Implementation",
+    "Referral"
+  ],
+  "summary": "Discussion covered Partnerships, Enterprise, Implementation, Referral. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Prioritize implementation partners over generic affiliates",
+    "Create a 20% first-year referral commission for qualified enterprise deals"
+  ],
+  "action_items": [
+    {
+      "owner": "Meera Iyer",
+      "task": "Prioritize implementation partners over generic affiliates",
+      "due": "2026-07-28"
+    },
+    {
+      "owner": "Tara Menon",
+      "task": "Create a 20% first-year referral commission for qualified enterprise deals",
+      "due": "2026-07-28"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Sameer Batra",
+      "text": "Let's focus today's discussion on Partnerships, Enterprise, Implementation."
+    },
+    {
+      "offset_seconds": 109,
+      "speaker": "Meera Iyer",
+      "text": "The market signal is consistent across the larger deals, especially in the US enterprise segment."
+    },
+    {
+      "offset_seconds": 199,
+      "speaker": "Tara Menon",
+      "text": "The message will work better if we can show proof rather than another list of features."
+    },
+    {
+      "offset_seconds": 342,
+      "speaker": "Farhan Ali",
+      "text": "If we join earlier, we can remove implementation risk before the deal reaches procurement."
+    },
+    {
+      "offset_seconds": 448,
+      "speaker": "Sameer Batra",
+      "text": "My recommendation is that we prioritize implementation partners over generic affiliates."
+    },
+    {
+      "offset_seconds": 554,
+      "speaker": "Meera Iyer",
+      "text": "My recommendation is that we create a 20% first-year referral commission for qualified enterprise deals."
+    },
+    {
+      "offset_seconds": 642,
+      "speaker": "Sameer Batra",
+      "text": "Okay, we are aligned on create a 20% first-year referral commission for qualified enterprise deals. Let's capture owners and move."
+    }
+  ]
+}

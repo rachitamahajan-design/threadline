@@ -1,0 +1,92 @@
+{
+  "id": "meeting_10",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "India Data Residency Review",
+  "started_at": "2026-07-27T09:30:00+05:30",
+  "duration_minutes": 52,
+  "participants": [
+    {
+      "name": "Rohan Mehta",
+      "role": "CTO"
+    },
+    {
+      "name": "Kunal Arora",
+      "role": "Head of Security"
+    },
+    {
+      "name": "Sanjay Pillai",
+      "role": "Data Platform Lead"
+    },
+    {
+      "name": "Meera Iyer",
+      "role": "VP Sales"
+    }
+  ],
+  "topics": [
+    "Data residency",
+    "India",
+    "Architecture",
+    "Enterprise"
+  ],
+  "summary": "Discussion covered Data residency, India, Architecture, Enterprise. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Run a four-week technical discovery for India-region storage and processing",
+    "Do not commit customer dates until discovery is complete"
+  ],
+  "action_items": [
+    {
+      "owner": "Kunal Arora",
+      "task": "Run a four-week technical discovery for India-region storage and processing",
+      "due": "2026-07-28"
+    },
+    {
+      "owner": "Sanjay Pillai",
+      "task": "Do not commit customer dates until discovery is complete",
+      "due": "2026-07-28"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Rohan Mehta",
+      "text": "Let's focus today's discussion on Data residency, India, Architecture."
+    },
+    {
+      "offset_seconds": 96,
+      "speaker": "Kunal Arora",
+      "text": "We need to separate actual compliance requirements from customer preference and sales assumptions."
+    },
+    {
+      "offset_seconds": 204,
+      "speaker": "Sanjay Pillai",
+      "text": "We should store the relationship explicitly rather than trying to infer it every time at query time."
+    },
+    {
+      "offset_seconds": 317,
+      "speaker": "Meera Iyer",
+      "text": "The market signal is consistent across the larger deals, especially in the US enterprise segment."
+    },
+    {
+      "offset_seconds": 415,
+      "speaker": "Rohan Mehta",
+      "text": "My recommendation is that we run a four-week technical discovery for India-region storage and processing."
+    },
+    {
+      "offset_seconds": 497,
+      "speaker": "Kunal Arora",
+      "text": "My recommendation is that we do not commit customer dates until discovery is complete."
+    },
+    {
+      "offset_seconds": 594,
+      "speaker": "Rohan Mehta",
+      "text": "Okay, we are aligned on do not commit customer dates until discovery is complete. Let's capture owners and move."
+    }
+  ]
+}

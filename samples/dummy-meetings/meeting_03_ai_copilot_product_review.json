@@ -1,0 +1,112 @@
+{
+  "id": "meeting_03",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "AI Copilot Product Review",
+  "started_at": "2026-07-10T09:30:00+05:30",
+  "duration_minutes": 54,
+  "participants": [
+    {
+      "name": "Arjun Malhotra",
+      "role": "VP Product"
+    },
+    {
+      "name": "Dev Khanna",
+      "role": "Head of AI"
+    },
+    {
+      "name": "Ishita Nair",
+      "role": "Director of Product"
+    },
+    {
+      "name": "Vikram Joshi",
+      "role": "Director of Engineering"
+    },
+    {
+      "name": "Maya Fernandes",
+      "role": "Product Marketing Lead"
+    }
+  ],
+  "topics": [
+    "AI Copilot",
+    "Meeting summaries",
+    "Workflow recommendations",
+    "Quality"
+  ],
+  "summary": "Discussion covered AI Copilot, Meeting summaries, Workflow recommendations, Quality. The team reached 3 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Beta includes summaries and workflow recommendations only",
+    "Recommendations must cite their source",
+    "Start with 25 design partners"
+  ],
+  "action_items": [
+    {
+      "owner": "Dev Khanna",
+      "task": "Beta includes summaries and workflow recommendations only",
+      "due": "2026-07-17"
+    },
+    {
+      "owner": "Ishita Nair",
+      "task": "Recommendations must cite their source",
+      "due": "2026-07-18"
+    },
+    {
+      "owner": "Vikram Joshi",
+      "task": "Start with 25 design partners",
+      "due": "2026-07-19"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Arjun Malhotra",
+      "text": "Let's focus today's discussion on AI Copilot, Meeting summaries, Workflow recommendations."
+    },
+    {
+      "offset_seconds": 89,
+      "speaker": "Dev Khanna",
+      "text": "We can use model output here, but it needs citations and a clear failure path."
+    },
+    {
+      "offset_seconds": 174,
+      "speaker": "Ishita Nair",
+      "text": "We should design around the user outcome and remove steps that exist only because of our internal structure."
+    },
+    {
+      "offset_seconds": 286,
+      "speaker": "Vikram Joshi",
+      "text": "This is feasible, but we should isolate the risk before we put it on the main execution path."
+    },
+    {
+      "offset_seconds": 415,
+      "speaker": "Maya Fernandes",
+      "text": "The story gets much clearer when the output itself is something users want to share."
+    },
+    {
+      "offset_seconds": 547,
+      "speaker": "Arjun Malhotra",
+      "text": "My recommendation is that we beta includes summaries and workflow recommendations only."
+    },
+    {
+      "offset_seconds": 694,
+      "speaker": "Dev Khanna",
+      "text": "My recommendation is that we recommendations must cite their source."
+    },
+    {
+      "offset_seconds": 810,
+      "speaker": "Ishita Nair",
+      "text": "My recommendation is that we start with 25 design partners."
+    },
+    {
+      "offset_seconds": 915,
+      "speaker": "Arjun Malhotra",
+      "text": "Okay, we are aligned on start with 25 design partners. Let's capture owners and move."
+    }
+  ]
+}
