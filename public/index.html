@@ -732,8 +732,48 @@ function needleBubble(role, content, payload) {
   feed.scrollTop = feed.scrollHeight;
 }
 
+/**
+ * Project mindmap: the project at center, colored branches per facet,
+ * leaves are the project's own meetings, decisions, people, open items
+ * and topics. Fixed categorical hue order; leaves click through.
+ */
+function projectMindmap(project, groups) {
+  const LEAF_H = 24, GROUP_GAP = 26, PAD = 46;
+  const sides = { left: [], right: [] };
+  groups.forEach((g, i) => sides[i % 2 ? "left" : "right"].push(g));
+  const sideH = (arr) => arr.reduce((s, g) => s + Math.max(1, g.items.length) * LEAF_H + GROUP_GAP, 0);
+  const H = Math.max(sideH(sides.left), sideH(sides.right), 240) + PAD * 2;
+  const Wm = 940, cx = Wm / 2, cy = H / 2;
+  let out = "";
+  const branch = (x1, y1, x2, y2, color, w) =>
+    `<path d="M ${x1} ${y1} C ${x1 + (x2 - x1) * 0.45} ${y1}, ${x1 + (x2 - x1) * 0.55} ${y2}, ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" opacity="0.85"/>`;
+  for (const [side, arr] of Object.entries(sides)) {
+    const dir = side === "right" ? 1 : -1;
+    let y = cy - sideH(arr) / 2 + GROUP_GAP / 2;
+    for (const g of arr) {
+      const blockH = Math.max(1, g.items.length) * LEAF_H;
+      const gy = y + blockH / 2, gx = cx + dir * 150;
+      out += branch(cx + dir * 60, cy, gx, gy, g.color, 2.4);
+      out += `<circle cx="${gx}" cy="${gy}" r="3.5" fill="${g.color}"/>`;
+      out += `<text x="${gx + dir * 10}" y="${gy + 4}" text-anchor="${dir > 0 ? "start" : "end"}" style="font:600 13.5px -apple-system,system-ui;fill:var(--ink)">${esc(g.label)}</text>`;
+      const lx = gx + dir * 118;
+      g.items.forEach((it, k) => {
+        const ly = y + k * LEAF_H + LEAF_H / 2;
+        out += branch(gx + dir * (12 + g.label.length * 6.6), gy, lx - dir * 6, ly, g.color, 1.5);
+        const t = it.label.length > 30 ? it.label.slice(0, 29) + "…" : it.label;
+        out += `<text x="${lx}" y="${ly + 3.5}" text-anchor="${dir > 0 ? "start" : "end"}" ${it.mid ? `data-mid="${it.mid}" style="cursor:pointer;font:500 12.5px -apple-system,system-ui;fill:${g.color};text-decoration:underline;text-underline-offset:3px"` : `style="font:500 12.5px -apple-system,system-ui;fill:var(--ink-2)"`}>${esc(t)}</text>`;
+      });
+      y += blockH + GROUP_GAP;
+    }
+  }
+  const nameW = Math.max(90, project.name.length * 9 + 30);
+  out += `<rect x="${cx - nameW / 2}" y="${cy - 20}" width="${nameW}" height="40" rx="10" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.4"/>
+    <text x="${cx}" y="${cy + 5}" text-anchor="middle" style="font:650 15px -apple-system,system-ui;fill:var(--ink)">${esc(project.name)}</text>`;
+  return `<svg viewBox="0 0 ${Wm} ${H}" style="width:100%;display:block">${out}</svg>`;
+}
+
 async function renderProject(id) {
-  const { project, meetings, claims, people, speakers = [], docs = [], items = [], error } = await api(`/api/project?id=${id}`);
+  const { project, meetings, claims, people, speakers = [], docs = [], items = [], topics = [], error } = await api(`/api/project?id=${id}`);
   if (error) { main.innerHTML = `<div class="empty">${esc(error)}</div>`; return; }
   const decisions = claims.filter((c) => c.kind === "decision");
   // Meeting-extracted + manual project items, one list: pending first.
@@ -756,6 +796,18 @@ async function renderProject(id) {
     <h1>${esc(project.name)}</h1>
     <div class="proj-desc" id="proj-desc" title="Click to edit">${project.description ? esc(project.description) : `<span style="color:var(--ink-3)">What's this project about? Click to add — it helps file meetings automatically.</span>`}</div>
     <div class="sub">${meetings.length} meeting${meetings.length === 1 ? "" : "s"} · ${docs.length} doc${docs.length === 1 ? "" : "s"} · ${actions.filter((a) => !a.c.done).length} open</div>
+    <div class="card">${projectMindmap(project, (() => {
+      const more = (arr, n) => (arr.length > n ? [{ label: `+ ${arr.length - n} more` }] : []);
+      const open = claims.filter((c) => c.kind === "action_item" && !c.done);
+      const who = people.length ? people.map((p) => ({ label: p.name })) : speakers.map((s) => ({ label: s.speaker }));
+      return [
+        { label: "Meetings", color: "#5b74e0", items: [...meetings.slice(0, 5).map((m) => ({ label: m.title, mid: m.id })), ...more(meetings, 5)] },
+        { label: "People", color: "#1baf7a", items: who.slice(0, 5) },
+        { label: "Decisions", color: "#eb6834", items: [...decisions.slice(0, 4).map((d) => ({ label: d.body.text, mid: d.meeting_id })), ...more(decisions, 4)] },
+        { label: "Open items", color: "#e87ba4", items: [...open.slice(0, 4).map((o) => ({ label: o.body.task, mid: o.meeting_id })), ...more(open, 4)] },
+        { label: "Topics", color: "#cf9a35", items: topics.slice(0, 5).map((t) => ({ label: t.label })) },
+      ].filter((g) => g.items.length);
+    })())}</div>
     <div class="proj-grid">
       <div class="card"><h2>People</h2>
         <div class="people-chips" id="proj-people">
@@ -2152,7 +2204,7 @@ async function renderGraph() {
   const visible = nodes.filter((n) => keptIds.has(n.id));
 
   main.innerHTML = `<h1>Threads</h1>
-    <div class="sub">${visible.filter((n) => n.kind === 'meeting').length} meetings · ${visible.filter((n) => n.kind === 'person').length} people · ${keptTopics.length} shared topic${keptTopics.length===1?'':'s'} (of ${totalTopics}). Click a meeting to open it.</div>
+    <div class="sub">${visible.filter((n) => n.kind === 'meeting').length} meetings · ${visible.filter((n) => n.kind === 'person').length} people · ${keptTopics.length} shared topic${keptTopics.length===1?'':'s'} (of ${totalTopics}). Drag to rotate · scroll to zoom · click a meeting to open it.</div>
     <div class="card" id="graph-wrap">
       <canvas id="graph"></canvas>
       <div id="graph-tip"></div>
@@ -2191,228 +2243,201 @@ async function renderGraph() {
   ns.forEach((n) => { n.meta = metaOf(n); });
   const byId = Object.fromEntries(ns.map((n) => [n.id, n]));
   const es = edges.filter((e) => byId[e.src] && byId[e.dst]).map((e) => ({ a: byId[e.src], b: byId[e.dst], kind: e.kind }));
-  let drag = null, hover = null, selected = null, frames = 0, stopped = false;
+  let hover = null, selected = null, stopped = false;
 
-  function tick() {
-    for (const a of ns) {
-      for (const b of ns) {
-        if (a === b) continue;
-        const dx = a.x - b.x, dy = a.y - b.y;
-        const d2 = Math.max(dx * dx + dy * dy, 40);
-        const same = a.kind === b.kind;
-        const k = same ? (a.kind === "meeting" ? 120000 : 34000) : 15000;
-        const f = k / d2;
-        a.vx += (dx / Math.sqrt(d2)) * f; a.vy += (dy / Math.sqrt(d2)) * f;
-      }
-      a.vx += (W / 2 - a.x) * 0.0022; a.vy += (H / 2 - a.y) * 0.0026;
-    }
-    for (const e of es) {
-      const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.max(Math.hypot(dx, dy), 1);
-      const rest = ns.length > 34 ? 95 : ((e.a.kind === "topic" || e.b.kind === "topic") ? 145 : 125);
-      const f = (d - rest) * 0.008;
-      e.a.vx += (dx / d) * f; e.a.vy += (dy / d) * f;
-      e.b.vx -= (dx / d) * f; e.b.vy -= (dy / d) * f;
-    }
-    separate();
-    for (const n of ns) {
-      if (n === drag) continue;
-      n.vx *= 0.84; n.vy *= 0.84;
-      const cap = 9;
-      n.vx = Math.max(-cap, Math.min(cap, n.vx)); n.vy = Math.max(-cap, Math.min(cap, n.vy));
-      n.x = Math.max(n.r + 30, Math.min(W - n.r - 30, n.x + n.vx));
-      n.y = Math.max(n.r + 16, Math.min(H - n.r - 26, n.y + n.vy));
-    }
-    separate(); // run the constraint after integration too, so it can't be outrun
-  }
-
-  // hard minimum separation so no two knots ever overlap
-  function separate() {
-    for (let pass = 0; pass < 2; pass++) {
-      for (let i = 0; i < ns.length; i++) {
-        for (let j = i + 1; j < ns.length; j++) {
-          const a = ns[i], b = ns[j];
-          const min = a.r + b.r + (a.kind === "meeting" && b.kind === "meeting" ? (ns.length > 34 ? 48 : 120) : (ns.length > 34 ? 22 : 46));
-          const dx = b.x - a.x, dy = b.y - a.y, d = Math.max(Math.hypot(dx, dy), 0.6);
-          if (d < min) {
-            const push = (min - d) / 2, ux = dx / d, uy = dy / d;
-            if (a !== drag) { a.x -= ux * push; a.y -= uy * push; }
-            if (b !== drag) { b.x += ux * push; b.y += uy * push; }
-          }
+  // ── settle a 2D force layout, then lift into 3D ──
+  function settle(iterations) {
+    for (let it = 0; it < iterations; it++) {
+      for (const a of ns) {
+        for (const b of ns) {
+          if (a === b) continue;
+          const dx = a.x - b.x, dy = a.y - b.y;
+          const d2 = Math.max(dx * dx + dy * dy, 40);
+          const k = a.kind === b.kind ? 30000 : 15000;
+          const f = k / d2;
+          a.vx += (dx / Math.sqrt(d2)) * f; a.vy += (dy / Math.sqrt(d2)) * f;
         }
+        a.vx += (W / 2 - a.x) * 0.003; a.vy += (H / 2 - a.y) * 0.003;
+      }
+      for (const e of es) {
+        const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.max(Math.hypot(dx, dy), 1);
+        const f = (d - 110) * 0.01;
+        e.a.vx += (dx / d) * f; e.a.vy += (dy / d) * f;
+        e.b.vx -= (dx / d) * f; e.b.vy -= (dy / d) * f;
+      }
+      for (const n of ns) {
+        n.vx *= 0.8; n.vy *= 0.8;
+        n.x += Math.max(-8, Math.min(8, n.vx));
+        n.y += Math.max(-8, Math.min(8, n.vy));
       }
     }
   }
-
-  // a meeting is a button sewn onto the cloth: rim, four holes, crossed thread
-  function drawButton(n, hot) {
-    const r = n.r + (hot ? 1.5 : 0);
-    ctx.save();
-    ctx.shadowColor = "rgba(40,45,90,.28)"; ctx.shadowBlur = hot ? 12 : 6; ctx.shadowOffsetY = 2;
-    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
-    ctx.fillStyle = hot ? "#4a63cf" : THREAD; ctx.fill();
-    ctx.restore();
-    ctx.save();
-    ctx.setLineDash([3, 3.6]);
-    ctx.beginPath(); ctx.arc(n.x, n.y, r - 5, 0, 6.2832);
-    ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.2; ctx.stroke();
-    ctx.restore();
-    const o = r * 0.42;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "rgba(30,40,110,.35)"; ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(n.x - o, n.y - o + 0.8); ctx.lineTo(n.x + o, n.y - o + 0.8);
-    ctx.moveTo(n.x - o, n.y + o + 0.8); ctx.lineTo(n.x + o, n.y + o + 0.8);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(255,255,255,.95)"; ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(n.x - o, n.y - o); ctx.lineTo(n.x + o, n.y - o);
-    ctx.moveTo(n.x - o, n.y + o); ctx.lineTo(n.x + o, n.y + o);
-    ctx.stroke();
-    for (const [dx, dy] of [[-o, -o], [o, -o], [-o, o], [o, o]]) {
-      ctx.beginPath(); ctx.arc(n.x + dx, n.y + dy, 2.5, 0, 6.2832);
-      ctx.fillStyle = "#33459c"; ctx.fill();
-      ctx.beginPath(); ctx.arc(n.x + dx, n.y + dy + 0.5, 2.2, 0.5, 2.4);
-      ctx.strokeStyle = "rgba(255,255,255,.4)"; ctx.lineWidth = 0.9; ctx.stroke();
-    }
+  settle(260);
+  // lift: layout xy becomes atlas xy, z from a stable per-node hash
+  const spread = Math.min(W, H) * 0.44;
+  const maxR = Math.max(...ns.map((n) => Math.hypot(n.x - W / 2, n.y - H / 2)), 1);
+  for (const n of ns) {
+    n.px = ((n.x - W / 2) / maxR) * spread;
+    n.py = ((n.y - H / 2) / maxR) * spread * 0.78;
+    n.pz = (((n.seed * 733) % 1) - 0.5) * spread * 0.9;
   }
 
-  // a person is an eyelet punched in the cloth: ring, hole, stitched rim
-  function drawEyelet(n, hot) {
-    const r = n.r + (hot ? 1.5 : 0);
-    ctx.save();
-    ctx.shadowColor = "rgba(60,50,30,.18)"; ctx.shadowBlur = hot ? 9 : 4; ctx.shadowOffsetY = 1.5;
-    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
-    ctx.fillStyle = SURFACE; ctx.fill();
-    ctx.restore();
-    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
-    ctx.strokeStyle = hot ? THREAD : INK3; ctx.lineWidth = 1.7; ctx.stroke();
-    ctx.beginPath(); ctx.arc(n.x, n.y, r * 0.38, 0, 6.2832);
-    ctx.strokeStyle = hot ? THREAD : INK3; ctx.lineWidth = 1.2; ctx.stroke();
-    ctx.strokeStyle = hot ? "rgba(91,116,224,.55)" : "rgba(163,158,148,.5)"; ctx.lineWidth = 1.1;
-    for (let i = 0; i < 8; i++) {
-      const a = n.seed + (i / 8) * 6.2832;
-      ctx.beginPath();
-      ctx.moveTo(n.x + Math.cos(a) * (r * 0.58), n.y + Math.sin(a) * (r * 0.58));
-      ctx.lineTo(n.x + Math.cos(a) * (r * 0.82), n.y + Math.sin(a) * (r * 0.82));
-      ctx.stroke();
-    }
+  // ── the atlas camera ──
+  let angA = 0.6, angB = -0.18, zoom = 1, autoSpin = true;
+  let dragging = false, downX = 0, downY = 0, moved = 0;
+  const FOV = 780;
+
+  function project(n) {
+    const ca = Math.cos(angA), sa = Math.sin(angA), cb = Math.cos(angB), sb = Math.sin(angB);
+    const X = n.px * ca + n.pz * sa;
+    const Z0 = -n.px * sa + n.pz * ca;
+    const Y = n.py * cb - Z0 * sb;
+    const Z = n.py * sb + Z0 * cb;
+    const p = (FOV / (FOV + Z)) * zoom;
+    return { x: W / 2 + X * p, y: H / 2 + Y * p, s: p, z: Z };
   }
 
-  // a topic is a knot with one loose end trailing off
-  function drawKnot(n, hot) {
-    const r = n.r + (hot ? 1 : 0);
-    ctx.beginPath(); ctx.arc(n.x, n.y, r * 0.62, 0, 6.2832);
-    ctx.fillStyle = hot ? THREAD : INK3; ctx.fill();
-    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
-    ctx.strokeStyle = hot ? "rgba(91,116,224,.5)" : "rgba(163,158,148,.45)"; ctx.lineWidth = 1.2; ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(n.x + r * 0.7, n.y + r * 0.5);
-    ctx.quadraticCurveTo(n.x + r * 2.2, n.y + r * 1.5, n.x + r * 3.4, n.y + r * 0.7);
-    ctx.strokeStyle = hot ? "rgba(91,116,224,.6)" : "rgba(163,158,148,.5)";
-    ctx.lineWidth = 1.1; ctx.stroke();
+  const STAR_N = 170;
+  const stars = Array.from({ length: STAR_N }, (_, i) => {
+    const a = (i * 2.399963) % 6.2832, rr = 0.06 + ((i * 0.6180339) % 1) * 0.48;
+    return { x: W / 2 + Math.cos(a) * W * rr, y: H / 2 + Math.sin(a) * H * rr * 0.92, s: 0.5 + ((i * 0.414) % 1) * 1.1, o: 0.04 + ((i * 0.271) % 1) * 0.09 };
+  });
+
+  function glowDot(x, y, r, color, glow, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = color; ctx.shadowBlur = glow;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(x, y, Math.max(0.6, r * 0.45), 0, 6.2832);
+    ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fill();
+    ctx.restore();
   }
 
   function draw() {
     ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#fdfcf9"; ctx.fillRect(0, 0, W, H);
+    const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.9);
+    vg.addColorStop(0, "rgba(255,255,255,0)"); vg.addColorStop(1, "rgba(90,80,55,.07)");
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+    for (const s of stars) {
+      ctx.globalAlpha = s.o;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, 6.2832);
+      ctx.fillStyle = "#b3ac9d"; ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    const proj = new Map(ns.map((n) => [n, project(n)]));
     const lit = (n) => !hover || n === hover || es.some((e) => (e.a === hover && e.b === n) || (e.b === hover && e.a === n));
+    const depthAlpha = (z) => 0.35 + 0.65 * Math.max(0, Math.min(1, (240 - z) / 480));
 
     ctx.lineCap = "round";
     for (const e of es) {
-      const on = !hover || e.a === hover || e.b === hover;
-      ctx.strokeStyle = THREAD;
-      ctx.globalAlpha = on ? (hover ? 0.6 : 0.3) : 0.08;
-      ctx.lineWidth = on && hover ? 1.8 : 1.3;
-      const sag = Math.min(30, Math.hypot(e.b.x - e.a.x, e.b.y - e.a.y) * 0.11);
-      ctx.beginPath();
-      ctx.moveTo(e.a.x, e.a.y);
-      ctx.quadraticCurveTo((e.a.x + e.b.x) / 2, (e.a.y + e.b.y) / 2 + sag, e.b.x, e.b.y);
-      ctx.stroke();
+      const a = proj.get(e.a), b = proj.get(e.b);
+      const on = hover && (e.a === hover || e.b === hover);
+      const da = Math.min(depthAlpha(a.z), depthAlpha(b.z));
+      ctx.strokeStyle = on ? "rgba(91,116,224,.5)" : `rgba(33,32,28,${(0.09 * da).toFixed(3)})`;
+      ctx.lineWidth = on ? 1.2 : 0.8;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
-    ctx.globalAlpha = 1;
 
+    // back-to-front
+    for (const n of [...ns].sort((x, y) => proj.get(y).z - proj.get(x).z)) {
+      const p = proj.get(n);
+      const on = lit(n);
+      const hot = n === hover || n.id === selected;
+      const da = depthAlpha(p.z);
+      if (n.kind === "topic") glowDot(p.x, p.y, Math.max(3, n.r * 0.5 * p.s), "#cf9a35", hot ? 24 : 13, (on ? 1 : 0.3) * da);
+      else if (n.kind === "meeting") glowDot(p.x, p.y, 5 * p.s, hot ? "#4a63cf" : "#5b74e0", hot ? 22 : 10, (on ? 0.95 : 0.3) * da);
+      else glowDot(p.x, p.y, 2.5 * p.s, "#a39e94", hot ? 12 : 4, (on ? 0.7 : 0.2) * da);
+    }
+
+    // labels: topic hubs in caps; front hemisphere reads clearest
+    ctx.textAlign = "left";
     for (const n of ns) {
-      ctx.globalAlpha = lit(n) ? 1 : 0.22;
-      if (n.kind === "meeting") drawButton(n, n === hover || n.id === selected);
-      else if (n.kind === "person") drawEyelet(n, n === hover);
-      else drawKnot(n, n === hover);
+      if (n.kind !== "topic") continue;
+      const p = proj.get(n);
+      const da = depthAlpha(p.z);
+      if (da < 0.55 && n !== hover) continue;
+      const deg = meetingNeighbors[n.id]?.size ?? 0;
+      const on = lit(n);
+      ctx.globalAlpha = (on ? 1 : 0.25) * da;
+      ctx.fillStyle = "rgba(33,32,28,.85)";
+      ctx.font = "700 11px ui-monospace, SFMono-Regular, monospace";
+      ctx.fillText(n.label.toUpperCase().slice(0, 26), p.x + 9, p.y - 2);
+      ctx.fillStyle = "rgba(150,143,130,.95)";
+      ctx.font = "500 9.5px ui-monospace, SFMono-Regular, monospace";
+      ctx.fillText(`${deg} MEETING${deg === 1 ? "" : "S"}`, p.x + 9, p.y + 9);
+      ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
-
-    // labels — biggest knots claim their space first; a label that would
-    // collide steps below, and gives up rather than printing over another
-    ctx.textAlign = "center";
-    const labelTopics = new Set([...ns.filter((n) => n.kind === "topic")].sort((a, b) => b.r - a.r).slice(0, 12).map((n) => n.id));
-    const wantsLabel = (n) =>
-      n === hover || (hover && lit(n)) ||
-      n.kind === "meeting" ||
-      (n.kind === "person" && ns.length <= 26) ||
-      (n.kind === "topic" && labelTopics.has(n.id) && !hover);
-    const boxes = ns.map((n) => ({ l: n.x - n.r - 3, r: n.x + n.r + 3, t: n.y - n.r, b: n.y + n.r + 2 }));
-    const order = [...ns].sort((a, b) => b.r - a.r);
-    for (const n of order) {
-      if (!wantsLabel(n)) continue;
-      if (n.kind === "topic") { ctx.fillStyle = INK3; ctx.font = "500 11px -apple-system, system-ui"; }
-      else { ctx.fillStyle = INK; ctx.font = "600 11.5px -apple-system, system-ui"; }
-      const t = n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label;
-      if (selected && n.x > W - 386) continue;
-      const w = ctx.measureText(t).width, hh = 13;
-      const cx2 = Math.max(w / 2 + 6, Math.min(W - w / 2 - 6, n.x));
-      let y = n.y + n.r + (n.kind === "topic" ? 13 : 16);
-      let placed = false;
-      for (let step = 0; step < 4; step++) {
-        const box = { l: cx2 - w / 2 - 3, r: cx2 + w / 2 + 3, t: y - hh + 2, b: y + 4 };
-        if (!boxes.some((o) => box.l < o.r && box.r > o.l && box.t < o.b && box.b > o.t)) {
-          boxes.push(box); placed = true; break;
-        }
-        y += hh + 2;
-      }
-      if (!placed && n !== hover) continue;
-      ctx.globalAlpha = lit(n) ? 1 : 0.2;
-      ctx.fillText(t, cx2, y);
+    if (hover && hover.kind !== "topic") {
+      const p = proj.get(hover);
+      ctx.fillStyle = "rgba(33,32,28,.9)";
+      ctx.font = "600 11px -apple-system, system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText(hover.label.slice(0, 28), p.x, p.y + 16);
+      ctx.textAlign = "left";
     }
-    ctx.globalAlpha = 1;
   }
 
-  function loop() {
+  (function loop() {
     if (stopped || !document.body.contains(canvas)) { stopped = true; return; }
-    tick(); draw();
-    if (++frames < 620 || drag) requestAnimationFrame(loop);
-  }
-  loop();
+    if (autoSpin && !dragging && !selected) angA += 0.0016;
+    draw();
+    requestAnimationFrame(loop);
+  })();
 
-  const hit = (ev) => {
-    const r = canvas.getBoundingClientRect();
-    const mx = ev.clientX - r.left, my = ev.clientY - r.top;
-    return ns.find((n) => Math.hypot(n.x - mx, n.y - my) <= n.r + 5);
+  const hitAt = (mx, my) => {
+    let best = null, bd = 1e9;
+    for (const n of ns) {
+      const p = project(n);
+      const rr = (n.kind === "meeting" ? 8 : n.kind === "topic" ? Math.max(5, n.r * 0.5) : 5) * p.s + 4;
+      const d = Math.hypot(p.x - mx, p.y - my);
+      if (d <= rr && p.z < bd) { best = n; bd = p.z; }
+    }
+    return best;
   };
   canvas.addEventListener("mousedown", (ev) => {
-    drag = hit(ev) ?? null;
-    if (drag) { frames = 0; loop(); }
+    dragging = true; moved = 0;
+    downX = ev.clientX; downY = ev.clientY;
   });
   canvas.addEventListener("mousemove", (ev) => {
     const r = canvas.getBoundingClientRect();
-    if (drag) { drag.x = ev.clientX - r.left; drag.y = ev.clientY - r.top; return; }
-    const h = hit(ev);
-    canvas.style.cursor = h ? "pointer" : "grab";
-    if (h !== hover) {
-      hover = h;
-      if (h) {
-        tip.innerHTML = `<b>${esc(h.label)}</b><span>${esc(h.meta)}</span>`;
-        tip.style.left = Math.round(h.x + 18) + "px";
-        tip.style.top = Math.round(h.y - 34) + "px";
+    if (dragging) {
+      const dx = ev.clientX - downX, dy = ev.clientY - downY;
+      downX = ev.clientX; downY = ev.clientY;
+      moved += Math.abs(dx) + Math.abs(dy);
+      angA += dx * 0.005;
+      angB = Math.max(-0.9, Math.min(0.9, angB + dy * 0.004));
+      return;
+    }
+    const hnode = hitAt(ev.clientX - r.left, ev.clientY - r.top);
+    canvas.style.cursor = hnode ? "pointer" : "grab";
+    if (hnode !== hover) {
+      hover = hnode;
+      if (hnode) {
+        const p = project(hnode);
+        tip.innerHTML = `<b>${esc(hnode.label)}</b><span>${esc(hnode.meta)}</span>`;
+        tip.style.left = Math.round(p.x + 16) + "px";
+        tip.style.top = Math.round(p.y - 32) + "px";
         tip.style.opacity = "1";
       } else tip.style.opacity = "0";
-      draw();
     }
   });
-  canvas.addEventListener("mouseleave", () => { hover = null; tip.style.opacity = "0"; draw(); });
-  window.addEventListener("mouseup", () => { drag = null; });
+  canvas.addEventListener("mouseleave", () => { hover = null; tip.style.opacity = "0"; dragging = false; });
+  window.addEventListener("mouseup", () => { dragging = false; });
   canvas.addEventListener("click", async (ev) => {
-    const n = hit(ev);
+    if (moved > 6) return; // that was a rotate, not a click
+    const r = canvas.getBoundingClientRect();
+    const n = hitAt(ev.clientX - r.left, ev.clientY - r.top);
     if (n?.kind === "meeting") { selected = n.id; await openPanel(n.id); }
     else { selected = null; panel.classList.remove("open"); }
-    draw();
   });
+  canvas.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+    zoom = Math.max(0.55, Math.min(2, zoom * (ev.deltaY > 0 ? 0.94 : 1.06)));
+  }, { passive: false });
 
   async function openPanel(id) {
     const { meeting, claims } = await api(`/api/meeting?id=${encodeURIComponent(id)}`);

@@ -363,7 +363,15 @@ const api: Record<string, Handler> = {
          WHERE c.project_id = ? AND c.kind = 'action_item' ORDER BY c.done ASC, c.id DESC`,
       )
       .all(id) as { body: string }[]).map((c) => ({ ...c, body: JSON.parse(c.body) }));
-    return { project, meetings, claims, people, speakers, docs, items };
+    const topics = db
+      .prepare(
+        `SELECT n.label, COUNT(DISTINCT e.meeting_id) c FROM meeting_projects mp
+         JOIN edges e ON e.meeting_id = mp.meeting_id AND e.kind = 'mentions'
+         JOIN nodes n ON n.id = e.dst AND n.kind = 'topic'
+         WHERE mp.project_id = ? GROUP BY n.id ORDER BY c DESC, n.label LIMIT 8`,
+      )
+      .all(id);
+    return { project, meetings, claims, people, speakers, docs, items, topics };
   },
 
   "GET /api/people"() {
