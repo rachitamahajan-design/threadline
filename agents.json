@@ -1,5 +1,5 @@
 {
-  "$comment": "Capability registry. Meeting modes are config, not code — swapping a model or changing what a mode extracts is one edit here, no rebuild. Slide 10, 'capability registry'.",
+  "$comment": "Capability registry. Meeting modes are config, not code — swapping a model or changing what a mode extracts is one edit here, no rebuild.",
   "version": 1,
   "models": {
     "transcribe_stream": { "provider": "pyai", "model": "pyai-hear", "surface": "hear.stream" },

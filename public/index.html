@@ -230,7 +230,6 @@
     transition: border-color .15s, box-shadow .15s;
   }
   textarea.notes:focus { border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); box-shadow: 0 0 0 3px var(--thread-soft); }
-  .draft { white-space: pre-wrap; font-size: 13.5px; background: var(--bg); border: 1px solid var(--line); border-radius: 11px; padding: 15px 17px; }
   .copybtn {
     border: 1px solid var(--line); background: var(--surface); font: inherit; font-weight: 500; font-size: 12.5px;
     padding: 5px 14px; border-radius: 9px; cursor: pointer; margin-top: 10px; color: var(--ink-2);
@@ -252,21 +251,11 @@
   .prep.past::before { background: repeating-linear-gradient(to bottom, var(--ink-3) 0 7px, transparent 7px 12px); opacity: .5; }
   .prep b { display: block; font-weight: 600; color: var(--ink-2); }
   /* Structured summary document */
-  .sum-sec { margin-top: 18px; }
-  .sum-sec h3 { font-size: 14px; margin: 10px 0 4px; }
-  .sum-sec h4 { font-size: 13px; margin: 8px 0 2px; color: var(--ink-2); }
-  .sum-sec ul { margin: 4px 0 0 18px; padding: 0; }
-  .sum-sec li { margin: 3px 0; }
-  .sum-bullet[contenteditable="true"] { outline: 2px solid var(--thread-soft); border-radius: 4px; padding: 1px 4px; }
-  .sum-bullet.edited::after { content: "edited"; font-size: 10px; color: var(--ink-3); margin-left: 6px; }
-  .sum-bullet.ungrounded { opacity: .62; }
   .ts-chip {
     font-size: 10.5px; color: var(--thread); background: var(--thread-soft);
     border: none; border-radius: 6px; padding: 1px 6px; margin-left: 6px;
     cursor: pointer; font-variant-numeric: tabular-nums;
   }
-  .unverified { font-size: 10px; color: var(--block); background: color-mix(in srgb, var(--block) 10%, transparent);
-    border-radius: 6px; padding: 1px 6px; margin-left: 6px; }
   /* Correction flow */
   #correct-fab {
     position: absolute; z-index: 30; padding: 5px 12px; font-size: 12.5px;
@@ -323,7 +312,7 @@
     color: var(--ink); width: 100%; outline: none; margin-bottom: 8px;
   }
   /* Granola-style workspace: notes are the main frame */
-  .workspace { display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-w, 400px); gap: 22px; align-items: start; }
+  .workspace { display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-w, 400px); gap: 30px; align-items: start; }
   .workspace.collapsed { grid-template-columns: minmax(0, 1fr) 0px; gap: 0; }
   .workspace.collapsed #side-panel { display: none; }
   #panel-reopen {
@@ -379,25 +368,81 @@
   #notes-doc.flash { animation: notes-flash 1.2s ease; }
   @keyframes notes-flash { 0% { background: var(--thread-soft); } 100% { background: var(--surface); } }
   /* Chat */
-  #chat-log { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 8px; }
-  .chat-b { max-width: 85%; padding: 8px 13px; border-radius: 12px; font-size: 13.5px; box-shadow: var(--shadow); }
-  .chat-b.user { align-self: flex-end; background: var(--thread-soft); }
-  .chat-b.ai { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); }
-  .chat-b.thinking { color: var(--ink-3); }
-  #chat-bar {
-    position: sticky; bottom: 14px; display: flex; gap: 8px;
-    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
-    box-shadow: var(--shadow); padding: 8px 10px; margin-top: 10px;
+  /* ── Block 2: chat, Granola-style ─────────────────────────────────────────
+     The composer is a floating bar pinned to the bottom of the notes column;
+     the conversation lives in a sheet that draws OVER the notes when the bar is
+     engaged and disappears when it isn't. Page scroll moves only the notes:
+     the dock is sticky, the sheet has its own scroll, and so does the
+     transcript panel. */
+  main.wide {
+    max-width: 1560px; height: calc(100vh - 62px); overflow: hidden;
+    display: flex; flex-direction: column; padding: 28px 36px 0;
   }
-  #chat-input { flex: 1; border: none; background: none; font: inherit; font-size: 13.5px; color: var(--ink); outline: none; }
+  main.wide .workspace { flex: 1; min-height: 0; align-items: stretch; }
+  .ws-main {
+    display: flex; flex-direction: column; min-height: 0; position: relative;
+    overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 0 2px;
+  }
+  #chat-dock {
+    position: sticky; bottom: 0; margin-top: auto; padding: 26px 2px 14px; z-index: 15;
+    /* Notes slide beneath the bar; the fade keeps the hand-off legible. */
+    background: linear-gradient(to top, var(--bg) 62%, transparent);
+  }
+  #chat-sheet {
+    position: absolute; left: 2px; right: 2px; bottom: calc(100% - 12px);
+    display: flex; flex-direction: column; overflow: hidden;
+    max-height: min(62vh, 640px);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 -4px 14px rgb(60 50 30 / 0.05), 0 24px 80px rgb(30 25 15 / 0.22);
+  }
+  #chat-sheet.closed { display: none; }
+  .chat-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex: none; }
+  .chat-top .spacer { flex: 1; }
+  .chat-icon {
+    border: none; background: none; color: var(--ink-3); font: inherit; font-size: 14px;
+    cursor: pointer; padding: 2px 5px; border-radius: 7px; line-height: 1;
+  }
+  .chat-icon:hover { color: var(--ink-2); background: var(--bg); }
+  #chat-log { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; overflow-y: auto; flex: 1; }
+  #chat-log:empty::before {
+    content: "Ask about this meeting, / for a handoff — every claim carries a receipt you can click.";
+    color: var(--ink-3); font-size: 13px; text-align: center; padding: 26px 0 14px;
+  }
+  .chat-b { font-size: 14px; line-height: 1.65; }
+  .chat-b.user {
+    align-self: flex-end; max-width: 85%; background: var(--thread-soft);
+    padding: 8px 13px; border-radius: 13px; font-size: 13.5px;
+  }
+  .chat-b.ai { align-self: stretch; color: var(--ink); }
+  .chat-b.thinking { color: var(--ink-3); }
+  .chat-acts { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+  .say-more {
+    border: 1px solid var(--line); background: none; color: var(--ink-2); font: inherit; font-size: 12px;
+    border-radius: 999px; padding: 3px 13px; cursor: pointer;
+  }
+  .say-more:hover { color: var(--thread); border-color: var(--thread); }
+  #chat-bar {
+    display: flex; gap: 10px; align-items: center;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px;
+    box-shadow: 0 2px 6px rgb(60 50 30 / 0.06), 0 16px 44px rgb(30 25 15 / 0.14);
+  }
+  #chat-bar:focus-within { border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); }
+  #chat-input { flex: 1; border: none; background: none; font: inherit; font-size: 14px; color: var(--ink); outline: none; }
+  .chat-model { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #chat-send {
+    border: none; background: var(--ink); color: var(--bg); width: 26px; height: 26px; border-radius: 50%;
+    font: inherit; font-size: 13px; cursor: pointer; display: grid; place-content: center; flex: none;
+  }
+  #chat-send:disabled { background: var(--ink-3); cursor: default; }
   /* Side panel */
   #side-panel {
-    position: sticky; top: 76px; height: calc(100vh - 96px); overflow-y: auto;
+    position: relative; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
     background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
   }
-  .panel-tabs { display: flex; gap: 4px; padding: 10px 12px 0; position: sticky; top: 0; background: var(--surface); z-index: 2; border-bottom: 1px solid var(--line); }
+  .panel-tabs { display: flex; gap: 4px; align-items: center; padding: 10px 12px 0; position: sticky; top: 0; background: var(--surface); z-index: 2; border-bottom: 1px solid var(--line); }
   .panel-tab { border: none; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-3); padding: 6px 10px 9px; cursor: pointer; border-bottom: 2px solid transparent; }
-  .panel-tab.active { color: var(--ink); border-bottom-color: var(--thread); }
+  .panel-tab:hover { color: var(--ink-2); }
+  .panel-title { font-size: 13px; font-weight: 600; color: var(--ink); padding: 6px 10px 9px; border-bottom: 2px solid var(--thread); }
   .panel-body { padding: 12px 16px 16px; }
   .panel-body .utt { font-size: 13px; }
   .utt .txt[contenteditable="true"] { outline: 2px solid var(--thread-soft); border-radius: 4px; padding: 1px 4px; }
@@ -459,6 +504,149 @@
   .pal-row .txt { font-size: 13.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pal-answer { padding: 12px 10px 4px; }
   .pal-answer .claim { padding: 8px 0; }
+
+  /* ── Block 1: the notes card (summary + themed outline) ───────────────── */
+  #outline { margin: 0; }
+  #outline .card { margin: 0; }
+  .out-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  .out-head h2 { margin: 0; }
+  .out-head .spacer { flex: 1; }
+  .out-stamp { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .out-stamp b { font-weight: 600; color: var(--ink-2); }
+  /* Mode selector: which kind of meeting this is. It picks the themes the notes
+     reach for and which handoff gets suggested. */
+  .mode-chip {
+    position: relative; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    border-radius: 999px; padding: 4px 11px 4px 10px; font: inherit; font-size: 12.5px; font-weight: 550; cursor: pointer;
+  }
+  .mode-chip:hover { border-color: var(--thread); color: var(--thread); }
+  .mode-chip .caret { color: var(--ink-3); margin-left: 3px; font-size: 10px; }
+  .out-summary {
+    font-size: 14.5px; line-height: 1.62; color: var(--ink); margin: 6px 0 2px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--line);
+  }
+  .out-tree { margin: 8px 0 0; padding: 0; list-style: none; }
+  .out-tree ul { margin: 2px 0 6px 16px; padding: 0; list-style: none; }
+  .out-theme > .out-label {
+    font-weight: 640; font-size: 14.5px; letter-spacing: -0.008em; display: block; margin: 12px 0 2px;
+  }
+  .out-tree > .out-theme:first-child > .out-label { margin-top: 2px; }
+  .out-sub > .out-label { font-weight: 600; font-size: 13.5px; color: var(--ink-2); display: block; margin: 7px 0 1px; }
+  .out-leaf { position: relative; padding-left: 15px; margin: 3px 0; font-size: 14px; }
+  .out-leaf::before {
+    content: ""; position: absolute; left: 3px; top: 8px; width: 5px; height: 5px;
+    border-radius: 50%; background: var(--ink-3); opacity: .55;
+  }
+  .out-leaf.low::before { background: none; border: 1px solid var(--ink-3); width: 5px; height: 5px; }
+  .out-text[contenteditable="true"] { outline: 2px solid var(--thread-soft); border-radius: 4px; padding: 0 3px; }
+  .out-text.edited::after { content: "edited"; font-size: 10px; color: var(--ink-3); margin-left: 6px; letter-spacing: .02em; }
+  /* Receipts are footnote numbers, not segment ids. At rest they are a faint
+     superscript that stays out of the reader's way; hovering the line they belong
+     to lights them up. Only colour changes, never size — a chip that appears out
+     of nothing shifts the text under the cursor, and mid-sentence it leaves a
+     hole that reads like a typo. */
+  .src {
+    border: none; background: none; color: var(--ink-3); font: inherit; font-size: 9.5px;
+    font-weight: 700; border-radius: 4px; padding: 0 3px; margin-left: 2px; cursor: pointer;
+    font-variant-numeric: tabular-nums; vertical-align: 4px; letter-spacing: .02em; line-height: 1;
+    opacity: .5; transition: background .12s ease, color .12s ease, opacity .12s ease;
+  }
+  .out-leaf:hover .src, .out-summary:hover .src, .out-theme:hover .src, .hcard li:hover .src,
+  .hcard tr:hover .src, .hcard p:hover .src, .hcard .email:hover .src, .src:focus-visible {
+    background: var(--thread-soft); color: var(--thread); opacity: 1;
+  }
+  .src:hover { filter: brightness(0.95); }
+  .low-flag {
+    font-size: 10px; color: var(--ink-3); border: 1px dashed var(--line); border-radius: 5px;
+    padding: 0 4px; margin-left: 6px; vertical-align: 1px;
+  }
+  .review-banner {
+    display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; color: var(--ink-2);
+    background: color-mix(in srgb, var(--warm) 9%, transparent); border: 1px solid color-mix(in srgb, var(--warm) 28%, transparent);
+    border-radius: 9px; padding: 7px 11px; margin: 10px 0 0;
+  }
+  .review-banner b { font-weight: 650; color: var(--ink); }
+  .out-skeleton div {
+    height: 11px; border-radius: 5px; margin: 9px 0;
+    background: linear-gradient(90deg, var(--line) 25%, color-mix(in srgb, var(--line) 45%, var(--surface)) 50%, var(--line) 75%);
+    background-size: 220% 100%; animation: shimmer 1.3s linear infinite;
+  }
+  .out-skeleton div:nth-child(2) { width: 78%; margin-left: 16px; }
+  .out-skeleton div:nth-child(3) { width: 64%; margin-left: 16px; }
+  .out-skeleton div:nth-child(4) { width: 44%; }
+  .out-skeleton div:nth-child(5) { width: 71%; margin-left: 16px; }
+  @keyframes shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
+  /* ── Handoffs: greyed suggestion until asked for. Lives in the chat card. */
+  .handoff-row { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; justify-content: flex-end; padding: 0 2px 9px; }
+  .handoff-row:empty { padding: 0; }
+  .handoff-row .label { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); font-weight: 600; margin-right: auto; }
+  .hchip {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-3);
+    box-shadow: 0 1px 3px rgb(60 50 30 / 0.07), 0 6px 18px rgb(30 25 15 / 0.08);
+    border-radius: 10px; padding: 5px 11px; font: inherit; font-size: 13px; cursor: pointer;
+    transition: color .14s, border-color .14s, background .14s;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  /* The "/" badge mirrors the slash menu: this is a thing you can also type. */
+  .hchip .slash {
+    border: 1px solid var(--line); border-radius: 5px; font-size: 10px; font-weight: 700;
+    width: 16px; height: 16px; display: grid; place-content: center; color: var(--ink-3);
+  }
+  .hchip .chev { color: var(--ink-3); font-size: 11px; }
+  .hchip.suggested { border-style: dashed; }
+  .hchip:hover:not(:disabled) { color: var(--thread); border-color: var(--thread); background: var(--thread-soft); }
+  .hchip.active { color: var(--thread); border-color: transparent; background: var(--thread-soft); font-weight: 600; }
+  .hchip:disabled { opacity: .55; cursor: progress; }
+  .hchip.more { color: var(--ink-3); border-style: dotted; }
+  .hcard { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 15px 18px 12px; }
+  .hcard > h3 { font-size: 14.5px; margin: 0 0 2px; letter-spacing: -0.008em; }
+  .hcard .hmeta { font-size: 11px; color: var(--ink-3); margin-bottom: 9px; }
+  .hcard .hbody { font-size: 13.5px; }
+  .hcard .hbody h4 { font-size: 12.5px; margin: 12px 0 3px; color: var(--ink-2); }
+  .hcard .hbody ul { margin: 3px 0 3px 16px; padding: 0; }
+  .hcard .hbody li { margin: 3px 0; }
+  .hcard .hbody p { margin: 5px 0; }
+  .hcard .hbody table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 6px 0; }
+  .hcard .hbody th { text-align: left; font-weight: 650; color: var(--ink-2); border-bottom: 1px solid var(--line); padding: 5px 8px 5px 0; }
+  .hcard .hbody td { border-bottom: 1px solid var(--line); padding: 6px 8px 6px 0; vertical-align: top; }
+  .hcard .hbody .email { white-space: pre-wrap; font-size: 13.5px; }
+  .hcard .hgroup { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 8px; }
+  .hcard .hgroup:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+  .hcard .hgroup .ghead { display: flex; align-items: baseline; gap: 8px; }
+  .hcard .hgroup .ghead b { font-size: 13px; }
+  .hfoot { display: flex; gap: 6px; align-items: center; margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .hfoot .spacer { flex: 1; }
+  .hbtn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); border-radius: 8px;
+    padding: 3px 11px; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .hbtn:hover { color: var(--thread); border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); }
+  .hbtn.tiny { font-size: 11px; padding: 1px 8px; }
+  .hedit {
+    width: 100%; min-height: 220px; border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px;
+    font: inherit; font-size: 13px; line-height: 1.6; background: var(--bg); color: var(--ink); resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .hcard.pending { opacity: .6; }
+  #slash-menu {
+    position: absolute; z-index: 30; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: 0 16px 44px rgb(30 25 15 / 0.18), var(--shadow);
+    padding: 6px; width: 330px; max-height: 300px; overflow-y: auto;
+  }
+  #slash-menu button {
+    display: block; width: 100%; text-align: left; border: none; background: none; font: inherit;
+    padding: 7px 10px; border-radius: 8px; cursor: pointer; color: var(--ink);
+  }
+  #slash-menu button:hover, #slash-menu button.sel { background: var(--thread-soft); }
+  #slash-menu b { display: block; font-size: 13px; font-weight: 600; }
+  #slash-menu span { display: block; font-size: 11.5px; color: var(--ink-3); }
+  .utt.seg-hl { background: var(--thread-soft); border-radius: 8px; padding: 8px 12px; margin: 0 -12px; transition: background .3s; }
+  .utt .segid {
+    font-size: 9.5px; color: var(--ink-3); font-weight: 650; letter-spacing: .03em;
+    display: block; font-variant-numeric: tabular-nums;
+  }
+  .utt.low .txt::after { content: "heard poorly"; font-size: 9.5px; color: var(--ink-3); margin-left: 7px; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -597,6 +785,7 @@ async function loadSidebar() {
 async function render() {
   document.querySelectorAll(".side-link[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === state.view && !state.meetingId));
   loadSidebar();
+  main.classList.toggle("wide", !!state.meetingId);
   if (state.meetingId) return renderMeeting(state.meetingId);
   if (state.view === "today") return renderToday();
   if (state.view === "meetings") return renderMeetings();
@@ -1203,8 +1392,9 @@ function showToast(message, actionLabel, action) {
 
 // ── The meeting workspace: notes main, chat bottom, transcript right ───
 const panelState = {
-  tab: "transcript",
-  open: localStorage.getItem("tl-panel") !== "closed",
+  // Hidden by default: the transcript is the receipt you reach for, not the
+  // thing you read. The handle stays visible so it is always one click away.
+  open: localStorage.getItem("tl-panel") === "open",
   width: Math.min(720, Math.max(280, Number(localStorage.getItem("tl-panel-w")) || 400)),
 };
 const chatHistory = {}; // meetingId → [{role, content}]
@@ -1350,6 +1540,9 @@ function wirePanelChrome(meetingId) {
 
 async function renderMeeting(id, opts = {}) {
   const live = !!opts.live;
+  // Direct calls (undo toasts, panel chrome) bypass render(), so the wide
+  // canvas is asserted here too.
+  main.classList.add("wide");
   const { meeting, utterances, claims, runs, backlinks, projects = [], suggestions = [], error } = await api(`/api/meeting?id=${encodeURIComponent(id)}`);
   if (error) { main.innerHTML = `<div class="empty">${esc(error)}</div>`; return; }
   const byKind = (k) => claims.filter((c) => c.kind === k && c.gate === "passed");
@@ -1363,26 +1556,35 @@ async function renderMeeting(id, opts = {}) {
         <div class="tag-row" id="tag-row"></div>
       </div>
       <span class="spacer"></span>
-      <button class="copybtn" id="enhance" style="margin:0">✦ Enhance notes</button>
-      <button class="copybtn" id="structure" style="margin:0" ${live ? "disabled title='available once the meeting is stitched'" : ""}>☰ Structure my notes</button>
+      <span id="mode-slot"></span>
       <button class="copybtn" id="more" style="margin:0">⋯</button>
     </div>
     <div class="workspace ${panelState.open ? "" : "collapsed"}" style="--panel-w:${panelState.width}px">
       <div class="ws-main">
-        <div id="people-chips" class="people-chips"></div>
-        <div id="notes-doc" contenteditable="true" data-ph="🧵 Start a thread…"></div>
-        <div id="chat-log"></div>
-        <div id="chat-bar">
-          ${live ? "" : `<button id="rec-inline" title="Keep recording into this meeting — new audio is added to the same transcript">● Record more</button>`}
-          <input id="chat-input" placeholder="Ask me about this meeting… (or: 'add a section on pricing')" ${live ? "disabled title='available once the meeting is stitched'" : ""}>
-          <button class="copybtn" id="chat-send" style="margin:0" ${live ? "disabled" : ""}>Ask</button>
+        <div id="outline"></div>
+        <div id="chat-dock">
+          <div id="chat-sheet" class="closed">
+            <div class="chat-top">
+              <button class="chat-icon" id="chat-clear" title="Clear this conversation">↺</button>
+              <span class="spacer"></span>
+              ${live ? "" : `<button class="chat-icon" id="rec-inline" title="Keep recording into this meeting — new audio joins the same transcript">●&nbsp;rec</button>`}
+              <button class="chat-icon" id="chat-min" title="Hide the conversation">▾</button>
+            </div>
+            <div id="chat-log"></div>
+          </div>
+          <div id="handoff-row" class="handoff-row"></div>
+          <div id="chat-bar">
+            <input id="chat-input" placeholder="Ask anything, or / for a handoff…" ${live ? "disabled title='available once the meeting is stitched'" : ""}>
+            <span class="chat-model" id="chat-model"></span>
+            <button class="chat-icon" id="handoff-more" title="Run a handoff — every kind, or just ask for one">＋</button>
+            <button id="chat-send" title="Send" ${live ? "disabled" : ""}>↑</button>
+          </div>
         </div>
       </div>
       <aside id="side-panel">
         <div class="panel-grip" id="panel-grip" title="Drag to resize"></div>
         <div class="panel-tabs">
-          <button class="panel-tab ${panelState.tab === "transcript" ? "active" : ""}" data-tab="transcript">Transcript</button>
-          <button class="panel-tab ${panelState.tab === "extracted" ? "active" : ""}" data-tab="extracted">Extracted</button>
+          <span class="panel-title">Transcript</span>
           <span class="spacer" style="flex:1"></span>
           <button class="panel-tab" id="panel-close" title="Hide panel">⟩</button>
         </div>
@@ -1400,98 +1602,48 @@ async function renderMeeting(id, opts = {}) {
     renderMeeting(id, { live: true });
   });
 
-  // Notes editor
-  const doc = $("#notes-doc");
-  doc.innerHTML = meeting.my_notes ? mdToDom(meeting.my_notes) : "<p><br></p>";
-  doc.classList.toggle("is-empty", !doc.textContent.trim());
-  wireNotesEditor(id, doc);
-
-  // Panel
+  // Block 3: the transcript. One thing, no tabs — receipts land here.
   const renderPanel = () => {
     const body = $("#panel-body");
-    if (panelState.tab === "transcript") {
-      body.innerHTML = live
-        ? `<div id="live-status" class="t-meta"></div><div id="live-feed"><div class="empty">${SPOOL_SVG}listening…</div></div>`
-        : utterances.length
-          ? utterances.map((u) => `
-              <div class="utt" data-off="${u.offset_s}" data-idx="${u.idx}">
-                <div class="ts">${fmtTs(u.offset_s)}</div>
-                <div class="who">${esc(u.speaker ?? u.speaker_role)}</div>
-                <div class="txt" title="Click to fix the transcript">${esc(u.text)}</div>
-              </div>`).join("")
-          : `<div class="empty">${SPOOL_SVG}No transcript.</div>`;
-      if (live) wireLiveFeed();
-      else wireTranscriptEdits(id, body);
-    } else {
-      body.innerHTML = `
-        ${summaryCard(meeting)}
-        ${followUpCard(meeting, claims)}
-        ${byKind("decision").length ? `<div class="card"><h2>Decisions</h2>${byKind("decision").map((c, i) => `
-          <div class="claim">✓ ${esc(c.body.text)}
-            <button class="copybtn" style="margin-left:8px;padding:2px 12px" data-share-decision="${i}">Share ↗</button>
-          </div>`).join("")}</div>` : ""}
-        ${byKind("action_item").length ? `<div class="card"><h2>Action items</h2>${byKind("action_item").map((c) => `
-          <div class="claim"><b>${esc(c.body.owner ?? "?")}</b> — ${esc(c.body.task)}${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""}</div>`).join("")}</div>` : ""}
-        ${byKind("risk").length ? `<div class="card"><h2>Risks</h2>${byKind("risk").map((c) => `
-          <div class="claim">${esc(c.body.category)} · <span class="t-meta">"${esc(c.body.quote)}"</span></div>`).join("")}</div>` : ""}
-        ${backlinks.length ? `<div class="card"><h2>Threaded to</h2>${backlinks.map((b) => `
-          <span class="backlink" data-mid="${b.id}">${esc(b.title)} <span style="opacity:.6">via ${esc(b.via)}</span></span>`).join("")}</div>` : ""}
-        <div class="exit-line">Run exit: <span class="pill ${meeting.exit === "shipped" ? "pass" : "block"}">${esc(meeting.exit ?? "…")}</span>
-          ${claims.filter((c) => c.gate === "passed").length} claims passed ·
-          ${blocked.length} blocked${blocked.length ? ` (${blocked.map((b) => esc(b.gate_reason)).join("; ")})` : ""}</div>`;
-      wireMeetingLinks();
-      wireSummary(id);
-      const decisions = byKind("decision");
-      const people = [...new Set(utterances.map((u) => u.speaker).filter(Boolean))];
-      body.querySelectorAll("[data-share-decision]").forEach((btn) =>
-        btn.addEventListener("click", () => shareDecisionCard(decisions[Number(btn.dataset.shareDecision)].body.text, meeting, people)));
-    }
+    body.innerHTML = live
+      ? `<div id="live-status" class="t-meta"></div><div id="live-feed"><div class="empty">${SPOOL_SVG}listening…</div></div>`
+      : utterances.length
+        ? utterances.map((u) => `
+            <div class="utt ${u.confidence != null && u.confidence < 0.6 ? "low" : ""}" data-off="${u.offset_s}" data-idx="${u.idx}" data-seg="${segIdOf(u.idx)}">
+              <div class="ts">${fmtTs(u.offset_s)}</div>
+              <div class="who">${esc(u.speaker ?? u.speaker_role)}</div>
+              <div class="txt" title="Click to fix the transcript">${esc(u.text)}</div>
+            </div>`).join("")
+        : `<div class="empty">${SPOOL_SVG}No transcript.</div>`;
+    if (live) wireLiveFeed();
+    else wireTranscriptEdits(id, body);
   };
   // Deep links from search / the command palette land on the exact line.
   const deepLink = state.deepLink;
   if (deepLink != null) {
     state.deepLink = null;
-    panelState.tab = "transcript";
     if (!panelState.open) {
       panelState.open = true;
       localStorage.setItem("tl-panel", "open");
       main.querySelector(".workspace").classList.remove("collapsed");
       document.getElementById("panel-reopen")?.remove();
     }
-    main.querySelectorAll(".panel-tab").forEach((x) => x.classList.toggle("active", x.dataset.tab === "transcript"));
   }
   renderPanel();
   if (deepLink != null) setTimeout(() => jumpToOffset(deepLink), 60);
-  main.querySelectorAll(".panel-tab").forEach((t) =>
-    t.addEventListener("click", () => {
-      panelState.tab = t.dataset.tab;
-      main.querySelectorAll(".panel-tab").forEach((x) => x.classList.toggle("active", x === t));
-      renderPanel();
-    }));
 
-  // Enhance / Structure
-  $("#enhance").addEventListener("click", async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true; btn.textContent = "✦ Enhancing…";
-    const before = domToMd(doc);
-    const out = await fetch("/api/notes/enhance", { method: "POST", body: JSON.stringify({ id, notes: before }) }).then((r) => r.json());
-    btn.disabled = false; btn.textContent = "✦ Enhance notes";
-    if (out.error) return alert(out.error);
-    applyNotesUpdate(doc, id, before, out.notes, "Notes enhanced");
-  });
-  $("#structure").addEventListener("click", async (e) => {
-    const btn = e.currentTarget;
-    btn.disabled = true; btn.textContent = "☰ Structuring…";
-    const before = domToMd(doc);
-    const out = await fetch("/api/notes/structure", { method: "POST", body: JSON.stringify({ id, notes: before }) }).then((r) => r.json());
-    btn.disabled = false; btn.textContent = "☰ Structure my notes";
-    if (out.error) return alert(out.error);
-    applyNotesUpdate(doc, id, before, out.notes, "Notes structured");
-    renderPeopleChips(id, out.people ?? []);
-  });
+  // Block 2: chat. Handoff cards and their options land in here too.
+  wireChat(id);
 
-  // Chat
-  wireChat(id, doc);
+  // Block 1: notes. They generate themselves; handoffs never do. While
+  // recording there is no finished transcript to ground against, so generation
+  // waits and the card shows whatever already exists.
+  renderOutlineSection(id, { generate: !live, meeting }).then((data) => {
+    const input = $("#chat-input");
+    if (input && !input.disabled) wireSlashMenu(id, input, data?.catalog ?? []);
+    const label = $("#chat-model");
+    if (label && data?.chat) label.textContent = data.chat.available ? data.chat.model : "no OpenAI key";
+  });
 
   // Overflow menu (regenerate / file / advanced correct)
   $("#more").addEventListener("click", async () => {
@@ -1530,32 +1682,756 @@ function applyNotesUpdate(doc, meetingId, beforeMd, newMd, toastMsg) {
   if (toastMsg) showToast(toastMsg);
 }
 
-/** Person-mapping suggestions from Structure → one-click corrections. */
-function renderPeopleChips(meetingId, people) {
-  const box = $("#people-chips");
-  if (!box) return;
-  const useful = people.filter((p) =>
-    p.inferred_name && p.heard_as &&
-    p.inferred_name !== p.heard_as &&
-    !["them", "you", "unidentified speaker"].includes(p.inferred_name.toLowerCase()) &&
-    !["them", "you"].includes(p.heard_as.toLowerCase()));
-  box.innerHTML = useful.map((p, i) => `
-    <button class="people-chip" data-i="${i}">“${esc(p.heard_as)}” is <b>${esc(p.inferred_name)}</b>${p.team ? ` · ${esc(p.team)}` : ""} — fix everywhere</button>`).join("");
-  box.querySelectorAll(".people-chip").forEach((chip) =>
-    chip.addEventListener("click", async () => {
-      const p = useful[Number(chip.dataset.i)];
-      const out = await fetch("/api/correction/auto", {
-        method: "POST",
-        body: JSON.stringify({ meeting_id: meetingId, from_text: p.heard_as, to_text: p.inferred_name }),
-      }).then((r) => r.json());
-      chip.remove();
-      if (out.error) return alert(out.error);
-      showToast(`Fixed ${out.applied} place${out.applied === 1 ? "" : "s"}`, "Undo", async () => {
-        await fetch("/api/correction/undo", { method: "POST", body: JSON.stringify({ event_id: out.eventId }) });
-        renderMeeting(meetingId);
-      });
-      renderMeeting(meetingId);
+// ══ Grounded notes & handoffs ════════════════════════════════════════════
+// The outline is always on and sits at the top. Handoffs are chips that do
+// nothing until clicked — the type-appropriate one is dashed and grey until it
+// has actually been run. Every claim carries a segment chip that lands the
+// reader on the transcript line it came from: trust you can click.
+
+/** Mirror of lib/segments.ts — utterance index → segment id. */
+const segIdOf = (idx) => `S${String(Number(idx) + 1).padStart(3, "0")}`;
+
+/**
+ * Click a receipt → the transcript panel opens on the exact line(s) it cites.
+ *
+ * Done by toggling classes rather than re-rendering the meeting: a re-render
+ * would throw away the handoff cards sitting in the chat log, and the panel's
+ * content is always in the DOM anyway (collapsing it only hides it).
+ */
+function jumpToSegments(ids) {
+  const list = Array.isArray(ids) ? ids : [ids];
+  const ws = main.querySelector(".workspace");
+  if (ws && !panelState.open) {
+    panelState.open = true;
+    localStorage.setItem("tl-panel", "open");
+    ws.classList.remove("collapsed");
+    document.getElementById("panel-reopen")?.remove();
+  }
+  main.querySelectorAll(".utt.seg-hl").forEach((u) => u.classList.remove("seg-hl"));
+  let first = null;
+  for (const id of list) {
+    const el = main.querySelector(`.utt[data-seg="${id}"]`);
+    if (!el) continue;
+    el.classList.add("seg-hl");
+    if (!first) first = el;
+  }
+  if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
+  else showToast("That line is no longer in this transcript.");
+}
+
+/**
+ * Receipts as footnotes.
+ *
+ * A reader does not care that a claim came from segment S004 — that is our
+ * bookkeeping. They care that it is claim number 3 in what they are reading and
+ * that clicking it shows the words. So each block gets its own counter, numbered
+ * in reading order, and identical citations share a number the way footnotes do.
+ */
+function makeReceipts() {
+  const seen = new Map();
+  let n = 0;
+  return (source) => {
+    if (!source?.length) return "";
+    const key = source.join(",");
+    if (!seen.has(key)) seen.set(key, ++n);
+    return `<button class="src" data-src="${esc(key)}" title="Show the line${source.length > 1 ? "s" : ""} this rests on">${seen.get(key)}</button>`;
+  };
+}
+
+function wireSrcChips(root) {
+  root.querySelectorAll("[data-src]").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      jumpToSegments(b.dataset.src.split(","));
     }));
+}
+
+/** The themed outline: labels are plain text, leaves carry numbered receipts. */
+function outlineTree(bullets, rc, prefix = "") {
+  return bullets
+    .map((b, i) => {
+      const path = prefix ? `${prefix}.${i}` : String(i);
+      const isLeaf = !b.children || !b.children.length;
+      if (isLeaf)
+        return `<li class="out-leaf ${b.lowConfidence ? "low" : ""}">
+          <span class="out-text ${b.edited ? "edited" : ""}" data-path="${path}" title="Click to edit">${esc(b.text)}</span>${rc(b.source)}${
+            b.lowConfidence ? `<span class="low-flag" title="Every line this rests on was heard poorly — worth checking">heard poorly</span>` : ""
+          }</li>`;
+      return `<li class="${prefix ? "out-sub" : "out-theme"}">
+        <span class="out-label out-text ${b.edited ? "edited" : ""}" data-path="${path}" title="Click to rename this theme">${esc(b.text)}</span>
+        <ul>${outlineTree(b.children, rc, path)}</ul>
+      </li>`;
+    })
+    .join("");
+}
+
+const MODE_LABELS = {
+  investor: "Investor",
+  vendor: "Vendor",
+  customer: "Customer",
+  team: "Team",
+  one_on_one: "1:1",
+};
+
+/** Header shared by every state of the notes card, so the chrome never jumps. */
+function notesHead(extra = "") {
+  return `<div class="out-head">
+    <h2>Notes</h2>
+    <button class="hbtn" id="out-structure" title="Rebuild the notes from the transcript for this mode">☰ Structure my notes</button>
+    <span class="spacer"></span>
+    ${extra}
+  </div>`;
+}
+
+/**
+ * The mode chip, in the meeting header. It is a property of the MEETING — it
+ * decides which sections the notes reach for and which handoff gets suggested —
+ * so it sits with the title, not inside the notes card, and it survives every
+ * re-render of the card below it.
+ */
+function renderModeChip(meetingId, data) {
+  const slot = $("#mode-slot");
+  if (!slot) return;
+  const mode = data.meeting_type ?? "team";
+  slot.innerHTML = `<button class="mode-chip" id="mode-chip" title="What kind of meeting this is — it picks the sections the notes reach for, and which handoff is suggested">✦ ${esc(MODE_LABELS[mode] ?? mode)}<span class="caret">▾</span></button>`;
+  slot.querySelector("#mode-chip").addEventListener("click", (e) => openModePicker(meetingId, data, e.currentTarget));
+}
+
+/**
+ * Block 1. One notes surface: the grounded outline when there is one, otherwise
+ * the founder's own editable page. Structure turns the second into the first.
+ */
+function notesCard(data) {
+  const outline = data.outline;
+  const mode = data.meeting_type;
+  const rough = (data.meeting?.my_notes ?? "").trim();
+  if (!outline) {
+    return `<div class="card">
+      ${notesHead()}
+      <div id="notes-doc" contenteditable="true" data-ph="🧵 Start a thread… or hit Structure my notes"></div>
+      ${data.model && !data.model.configured
+        ? `<div class="review-banner"><b>No model configured.</b><span>Add PYAI_API_KEY or OPENAI_API_KEY to .env to have notes write themselves.</span></div>`
+        : ""}
+    </div>`;
+  }
+  const rc = makeReceipts();
+  const empty = !outline.notes?.themes?.length && !outline.notes?.summary;
+  const summary = outline.notes?.summary;
+  return `<div class="card">
+    ${notesHead(
+      `<span class="out-stamp">${outline.edited ? "<b>edited</b> · " : ""}${esc(outline.promptVersion)}</span>
+       <button class="hbtn" id="out-copy">Copy</button>
+       <button class="hbtn" id="out-edit">Edit</button>`,
+    )}
+    ${empty
+      ? `<div class="empty" style="padding:18px 0">Nothing in this transcript could be grounded. Nothing invented to fill the gap.</div>`
+      : `${summary?.text
+            ? `<p class="out-summary"><span class="out-text ${summary.edited ? "edited" : ""}" data-path="summary" title="Click to edit">${esc(summary.text)}</span>${rc(summary.source)}${
+                summary.lowConfidence ? `<span class="low-flag">heard poorly</span>` : ""
+              }</p>`
+            : ""}
+         <ul class="out-tree">${outlineTree(outline.notes.themes ?? [], rc)}</ul>`}
+    ${outline.needsReview
+      ? `<div class="review-banner"><b>Low confidence — please review.</b>
+          <span>${outline.dropped ? `${outline.dropped} line${outline.dropped === 1 ? "" : "s"} the transcript didn't support ${outline.dropped === 1 ? "was" : "were"} dropped rather than guessed at.` : "Some lines couldn't be verified."}</span></div>`
+      : ""}
+    ${rough ? `<div class="hfoot"><span class="spacer"></span><button class="hbtn tiny" id="out-rough">your rough notes ›</button></div>` : ""}
+  </div>`;
+}
+
+/** Fetch + render block 1 (and seed blocks 2's chips). Skeleton while it works. */
+async function renderOutlineSection(meetingId, opts = {}) {
+  const box = $("#outline");
+  if (!box) return;
+  box.innerHTML = `<div class="card">${notesHead()}
+    <div class="out-skeleton"><div></div><div></div><div></div><div></div><div></div></div></div>`;
+  const data = await api(`/api/outline?id=${encodeURIComponent(meetingId)}${opts.generate === false ? "&generate=0" : ""}`);
+  data.meeting = opts.meeting ?? null;
+  if (data.error && !data.outline) {
+    box.innerHTML = `<div class="card">${notesHead()}<div class="empty" style="padding:22px 0">${esc(data.error)}</div></div>`;
+    wireOutline(meetingId, data);
+  } else {
+    box.innerHTML = notesCard(data);
+    wireOutline(meetingId, data);
+  }
+  renderModeChip(meetingId, data);
+  renderHandoffRow(meetingId, data.catalog ?? [], data.handoffs ?? []);
+  for (const run of data.handoffs ?? []) appendHandoffCard(meetingId, run, { replay: true });
+  return data;
+}
+
+function wireOutline(meetingId, data) {
+  const box = $("#outline");
+  if (!box) return;
+  const outline = data.outline;
+  wireSrcChips(box);
+
+  // The free page, when there is no structured outline yet: the founder's own
+  // notes, autosaved, and fed to Structure as steering.
+  const doc = $("#notes-doc");
+  if (doc) {
+    doc.innerHTML = data.meeting?.my_notes ? mdToDom(data.meeting.my_notes) : "<p><br></p>";
+    doc.classList.toggle("is-empty", !doc.textContent.trim());
+    wireNotesEditor(meetingId, doc);
+  }
+
+  $("#out-structure")?.addEventListener("click", async (e) => {
+    if (outline?.edited && !confirm("You've edited these notes. Structuring again replaces them with a fresh pass. Continue?")) return;
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.textContent = "☰ Structuring…";
+    const body = $("#outline .card");
+    // Rough notes steer the structure; they never become a citation.
+    const hints = doc ? domToMd(doc) : "";
+    const out = await post("/api/outline/generate", { id: meetingId, force: true, mode: data.meeting_type, hints });
+    if (out.error && !out.outline) {
+      btn.disabled = false;
+      btn.textContent = "☰ Structure my notes";
+      return alert(out.error);
+    }
+    const next = { ...data, outline: out.outline, meeting_type: out.meeting_type ?? data.meeting_type, catalog: out.catalog ?? data.catalog };
+    box.innerHTML = notesCard(next);
+    wireOutline(meetingId, next);
+    renderHandoffRow(meetingId, next.catalog ?? [], data.handoffs ?? []);
+    showToast(outline ? "Notes rebuilt" : "Notes structured");
+  });
+
+  $("#out-copy")?.addEventListener("click", async (e) => {
+    // Copy is the clean form: summary + nested bullets, no receipts.
+    await navigator.clipboard.writeText(outlineToMarkdown(outline.notes, false));
+    flashBtn(e.currentTarget, "Copied ✓");
+  });
+
+  $("#out-edit")?.addEventListener("click", () => openOutlineEditor(meetingId, data));
+
+  // The rough page is never lost when notes get structured — it is one click away.
+  $("#out-rough")?.addEventListener("click", () => {
+    box.innerHTML = `<div class="card">${notesHead(`<button class="hbtn" id="out-back">‹ structured notes</button>`)}
+      <div id="notes-doc" contenteditable="true" data-ph="🧵 Your own notes…"></div></div>`;
+    const raw = $("#notes-doc");
+    raw.innerHTML = data.meeting?.my_notes ? mdToDom(data.meeting.my_notes) : "<p><br></p>";
+    wireNotesEditor(meetingId, raw);
+    $("#out-back").addEventListener("click", () => {
+      box.innerHTML = notesCard(data);
+      wireOutline(meetingId, data);
+    });
+  });
+
+  if (!outline) return;
+  // Inline edit of one line, saved as the whole tree so the summary, labels and
+  // leaves all travel the same path.
+  box.querySelectorAll(".out-text[data-path]").forEach((el) =>
+    el.addEventListener("click", () => {
+      if (el.isContentEditable) return;
+      const original = el.textContent;
+      el.contentEditable = "true";
+      el.focus();
+      const done = async (save) => {
+        el.contentEditable = "false";
+        const text = el.textContent.trim();
+        if (!save || !text || text === original.trim()) { el.textContent = original; return; }
+        const node = el.dataset.path === "summary" ? outline.notes.summary : bulletAtPath(outline.notes, el.dataset.path);
+        if (!node) { el.textContent = original; return; }
+        node.text = text;
+        node.edited = true;
+        const out = await post("/api/outline/edit", { id: meetingId, markdown: outlineToMarkdown(outline.notes, true) });
+        if (out.error) { alert(out.error); el.textContent = original; return; }
+        el.classList.add("edited");
+        outline.edited = true;
+      };
+      el.addEventListener("blur", () => done(true), { once: true });
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") { ev.preventDefault(); el.blur(); }
+        if (ev.key === "Escape") { el.textContent = original; el.blur(); }
+      });
+    }));
+}
+
+/** Mode picker: the meeting type, which drives themes and the suggested handoff. */
+function openModePicker(meetingId, data, anchor) {
+  document.getElementById("slash-menu")?.remove();
+  const r = anchor.getBoundingClientRect();
+  const menu = document.createElement("div");
+  menu.id = "slash-menu";
+  menu.style.width = "260px";
+  menu.innerHTML = Object.entries(MODE_LABELS)
+    .map(
+      ([id, label]) => `<button data-mode="${id}"><b>${id === data.meeting_type ? "✓ " : ""}${esc(label)}</b>
+        <span>${esc(MODE_BLURBS[id])}</span></button>`,
+    )
+    .join("");
+  menu.style.left = `${Math.min(r.left + window.scrollX, window.innerWidth - 280)}px`;
+  menu.style.top = `${r.bottom + window.scrollY + 6}px`;
+  document.body.appendChild(menu);
+  const close = (ev) => {
+    if (!menu.contains(ev.target) && ev.target !== anchor) { menu.remove(); document.removeEventListener("mousedown", close); }
+  };
+  document.addEventListener("mousedown", close);
+  menu.querySelectorAll("[data-mode]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      menu.remove();
+      const mode = b.dataset.mode;
+      if (mode === data.meeting_type) return;
+      const out = await post("/api/meeting/type", { id: meetingId, type: mode });
+      if (out.error) return alert(out.error);
+      data.meeting_type = out.meeting_type;
+      data.catalog = out.catalog ?? data.catalog;
+      renderModeChip(meetingId, data);
+      renderHandoffRow(meetingId, data.catalog ?? [], data.handoffs ?? []);
+      // The mode changes which sections the notes reach for, so offer the rebuild
+      // rather than silently spending a model call.
+      showToast(`Mode set to ${MODE_LABELS[data.meeting_type]}`, "Rebuild notes", () => $("#out-structure")?.click());
+    }));
+}
+
+const MODE_BLURBS = {
+  investor: "Traction, metrics, asks and commitments",
+  vendor: "Pricing, terms, scope, open questions",
+  customer: "Needs, blockers, objections, next steps",
+  team: "Decisions, blockers, timelines, ownership",
+  one_on_one: "Signals, strengths, concerns, growth",
+};
+
+/** Full-outline markdown editor — the round-trip made visible. */
+function openOutlineEditor(meetingId, data) {
+  const box = $("#outline");
+  const md = outlineToMarkdown(data.outline.notes, true);
+  box.innerHTML = `<div class="card">
+    ${notesHead(`<span class="out-stamp">markdown · keep the <b>[S004]</b> receipts to keep the links</span>`)}
+    <textarea class="hedit" id="out-md">${esc(md)}</textarea>
+    <div class="hfoot"><span class="spacer"></span>
+      <button class="hbtn" id="out-cancel">Cancel</button>
+      <button class="hbtn" id="out-save" style="color:var(--thread);border-color:var(--thread)">Save</button>
+    </div></div>`;
+  $("#out-cancel").addEventListener("click", () => {
+    box.innerHTML = notesCard(data);
+    wireOutline(meetingId, data);
+  });
+  $("#out-save").addEventListener("click", async () => {
+    const out = await post("/api/outline/edit", { id: meetingId, markdown: $("#out-md").value });
+    if (out.error) return alert(out.error);
+    const next = { ...data, outline: out.outline };
+    box.innerHTML = notesCard(next);
+    wireOutline(meetingId, next);
+    showToast("Notes saved");
+  });
+}
+
+/** Client-side mirror of lib/outline.ts. `withSources` false = clipboard form. */
+function outlineToMarkdown(notes, withSources) {
+  const lines = [];
+  if (notes?.summary?.text) {
+    const src = withSources && notes.summary.source?.length ? ` [${notes.summary.source.join(", ")}]` : "";
+    lines.push(`${notes.summary.text}${src}`, "");
+  }
+  const walk = (bullets, depth) => {
+    for (const b of bullets ?? []) {
+      const indent = "  ".repeat(depth);
+      const leaf = !b.children || !b.children.length;
+      if (leaf) {
+        const src = withSources && b.source?.length ? ` [${b.source.join(", ")}${b.lowConfidence ? " ?" : ""}]` : "";
+        lines.push(`${indent}- ${b.text}${src}`);
+      } else {
+        lines.push(`${indent}- ${b.text}`);
+        walk(b.children, depth + 1);
+      }
+    }
+  };
+  walk(notes?.themes ?? [], 0);
+  return lines.join("\n");
+}
+
+function bulletAtPath(notes, path) {
+  let level = notes?.themes ?? [];
+  let node = null;
+  for (const i of path.split(".").map(Number)) {
+    node = level?.[i];
+    if (!node) return null;
+    level = node.children;
+  }
+  return node;
+}
+
+// ── Handoff chips: nothing runs unprompted ─────────────────────────────────
+
+/** The catalog the composer's ＋ opens. Updated whenever the mode changes. */
+let currentCatalog = [];
+
+function renderHandoffRow(meetingId, catalog, runs) {
+  const row = $("#handoff-row");
+  if (!row) return;
+  const ran = new Set((runs ?? []).map((r) => r.handoffId));
+  const dflt = catalog.find((h) => h.isDefault);
+  const chip = (h, active) =>
+    `<button class="hchip ${active ? "active" : "suggested"}" data-run="${h.id}"
+      title="${esc(h.blurb)}${active ? "" : " — suggested for this meeting type. Click to run it."}">
+      <span class="slash">/</span>${esc(h.label)}<span class="chev">›</span></button>`;
+  // The type's default sits here greyed and dashed until it has actually run.
+  const chips = dflt ? [chip(dflt, ran.has(dflt.id))] : [];
+  for (const h of catalog.filter((h) => !h.isDefault && ran.has(h.id))) chips.push(chip(h, true));
+  row.innerHTML = chips.join("");
+
+  row.querySelectorAll("[data-run]").forEach((b) =>
+    b.addEventListener("click", () => {
+      // An active chip is a bookmark, not a rerun button: open the conversation
+      // on its most recent card. Rerunning stays on the card's own Regenerate.
+      if (b.classList.contains("active")) {
+        openChatSheet();
+        const cards = document.querySelectorAll(`#chat-log .hcard[data-handoff="${b.dataset.run}"]`);
+        const last = cards[cards.length - 1];
+        if (last) return void last.scrollIntoView({ block: "nearest" });
+      }
+      runHandoffFromUI(meetingId, b.dataset.run, b);
+    }));
+  // The full menu lives in the composer, next to the input — picking a handoff is
+  // the same gesture as asking for one, so it belongs in the same place.
+  const more = $("#handoff-more");
+  if (more && !more.dataset.wired) {
+    more.dataset.wired = "1";
+    more.addEventListener("click", () => openHandoffMenu(meetingId, currentCatalog, more));
+  }
+  currentCatalog = catalog;
+}
+
+function openHandoffMenu(meetingId, catalog, anchor) {
+  document.getElementById("slash-menu")?.remove();
+  const r = anchor.getBoundingClientRect();
+  const menu = document.createElement("div");
+  menu.id = "slash-menu";
+  menu.innerHTML = catalog
+    .map(
+      (h) => `<button data-pick="${h.id}"><b>${esc(h.label)}${h.isDefault ? " · suggested" : ""}${
+        h.scope === "cross-meeting" ? " · across meetings" : ""
+      }</b><span>${esc(h.blurb)}</span></button>`,
+    )
+    .join("");
+  menu.style.left = `${Math.min(r.left + window.scrollX, window.innerWidth - 350)}px`;
+  document.body.appendChild(menu);
+  // Anchored in the lower half (the composer ＋), the menu opens upward.
+  if (r.top > window.innerHeight / 2) menu.style.top = `${r.top + window.scrollY - menu.offsetHeight - 8}px`;
+  else menu.style.top = `${r.bottom + window.scrollY + 6}px`;
+  const close = (ev) => {
+    if (!menu.contains(ev.target) && ev.target !== anchor) { menu.remove(); document.removeEventListener("mousedown", close); }
+  };
+  document.addEventListener("mousedown", close);
+  menu.querySelectorAll("[data-pick]").forEach((b) =>
+    b.addEventListener("click", () => {
+      menu.remove();
+      runHandoffFromUI(meetingId, b.dataset.pick);
+    }));
+}
+
+/** Run a handoff and render its card into the chat log. */
+async function runHandoffFromUI(meetingId, handoffId, chip, opts = {}) {
+  const cross = handoffId === "collated_feedback";
+  if (chip) { chip.disabled = true; chip.dataset.was = chip.innerHTML; chip.innerHTML = "<span class=\"slash\">/</span>Running…"; }
+  const placeholder = pendingCard(handoffId);
+  const out = await post(cross ? "/api/handoff/cross" : "/api/handoff/run", {
+    meeting_id: meetingId,
+    handoff_id: handoffId,
+    refine: opts.refine,
+  });
+  placeholder.remove();
+  if (chip) { chip.disabled = false; chip.innerHTML = chip.dataset.was; }
+  if (out.error || !out.run) {
+    const b = document.createElement("div");
+    b.className = "chat-b ai";
+    b.textContent = `⚠ ${out.error ?? "that handoff produced nothing"}`;
+    $("#chat-log").appendChild(b);
+    return null;
+  }
+  markChipActive(handoffId);
+  appendHandoffCard(meetingId, out.run);
+  return out.run;
+}
+
+/** A suggested chip stops being a suggestion once it has produced something. */
+function markChipActive(handoffId) {
+  const chip = $(`#handoff-row [data-run="${handoffId}"]`);
+  if (chip) {
+    chip.classList.remove("suggested");
+    chip.classList.add("active");
+  }
+}
+
+function pendingCard(handoffId) {
+  openChatSheet();
+  const el = document.createElement("div");
+  el.className = "hcard pending";
+  el.innerHTML = `<h3>${esc(handoffId.replace(/_/g, " "))}</h3>
+    <div class="hmeta">grounding it in the transcript…</div>
+    <div class="out-skeleton"><div></div><div></div><div></div></div>`;
+  $("#chat-log").appendChild(el);
+  el.scrollIntoView({ block: "nearest" });
+  return el;
+}
+
+const HANDOFF_LABELS = {
+  team_actions: "Team action items",
+  pricing_quote: "Pricing quote",
+  followup_email: "Follow-up email",
+  summary_next_steps: "Summary & next steps",
+  candidate_feedback: "Candidate feedback",
+  collated_feedback: "Collated customer feedback",
+};
+
+function appendHandoffCard(meetingId, run, opts = {}) {
+  const log = $("#chat-log");
+  if (!log) return;
+  const el = document.createElement("div");
+  el.className = "hcard";
+  el.dataset.runId = run.id;
+  el.dataset.handoff = run.handoffId;
+  el.innerHTML = handoffCardInner(run);
+  log.appendChild(el);
+  wireHandoffCard(meetingId, run, el);
+  // A fresh card summons the sheet; replayed history stays tucked away until
+  // the chat is engaged.
+  if (!opts.replay) {
+    openChatSheet();
+    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+  return el;
+}
+
+function handoffCardInner(run) {
+  const label = HANDOFF_LABELS[run.handoffId] ?? run.handoffId;
+  return `<h3>${esc(label)}</h3>
+    <div class="hmeta">${run.edited ? "<b>edited</b> · " : ""}${esc(run.promptVersion)}${
+      run.dropped ? ` · ${run.dropped} unsupported line${run.dropped === 1 ? "" : "s"} dropped` : ""
+    }</div>
+    <div class="hbody">${run.edited && run.editedMarkdown ? `<div class="email">${esc(run.editedMarkdown)}</div>` : handoffBody(run)}</div>
+    ${run.needsReview ? `<div class="review-banner"><b>Low confidence — please review.</b><span>Some lines couldn't be verified against the transcript and were dropped.</span></div>` : ""}
+    <div class="hfoot">
+      <button class="hbtn" data-act="copy">Copy</button>
+      <button class="hbtn" data-act="edit">Edit</button>
+      <button class="hbtn" data-act="regen">Regenerate</button>
+      <button class="hbtn" data-act="refine">Refine…</button>
+      <span class="spacer"></span>
+      <button class="hbtn tiny" data-act="why" title="Prompt version, dropped lines and why">why?</button>
+      <button class="hbtn tiny" data-act="dismiss" title="Remove this card">✕</button>
+    </div>`;
+}
+
+/** One renderer per output shape. Each one keeps its receipts clickable. */
+function handoffBody(run) {
+  const v = run.value ?? {};
+  // Each card numbers its own receipts from 1, like footnotes on a page.
+  const rc = makeReceipts();
+  const items = (list) =>
+    `<ul>${(list ?? [])
+      .map((i) => `<li>${esc(i.text)}${rc(i.source)}${i.lowConfidence ? `<span class="low-flag">heard poorly</span>` : ""}</li>`)
+      .join("")}</ul>`;
+  const actions = (list) =>
+    `<ul>${(list ?? [])
+      .map(
+        (i) => `<li><b>${esc(i.owner)}</b> — ${esc(i.text)}${i.due ? ` <span class="pill">${esc(i.due)}</span>` : ""}${rc(i.source)}${
+          i.lowConfidence ? `<span class="low-flag">heard poorly</span>` : ""
+        }</li>`,
+      )
+      .join("")}</ul>`;
+
+  switch (run.handoffId) {
+    case "team_actions":
+      return (v.perOwner ?? [])
+        .map(
+          (g, i) => `<div class="hgroup"><div class="ghead"><b>${esc(g.owner)}</b>
+            <button class="hbtn tiny" data-block="${i}">Copy this block</button></div>${actions(g.items)}</div>`,
+        )
+        .join("");
+    case "pricing_quote":
+      return `${
+        (v.quotes ?? []).length
+          ? `<table><thead><tr><th>Item</th><th>Price</th><th>Unit</th><th>Terms</th><th>Valid until</th><th></th></tr></thead>
+             <tbody>${v.quotes
+               .map(
+                 (q) => `<tr><td>${esc(q.item)}</td><td><b>${esc(q.price)}</b></td><td>${esc(q.unit || "—")}</td>
+                   <td>${esc(q.terms || "—")}</td><td>${esc(q.validUntil || "—")}</td>
+                   <td>${rc(q.source)}${q.lowConfidence ? `<span class="low-flag">heard poorly</span>` : ""}</td></tr>`,
+               )
+               .join("")}</tbody></table>`
+          : `<p style="color:var(--ink-3)">No price was quoted clearly enough to record.</p>`
+      }${(v.unclear ?? []).length ? `<h4>Not quoted / unclear</h4>${items(v.unclear)}` : ""}`;
+    case "followup_email":
+      return `<p><b>Subject:</b> ${esc(v.subject ?? "")}</p><div class="email">${emailBody(v.body ?? "", rc)}</div>`;
+    case "summary_next_steps":
+      return `<ul class="out-tree">${outlineTree(v.themes ?? [], rc)}</ul>
+        ${(v.nextSteps ?? []).length ? `<h4>Next steps</h4>${actions(v.nextSteps)}` : ""}
+        ${(v.openQuestions ?? []).length ? `<h4>Open questions</h4>${items(v.openQuestions)}` : ""}`;
+    case "candidate_feedback":
+      return `${(v.signals ?? []).length ? `<h4>Signals observed</h4>${items(v.signals)}` : ""}
+        ${(v.strengths ?? []).length ? `<h4>Strengths</h4>${items(v.strengths)}` : ""}
+        ${(v.concerns ?? []).length ? `<h4>Concerns</h4>${items(v.concerns)}` : ""}
+        <h4>Stated lean</h4>${
+          v.statedLean
+            ? `<p>${esc(v.statedLean.text)}${rc(v.statedLean.source)}</p>`
+            : `<p style="color:var(--ink-3)">None stated on the call — left for you to decide.</p>`
+        }`;
+    case "collated_feedback":
+      return `<ul>${(v.themes ?? [])
+        .map(
+          (t) => `<li><b>${esc(t.theme)}</b> <span class="pill">${t.frequency} mention${t.frequency === 1 ? "" : "s"}</span>
+            <span class="t-meta">${esc(String(t.kind ?? "").replace("_", " "))}</span><br>
+            <span class="t-meta">heard in: ${(t.examples ?? [])
+              .map((e) => `${esc(v.meetingTitles?.[e.meetingId] ?? e.meetingId)} ${rc(e.source)}`)
+              .join(" · ")}</span></li>`,
+        )
+        .join("")}</ul>`;
+    default:
+      return `<div class="email">${esc(run.markdown ?? "")}</div>`;
+  }
+}
+
+/** Email body: inline `[S004]` markers become chips, `**bold**` becomes bold. */
+function emailBody(body, rc) {
+  return esc(body)
+    .replace(/\[((?:[A-Za-z]\d+)(?:\s*,\s*[A-Za-z]\d+)*)\]/g, (m, ids) => rc(ids.split(",").map((s) => s.trim())))
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+}
+
+function wireHandoffCard(meetingId, run, el) {
+  wireSrcChips(el);
+  const act = (name) => el.querySelector(`[data-act="${name}"]`);
+
+  el.querySelectorAll("[data-block]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const g = run.value.perOwner[Number(b.dataset.block)];
+      const md = `${g.owner}\n${g.items.map((i) => `- ${i.text}${i.due ? ` (${i.due})` : ""}`).join("\n")}`;
+      await navigator.clipboard.writeText(md);
+      flashBtn(b, "Copied ✓");
+    }));
+
+  act("copy").addEventListener("click", async (e) => {
+    await navigator.clipboard.writeText(run.edited && run.editedMarkdown ? run.editedMarkdown : run.markdown);
+    flashBtn(e.currentTarget, "Copied ✓");
+  });
+
+  act("edit").addEventListener("click", () => {
+    const body = el.querySelector(".hbody");
+    const current = run.edited && run.editedMarkdown ? run.editedMarkdown : run.markdown;
+    body.innerHTML = `<textarea class="hedit">${esc(current)}</textarea>`;
+    const ta = body.querySelector("textarea");
+    const foot = el.querySelector(".hfoot");
+    foot.innerHTML = `<span class="spacer"></span>
+      <button class="hbtn" data-act="cancel">Cancel</button>
+      <button class="hbtn" data-act="save" style="color:var(--thread);border-color:var(--thread)">Save</button>`;
+    foot.querySelector('[data-act="cancel"]').addEventListener("click", () => {
+      el.innerHTML = handoffCardInner(run);
+      wireHandoffCard(meetingId, run, el);
+    });
+    foot.querySelector('[data-act="save"]').addEventListener("click", async () => {
+      const out = await post("/api/handoff/edit", { id: run.id, markdown: ta.value });
+      if (out.error) return alert(out.error);
+      el.innerHTML = handoffCardInner(out.run);
+      wireHandoffCard(meetingId, out.run, el);
+      showToast("Edit saved");
+    });
+  });
+
+  act("regen").addEventListener("click", async () => {
+    // An edit is never silently thrown away.
+    if (run.edited && !confirm("You've edited this. Regenerating replaces your version. Continue?")) return;
+    el.classList.add("pending");
+    const fresh = await runHandoffFromUI(meetingId, run.handoffId);
+    if (fresh) el.remove();
+    else el.classList.remove("pending");
+  });
+
+  act("refine").addEventListener("click", async () => {
+    const instruction = prompt("How should this change?\n(e.g. \"shorter\", \"group by team\", \"warmer opening\")");
+    if (!instruction?.trim()) return;
+    el.classList.add("pending");
+    const fresh = await runHandoffFromUI(meetingId, run.handoffId, null, { refine: instruction.trim() });
+    if (fresh) el.remove();
+    else el.classList.remove("pending");
+  });
+
+  act("why").addEventListener("click", async () => {
+    const dbg = await api(`/api/grounding/debug?id=${encodeURIComponent(meetingId)}`);
+    const mine = (dbg.handoffs ?? []).find((h) => h.id === run.id) ?? {};
+    const lines = [
+      `prompt: ${run.promptVersion}`,
+      `model: ${dbg.model?.provider}/${dbg.model?.model}`,
+      `facts extracted: ${dbg.facts?.count ?? 0} (${dbg.facts?.dropped?.length ?? 0} refused at extraction)`,
+      `dropped here: ${mine.dropped ?? run.dropped ?? 0}`,
+      "",
+      ...(mine.failures ?? run.failures ?? []).slice(0, 8).map((f) => `[${f.rule}] ${f.detail}`),
+      ...(dbg.facts?.dropped ?? []).slice(0, 5).map((d) => `[extraction] "${d.text.slice(0, 60)}" — ${d.reason}`),
+    ];
+    alert(lines.join("\n"));
+  });
+
+  act("dismiss").addEventListener("click", async () => {
+    await post("/api/handoff/delete", { id: run.id });
+    el.remove();
+  });
+}
+
+function flashBtn(btn, text) {
+  const was = btn.textContent;
+  btn.textContent = text;
+  setTimeout(() => (btn.textContent = was), 1400);
+}
+
+const post = (url, body) =>
+  fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
+
+/** `/` in the chat box opens the handoff menu. Typing filters it. */
+function wireSlashMenu(meetingId, input, catalog) {
+  let menu = null;
+  let sel = 0;
+  const close = () => { menu?.remove(); menu = null; };
+  const draw = (query) => {
+    const matches = catalog.filter((h) => `${h.label} ${h.blurb}`.toLowerCase().includes(query.toLowerCase()));
+    if (!matches.length) return close();
+    if (!menu) {
+      menu = document.createElement("div");
+      menu.id = "slash-menu";
+      document.body.appendChild(menu);
+    }
+    sel = Math.min(sel, matches.length - 1);
+    menu.innerHTML = matches
+      .map(
+        (h, i) => `<button data-pick="${h.id}" class="${i === sel ? "sel" : ""}"><b>${esc(h.label)}${
+          h.isDefault ? " · suggested" : ""
+        }</b><span>${esc(h.blurb)}</span></button>`,
+      )
+      .join("");
+    const r = input.getBoundingClientRect();
+    menu.style.left = `${r.left + window.scrollX}px`;
+    menu.style.top = `${r.top + window.scrollY - menu.offsetHeight - 8}px`;
+    menu.querySelectorAll("[data-pick]").forEach((b) =>
+      b.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        input.value = "";
+        close();
+        runHandoffFromUI(meetingId, b.dataset.pick);
+      }));
+    return matches;
+  };
+
+  input.addEventListener("input", () => {
+    if (!input.value.startsWith("/")) return close();
+    sel = 0;
+    draw(input.value.slice(1));
+  });
+  input.addEventListener("keydown", (e) => {
+    if (!menu) return;
+    const buttons = [...menu.querySelectorAll("[data-pick]")];
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      sel = (sel + (e.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+      buttons.forEach((b, i) => b.classList.toggle("sel", i === sel));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const pick = buttons[sel]?.dataset.pick;
+      input.value = "";
+      close();
+      if (pick) runHandoffFromUI(meetingId, pick);
+    } else if (e.key === "Escape") close();
+  });
+  input.addEventListener("blur", () => setTimeout(close, 120));
 }
 
 /** Autosave + word-swap detection: fixing a name in your notes fixes it everywhere. */
@@ -1619,41 +2495,124 @@ function detectWordSwapClient(before, after) {
   return { from, to };
 }
 
-/** Chat: grounded answers; asks that change the notes update the doc live. */
-function wireChat(meetingId, doc) {
+/** The conversation sheet: visible only while the chat is engaged. */
+function openChatSheet() {
+  const sheet = $("#chat-sheet");
+  if (!sheet) return;
+  sheet.classList.remove("closed");
+  const log = $("#chat-log");
+  if (log) log.scrollTop = log.scrollHeight;
+}
+function closeChatSheet() {
+  $("#chat-sheet")?.classList.add("closed");
+}
+
+// Clicking anywhere outside the dock dismisses the sheet — the notes come back.
+// One document-level listener, replaced (not stacked) on every meeting render.
+let chatOutsideClick = null;
+
+/**
+ * Block 2. Grounded answers, handoff cards and their options all land here, in
+ * arrival order — inside a sheet that draws over the notes while you chat and
+ * gets out of the way when you leave. Chat talks to OpenAI (the composer bar
+ * names the model).
+ */
+function wireChat(meetingId) {
   const log = $("#chat-log"), input = $("#chat-input"), send = $("#chat-send");
-  if (!input || input.disabled) return;
   const history = (chatHistory[meetingId] ??= []);
+  // The notes page only exists while the notes are unstructured; look it up on
+  // demand so chat never holds a reference to an element that has been replaced.
+  const notesDoc = () => $("#notes-doc");
+
   const bubble = (role, text) => {
     const b = document.createElement("div");
     b.className = `chat-b ${role}`;
     b.innerHTML = esc(text).replace(/\[(\d+(?:\.\d+)?)s\]/g, (m, s) => `<button class="ts-chip" data-jump="${s}">${fmtTs(Number(s))}</button>`);
     log.appendChild(b);
+    log.scrollTop = log.scrollHeight;
     b.querySelectorAll("[data-jump]").forEach((c) => c.addEventListener("click", () => jumpToOffset(Number(c.dataset.jump))));
     return b;
   };
+
+  /** Footer under an answer: keep going, or take it with you. */
+  const answerActions = (question, text) => {
+    const row = document.createElement("div");
+    row.className = "chat-acts";
+    row.innerHTML = `<button class="say-more">Say more</button>
+      <button class="chat-icon" data-act="copy" title="Copy">⧉</button>`;
+    log.appendChild(row);
+    row.querySelector(".say-more").addEventListener("click", () => {
+      row.remove();
+      askWith(`Say more about that: ${question}`);
+    });
+    row.querySelector('[data-act="copy"]').addEventListener("click", async (e) => {
+      await navigator.clipboard.writeText(text);
+      flashBtn(e.currentTarget, "✓");
+    });
+  };
+
   for (const h of history) bubble(h.role === "user" ? "user" : "ai", h.content);
-  const ask = async () => {
-    const message = input.value.trim();
+
+  const askWith = async (message) => {
     if (!message) return;
-    input.value = "";
+    openChatSheet();
     bubble("user", message);
     history.push({ role: "user", content: message });
     const thinking = bubble("ai thinking", "…");
-    const before = domToMd(doc);
-    const out = await fetch("/api/chat", {
-      method: "POST",
-      body: JSON.stringify({ meeting_id: meetingId, message, history: history.slice(0, -1), notes: before }),
-    }).then((r) => r.json());
+    const before = notesDoc() ? domToMd(notesDoc()) : "";
+    const out = await post("/api/chat", { meeting_id: meetingId, message, history: history.slice(0, -1), notes: before });
     thinking.remove();
     if (out.error) { bubble("ai", `⚠ ${out.error}`); return; }
+    // "draft the follow-up email" comes back as a handoff card, not prose.
+    if (out.handoff) {
+      const label = HANDOFF_LABELS[out.handoff.handoffId] ?? out.handoff.handoffId;
+      history.push({ role: "assistant", content: `(ran the ${label} handoff)` });
+      markChipActive(out.handoff.handoffId);
+      appendHandoffCard(meetingId, out.handoff);
+      return;
+    }
     bubble("ai", out.answer);
     history.push({ role: "assistant", content: out.answer });
-    if (out.notes) applyNotesUpdate(doc, meetingId, before, out.notes, "Notes updated from chat");
-    log.scrollIntoView({ block: "end" });
+    answerActions(message, out.answer);
+    if (out.notes) {
+      // Chat rewrote the founder's own page. If it is on screen, swap it in
+      // place; if the structured notes are showing instead, just say so.
+      if (notesDoc()) applyNotesUpdate(notesDoc(), meetingId, before, out.notes, "Notes updated from chat");
+      else showToast("Your rough notes were updated", "Show them", () => $("#out-rough")?.click());
+    }
+    log.scrollTop = log.scrollHeight;
   };
-  send.addEventListener("click", ask);
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+
+  const ask = () => {
+    const message = input.value.trim();
+    input.value = "";
+    askWith(message);
+  };
+  if (input && !input.disabled) {
+    send.addEventListener("click", ask);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") ask();
+      if (e.key === "Escape") { closeChatSheet(); input.blur(); }
+    });
+    // Engaging the bar is what summons the conversation over the notes.
+    input.addEventListener("focus", openChatSheet);
+  }
+  $("#chat-min")?.addEventListener("click", closeChatSheet);
+  $("#chat-clear")?.addEventListener("click", () => {
+    // Clears the conversation only. Handoff cards are saved outputs — they are
+    // removed with their own ✕, not by wiping the thread.
+    chatHistory[meetingId] = [];
+    log.querySelectorAll(".chat-b, .chat-acts").forEach((el) => el.remove());
+  });
+  if (chatOutsideClick) document.removeEventListener("mousedown", chatOutsideClick);
+  chatOutsideClick = (e) => {
+    const dock = $("#chat-dock");
+    if (!dock || dock.contains(e.target)) return;
+    // Menus live on <body>, but a click in them is still a chat gesture.
+    if (document.getElementById("slash-menu")?.contains(e.target)) return;
+    closeChatSheet();
+  };
+  document.addEventListener("mousedown", chatOutsideClick);
 }
 
 /** Click a transcript line to fix it; a name swap propagates everywhere. */
@@ -1729,69 +2688,6 @@ function wireLiveFeed() {
       feed.lastElementChild.scrollIntoView({ block: "end" });
     }
   };
-}
-
-/** Structured summary document; falls back to the flat one-paragraph summary. */
-function summaryCard(meeting) {
-  const s = meeting.summary_json;
-  if (!s) return meeting.summary ? `<div class="card" id="summary-card"><h2>Summary</h2><p>${esc(meeting.summary)}</p></div>` : "";
-  const bullet = (b, path) => `
-    <li><span class="sum-bullet ${b.grounded === false ? "ungrounded" : ""} ${b.edited ? "edited" : ""}" data-path="${path}" title="Click to edit">${esc(b.text)}</span>${
-      typeof b.offset_s === "number" ? `<button class="ts-chip" data-jump="${b.offset_s}">${fmtTs(b.offset_s)}</button>` : ""
-    }${b.grounded === false ? `<span class="unverified">unverified</span>` : ""}</li>`;
-  const section = (sec, i) => `
-    <div class="sum-sec"><h3>${esc(sec.title)}</h3>
-      ${sec.bullets?.length ? `<ul>${sec.bullets.map((b, j) => bullet(b, `${i}.${j}`)).join("")}</ul>` : ""}
-      ${(sec.subsections ?? []).map((sub, k) => `
-        <h4>${esc(sub.title)}</h4>
-        <ul>${sub.bullets.map((b, j) => bullet(b, `${i}.${k}.${j}`)).join("")}</ul>`).join("")}
-    </div>`;
-  return `<div class="card" id="summary-card"><h2>Summary</h2>
-    <p><span class="sum-bullet" data-path="overview" title="Click to edit">${esc(s.overview)}</span></p>
-    ${s.sections.map(section).join("")}
-    <div class="t-meta" style="margin-top:12px">Select any wrong word to correct it everywhere · click a bullet to edit it</div>
-  </div>`;
-}
-
-/** Timestamp chips jump to the transcript; bullets edit in place. */
-function wireSummary(meetingId) {
-  main.querySelectorAll("[data-jump]").forEach((chip) =>
-    chip.addEventListener("click", () => {
-      const off = Number(chip.dataset.jump);
-      let best = null, bestD = Infinity;
-      main.querySelectorAll(".utt[data-off]").forEach((u) => {
-        const d = Math.abs(Number(u.dataset.off) - off);
-        if (d < bestD) { bestD = d; best = u; }
-      });
-      if (best) {
-        best.scrollIntoView({ behavior: "smooth", block: "center" });
-        best.classList.add("hl");
-        setTimeout(() => best.classList.remove("hl"), 2500);
-      }
-    }));
-  main.querySelectorAll(".sum-bullet[data-path]").forEach((el) =>
-    el.addEventListener("click", function onClick() {
-      if (el.isContentEditable) return;
-      const original = el.textContent;
-      el.contentEditable = "true";
-      el.focus();
-      const done = async (save) => {
-        el.contentEditable = "false";
-        const text = el.textContent.trim();
-        if (!save || text === original.trim() || !text) { el.textContent = original; return; }
-        const out = await fetch("/api/summary/edit", {
-          method: "POST",
-          body: JSON.stringify({ meeting_id: meetingId, path: el.dataset.path, text }),
-        }).then((r) => r.json());
-        if (out.error) { alert(out.error); el.textContent = original; return; }
-        el.classList.add("edited");
-      };
-      el.addEventListener("blur", () => done(true), { once: true });
-      el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { e.preventDefault(); el.blur(); }
-        if (e.key === "Escape") { el.removeEventListener("blur", done); done(false); }
-      });
-    }));
 }
 
 /** Select wrong text → "Correct →" → preview every occurrence → apply everywhere. */
@@ -1887,67 +2783,6 @@ function correctionModal(meetingId, from, to, occurrences) {
     if (out.error) { alert(out.error); return; }
     renderMeeting(meetingId);
   });
-}
-
-/**
- * Growth loop: a decision becomes a beautiful 1200x630 PNG card.
- * Rendered locally on canvas — nothing leaves the laptop.
- */
-function shareDecisionCard(text, meeting, people) {
-  const W = 1200, H = 630, c = document.createElement("canvas");
-  c.width = W; c.height = H;
-  const x = c.getContext("2d");
-  // card base
-  x.fillStyle = "#f3efe7"; x.fillRect(0, 0, W, H);
-  x.strokeStyle = "#1d1b16"; x.lineWidth = 6; x.strokeRect(14, 14, W - 28, H - 28);
-  // stitched top thread
-  x.strokeStyle = "#5b74e0"; x.lineWidth = 2.5; x.lineCap = "round"; x.globalAlpha = 0.7;
-  x.beginPath(); x.moveTo(60, 92); x.quadraticCurveTo(W / 2, 130, W - 60, 92); x.stroke();
-  x.globalAlpha = 1;
-  x.fillStyle = "#a39e94"; x.font = "600 22px -apple-system, system-ui";
-  x.fillText("DECISION", 70, 68);
-  // decision text, wrapped
-  x.fillStyle = "#21201c"; x.font = "650 48px -apple-system, system-ui";
-  const words = text.split(" ");
-  let line = "", y = 210;
-  for (const w of words) {
-    if (x.measureText(line + " " + w).width > W - 160) { x.fillText(line, 70, y); y += 66; line = w; }
-    else line = line ? line + " " + w : w;
-  }
-  x.fillText(line, 70, y);
-  // meta
-  x.fillStyle = "#6b675f"; x.font = "500 26px -apple-system, system-ui";
-  x.fillText(`${meeting.title} · ${fmtDate(meeting.started_at)}`, 70, H - 150);
-  if (people.length) x.fillText(people.join(" · "), 70, H - 105);
-  // attribution
-  x.strokeStyle = "#5b74e0"; x.lineWidth = 2; x.globalAlpha = 0.7;
-  x.beginPath(); x.moveTo(70, H - 62); x.lineTo(240, H - 62); x.stroke(); x.globalAlpha = 1;
-  x.fillStyle = "#a39e94"; x.font = "600 22px -apple-system, system-ui";
-  x.fillText("stitched by Threadline", 256, H - 53);
-  const a = document.createElement("a");
-  a.download = "threadline-decision.png";
-  a.href = c.toDataURL("image/png");
-  a.click();
-}
-
-function followUpCard(meeting, claims) {
-  const actions = claims.filter((c) => c.kind === "action_item" && c.gate === "passed");
-  const decisions = claims.filter((c) => c.kind === "decision" && c.gate === "passed");
-  if (!actions.length && !decisions.length) return "";
-  const lines = [
-    `Hi all,`,
-    ``,
-    `Quick recap of "${meeting.title}":`,
-    ``,
-    ...(decisions.length ? ["What we decided:", ...decisions.map((d) => `• ${d.body.text}`), ""] : []),
-    ...(actions.length ? ["Next steps:", ...actions.map((a) => `• ${a.body.owner ?? "TBD"}: ${a.body.task}${a.body.due ? ` (${a.body.due})` : ""}`), ""] : []),
-    `Full notes attached. Shout if I missed anything.`,
-  ];
-  const draft = lines.join("\n");
-  return `<div class="card"><h2>Follow-up draft · built only from what was said</h2>
-    <div class="draft" id="draft-text">${esc(draft)}</div>
-    <button class="copybtn" onclick="navigator.clipboard.writeText(document.getElementById('draft-text').textContent).then(()=>{this.textContent='Copied ✓';setTimeout(()=>this.textContent='Copy draft',1500)})">Copy draft</button>
-  </div>`;
 }
 
 function wireMeetingLinks() {

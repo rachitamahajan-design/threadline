@@ -12,12 +12,30 @@ import { LiveSession, type LiveEvent } from "./live.js";
 import { ensureApiKey } from "../lib/firstrun.js";
 import { processMeeting, reindexMeeting } from "../pipeline/extract.js";
 import { findOccurrences, applyCorrection, undoCorrection, detectWordSwap } from "../pipeline/corrections.js";
-import { enhanceNotes, structureNotes, chatAboutMeeting } from "../pipeline/notes.js";
+import { chatAboutMeeting } from "../pipeline/notes.js";
 import { bulletAt, type StructuredSummary } from "../lib/summary.js";
-import { hasOpenAI } from "../lib/openai.js";
+import { hasOpenAI, openaiModel } from "../lib/openai.js";
 import type { Utterance } from "../lib/pyai.js";
 import { googleConfigured, googleConnected, authUrl, exchangeCode, upcomingEvents } from "./google.js";
 import { ask } from "../pipeline/ask.js";
+import {
+  customerMeetingIds,
+  ensureNotes,
+  meetingMeta,
+  runCrossHandoff,
+  runHandoff,
+} from "../pipeline/handoff.js";
+import {
+  deleteHandoffRun,
+  listCrossMeetingRuns,
+  listHandoffRuns,
+  readFacts,
+  readOutline,
+  saveHandoffEdit,
+  saveOutlineEdit,
+} from "../lib/store.js";
+import { handoffCatalog, matchHandoff } from "../handoffs/registry.js";
+import { modelInfo } from "../lib/model.js";
 
 // tiny .env loader
 for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"); } catch { return []; } })()) {
@@ -614,27 +632,6 @@ const api: Record<string, Handler> = {
     return { utterances: live?.transcript ?? [], recording: !!live, meetingId: live?.meetingId ?? null };
   },
 
-  /** AI-polish the user's rough notes in place. Versioned. */
-  async "POST /api/notes/enhance"(p, body) {
-    const { id, notes } = (body ?? {}) as { id?: string; notes?: string };
-    if (!id) return { error: "missing id" };
-    if (!hasOpenAI()) return { error: "OPENAI_API_KEY not configured — enhance needs it" };
-    const utterances = meetingTranscript(id);
-    if (!utterances.length) return { error: "no transcript yet" };
-    return await enhanceNotes(db, id, notes ?? "", utterances);
-  },
-
-  /** Full structured notes: sections, team-wise action items, person inference. */
-  async "POST /api/notes/structure"(p, body) {
-    const { id, notes } = (body ?? {}) as { id?: string; notes?: string };
-    if (!id) return { error: "missing id" };
-    if (!hasOpenAI()) return { error: "OPENAI_API_KEY not configured — structure needs it" };
-    const utterances = meetingTranscript(id);
-    if (!utterances.length) return { error: "no transcript yet" };
-    const meeting = db.prepare(`SELECT title FROM meetings WHERE id = ?`).get(id) as { title: string } | undefined;
-    return await structureNotes(db, id, notes ?? "", utterances, meeting?.title ?? "Meeting");
-  },
-
   /** Ask-me chat: grounded answers; may rewrite the notes when asked. */
   async "POST /api/chat"(p, body) {
     const { meeting_id, message, history, notes } = (body ?? {}) as {
@@ -642,6 +639,20 @@ const api: Record<string, Handler> = {
       history?: { role: "user" | "assistant"; content: string }[]; notes?: string;
     };
     if (!meeting_id || !message?.trim()) return { error: "missing fields" };
+    // "draft the follow-up email" is a handoff request, not a question. Routing
+    // is keyword-based on purpose: an unmatched message falls through to
+    // grounded Q&A, which is the safe default.
+    const wanted = matchHandoff(message.trim());
+    if (wanted) {
+      const out =
+        wanted.scope === "cross-meeting"
+          ? await runCrossHandoff(db, { handoffId: wanted.id })
+          : await runHandoff(db, { meetingId: meeting_id, handoffId: wanted.id });
+      if (out.run) return { handoff: out.run };
+      // Couldn't run it (no transcript, no model): say so rather than silently
+      // answering a different question.
+      if (out.error) return { error: out.error };
+    }
     if (!hasOpenAI()) return { error: "OPENAI_API_KEY not configured — chat needs it" };
     const utterances = meetingTranscript(meeting_id);
     if (!utterances.length) return { error: "no transcript yet" };
@@ -705,9 +716,177 @@ const api: Record<string, Handler> = {
     db.prepare(`DELETE FROM corrections WHERE id = ?`).run(id);
     return { ok: true };
   },
+
+  // ── Grounded notes & handoffs ──────────────────────────────────────────
+  // The outline auto-generates; handoffs never do. Everything below returns
+  // segment ids so the UI can point at the transcript line behind each claim.
+
+  /** The themed outline, generating it on first open if the meeting has none. */
+  async "GET /api/outline"(p) {
+    const id = p.get("id");
+    if (!id) return { error: "missing id" };
+    const m = meetingMeta(db, id);
+    if (!m) return { error: "not found" };
+    const existing = readOutline(db, id);
+    // Notes write themselves — but never over the founder's own page. If they
+    // have typed notes and no outline yet, the notes block shows their writing
+    // and waits for "Structure my notes"; if the page is empty, we fill it.
+    const rough = ((db.prepare(`SELECT my_notes FROM meetings WHERE id = ?`).get(id) as { my_notes: string | null } | undefined)?.my_notes ?? "").trim();
+    const generate = p.get("generate") !== "0" && !rough;
+    // Two tabs opening the same meeting must not pay for two generations, so
+    // in-flight work is shared rather than duplicated.
+    const result =
+      existing || !generate
+        ? { outline: existing }
+        : await (outlining.get(id) ?? track(id, ensureNotes(db, id)));
+    return {
+      outline: result.outline,
+      error: result.error,
+      meeting_type: m.type,
+      participants: m.participants,
+      catalog: handoffCatalog(m.type),
+      model: modelInfo(),
+      // Notes and handoffs go through the pluggable adapter; chat always talks
+      // to OpenAI, and the composer bar names the model doing the talking.
+      chat: { provider: "openai", model: openaiModel(), available: hasOpenAI() },
+      handoffs: listHandoffRuns(db, id),
+    };
+  },
+
+  /**
+   * "Structure my notes": build the grounded outline. Explicit user action.
+   * `mode` sets the meeting type first (it changes both the themes the compose
+   * pass reaches for and which handoff is suggested), and `hints` passes the
+   * founder's own rough notes in as steering — never as a source.
+   */
+  async "POST /api/outline/generate"(p, body) {
+    const { id, force, refine, mode, hints } = (body ?? {}) as {
+      id?: string; force?: boolean; refine?: string; mode?: string; hints?: string;
+    };
+    if (!id) return { error: "missing id" };
+    if (mode && MEETING_TYPES.includes(mode)) db.prepare(`UPDATE meetings SET meeting_type = ? WHERE id = ?`).run(mode, id);
+    const out = await ensureNotes(db, id, {
+      force: force !== false,
+      refine: refine?.trim() || undefined,
+      hints,
+    });
+    const m = meetingMeta(db, id);
+    return {
+      outline: out.outline,
+      error: out.error,
+      meeting_type: m?.type,
+      catalog: m ? handoffCatalog(m.type) : [],
+    };
+  },
+
+  /** Save a human edit to the outline. Markdown in, tree out, versioned. */
+  "POST /api/outline/edit"(p, body) {
+    const { id, markdown } = (body ?? {}) as { id?: string; markdown?: string };
+    if (!id || typeof markdown !== "string") return { error: "missing fields" };
+    const outline = saveOutlineEdit(db, id, markdown);
+    if (!outline) return { error: "no outline to edit yet" };
+    return { outline };
+  },
+
+  /** Run one handoff for one meeting. Called from a chip, the slash menu or chat. */
+  async "POST /api/handoff/run"(p, body) {
+    const { meeting_id, handoff_id, refine } = (body ?? {}) as {
+      meeting_id?: string; handoff_id?: string; refine?: string;
+    };
+    if (!meeting_id || !handoff_id) return { error: "missing fields" };
+    const out = await runHandoff(db, { meetingId: meeting_id, handoffId: handoff_id, refine: refine?.trim() || undefined });
+    return { run: out.run, error: out.error };
+  },
+
+  /** The cross-meeting handoff: collated customer feedback. */
+  async "POST /api/handoff/cross"(p, body) {
+    const { handoff_id, meeting_ids, refine } = (body ?? {}) as {
+      handoff_id?: string; meeting_ids?: string[]; refine?: string;
+    };
+    const out = await runCrossHandoff(db, {
+      handoffId: handoff_id ?? "collated_feedback",
+      meetingIds: Array.isArray(meeting_ids) ? meeting_ids : undefined,
+      refine: refine?.trim() || undefined,
+    });
+    return { run: out.run, error: out.error };
+  },
+
+  "GET /api/handoff/cross"() {
+    return { runs: listCrossMeetingRuns(db), candidates: customerMeetingIds(db) };
+  },
+
+  "POST /api/handoff/edit"(p, body) {
+    const { id, markdown } = (body ?? {}) as { id?: number; markdown?: string };
+    if (!id || typeof markdown !== "string") return { error: "missing fields" };
+    const run = saveHandoffEdit(db, id, markdown);
+    return run ? { run } : { error: "not found" };
+  },
+
+  "POST /api/handoff/delete"(p, body) {
+    const { id } = (body ?? {}) as { id?: number };
+    if (!id) return { error: "missing id" };
+    deleteHandoffRun(db, id);
+    return { ok: true };
+  },
+
+  /**
+   * Why an output looks the way it does: prompt version, validator failures,
+   * and the facts extraction refused. Local debugging surface, no model call.
+   */
+  "GET /api/grounding/debug"(p) {
+    const id = p.get("id");
+    if (!id) return { error: "missing id" };
+    const facts = readFacts(db, id);
+    const outline = readOutline(db, id);
+    return {
+      model: modelInfo(),
+      facts: facts
+        ? { count: facts.facts.length, promptVersion: facts.promptVersion, dropped: facts.dropped, items: facts.facts }
+        : null,
+      outline: outline
+        ? {
+            promptVersion: outline.promptVersion,
+            needsReview: outline.needsReview,
+            dropped: outline.dropped,
+            failures: outline.failures,
+            edited: outline.edited,
+          }
+        : null,
+      handoffs: listHandoffRuns(db, id).map((r) => ({
+        id: r.id,
+        handoffId: r.handoffId,
+        promptVersion: r.promptVersion,
+        needsReview: r.needsReview,
+        dropped: r.dropped,
+        failures: r.failures,
+        edited: r.edited,
+      })),
+    };
+  },
+
+  /** Override the derived meeting type — it decides which handoff is suggested. */
+  "POST /api/meeting/type"(p, body) {
+    const { id, type } = (body ?? {}) as { id?: string; type?: string };
+    if (!id || !type) return { error: "missing fields" };
+    if (!MEETING_TYPES.includes(type)) return { error: `type must be one of ${MEETING_TYPES.join(", ")}` };
+    db.prepare(`UPDATE meetings SET meeting_type = ? WHERE id = ?`).run(type, id);
+    const m = meetingMeta(db, id);
+    return { ok: true, meeting_type: m?.type ?? type, catalog: handoffCatalog(m?.type ?? "team") };
+  },
 };
 
+/** The handoff taxonomy, as accepted over the wire. */
+const MEETING_TYPES = ["investor", "vendor", "customer", "team", "one_on_one"];
+
 const regenerating = new Set<string>();
+
+/** In-flight outline generations, keyed by meeting: one model call, many waiters. */
+const outlining = new Map<string, ReturnType<typeof ensureNotes>>();
+function track(id: string, work: ReturnType<typeof ensureNotes>) {
+  outlining.set(id, work);
+  void work.finally(() => outlining.delete(id));
+  return work;
+}
 
 function upsertPerson(name: string, team?: string, notes?: string) {
   db.prepare(`INSERT INTO people (name, team, notes, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(name) DO NOTHING`)

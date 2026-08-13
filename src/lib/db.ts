@@ -354,6 +354,79 @@ export function openDb(dir = "data"): DatabaseSync {
   } catch {
     /* column already exists */
   }
+  // STT confidence per line. Absent means "no reason to doubt it" (1.0); when the
+  // speech module starts reporting it, claims resting only on poorly-heard lines
+  // get flagged instead of silently trusted.
+  try {
+    db.exec("ALTER TABLE utterances ADD COLUMN confidence REAL");
+  } catch {
+    /* column already exists */
+  }
+  // The handoff taxonomy (investor | vendor | customer | team | one_on_one).
+  // Nullable: it is normally derived from `mode`, and only stored when the user
+  // overrides it — a derived value that gets written down starts to drift.
+  try {
+    db.exec("ALTER TABLE meetings ADD COLUMN meeting_type TEXT");
+  } catch {
+    /* column already exists */
+  }
+
+  // ── Grounded notes & handoffs ────────────────────────────────────────────
+  // Extraction is cached per meeting because every handoff composes from the
+  // same fact list; regenerating a handoff must not re-pay for pass 1 or,
+  // worse, compose from a *different* set of facts than the notes did.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS meeting_facts (
+      meeting_id TEXT PRIMARY KEY REFERENCES meetings(id),
+      json TEXT NOT NULL,             -- Fact[]
+      dropped TEXT,                   -- JSON: facts the sanitiser refused, with reasons
+      prompt_version TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
+    -- The themed outline: always-on notes. One current row per meeting, with
+    -- every previous state recoverable, same invariant as notes_versions.
+    CREATE TABLE IF NOT EXISTS note_outlines (
+      meeting_id TEXT PRIMARY KEY REFERENCES meetings(id),
+      json TEXT NOT NULL,             -- Notes { themes: NoteBullet[] }
+      prompt_version TEXT NOT NULL,
+      needs_review INTEGER NOT NULL DEFAULT 0,
+      failures TEXT,                  -- JSON Failure[] from the last validation
+      dropped INTEGER NOT NULL DEFAULT 0,
+      edited INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS outline_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      meeting_id TEXT NOT NULL,
+      json TEXT NOT NULL,
+      source TEXT NOT NULL,           -- generated | user | refine | regenerate
+      created_at INTEGER NOT NULL
+    );
+
+    -- One row per Handoff the user actually asked for. Nothing here is ever
+    -- created by the pipeline on its own.
+    CREATE TABLE IF NOT EXISTS handoff_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      meeting_id TEXT NOT NULL,       -- '' for cross-meeting runs
+      scope_ids TEXT,                 -- JSON meeting ids for cross-meeting runs
+      handoff_id TEXT NOT NULL,
+      json TEXT NOT NULL,             -- the structured output
+      markdown TEXT NOT NULL,         -- clipboard form at generation time
+      prompt_version TEXT NOT NULL,
+      needs_review INTEGER NOT NULL DEFAULT 0,
+      dropped INTEGER NOT NULL DEFAULT 0,
+      failures TEXT,
+      edited INTEGER NOT NULL DEFAULT 0,
+      edited_markdown TEXT,           -- the user's version; never clobbered silently
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_handoff_meeting ON handoff_runs(meeting_id, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_outline_versions ON outline_versions(meeting_id, id DESC);
+  `);
 
   migrateEdgesPk(db);
 
