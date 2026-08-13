@@ -995,7 +995,19 @@ async function renderToday() {
           <path d="M6.4 6 C 2.5 3.2, -1.6 3.6, -4.4 6.6" stroke="var(--thread)" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.55"/>
         </svg>
       </div>
-      ${todos.length ? todos.map((t) => `
+      ${(() => {
+        // priority: dated items first (sooner-sounding first), then recent meetings
+        const rank = (t) => {
+          const due = (t.body.due ?? "").toLowerCase();
+          if (/today|tonight|asap|now/.test(due)) return 0;
+          if (/tomorrow/.test(due)) return 1;
+          if (/week|friday|monday|tuesday|wednesday|thursday/.test(due)) return 2;
+          if (due) return 3;
+          return 4;
+        };
+        const openT = todos.filter((t) => !t.done).sort((a, b) => rank(a) - rank(b) || b.started_at - a.started_at);
+        const doneT = todos.filter((t) => t.done);
+        const row = (t) => `
         <div class="todo ${t.done ? "done" : ""}">
           <input type="checkbox" ${t.done ? "checked" : ""} data-id="${t.id}">
           <div>
@@ -1003,7 +1015,13 @@ async function renderToday() {
             <div class="t-meta">${t.body.owner ? esc(t.body.owner) : "unassigned"}${t.body.due ? ` · due ${esc(t.body.due)}` : ""}</div>
             <div class="receipt" data-mid="${t.meeting_id}" data-q="${esc(t.body.task)}">"${esc(t.quote ?? t.body.task)}" — ${esc(t.meeting_title)}</div>
           </div>
-        </div>`).join("") : `<div class="empty">${SPOOL_SVG}No loose ends yet. Run <code>npm run demo</code> or hit ● Record.</div>`}
+        </div>`;
+        if (!todos.length) return `<div class="empty">No loose ends yet. Run <code>npm run seed</code> or hit ● Record.</div>`;
+        const top = openT.slice(0, 6), rest = [...openT.slice(6), ...doneT];
+        return top.map(row).join("") + (rest.length ? `
+          <button id="more-todos" class="copybtn" style="margin:14px 0 4px">Show ${rest.length} more</button>
+          <div id="rest-todos" style="display:none">${rest.map(row).join("")}</div>` : "");
+      })()}
       </div>
     </div>
     `;
@@ -1016,6 +1034,12 @@ async function renderToday() {
       if (n && a) { n.setAttribute("opacity", "1"); a.beginElement(); setTimeout(() => n.setAttribute("opacity", "0"), 1300); }
     }, 400);
   }
+  $("#more-todos")?.addEventListener("click", () => {
+    $("#rest-todos").style.display = "block";
+    $("#more-todos").remove();
+    drawRailThread();
+    main.querySelectorAll("#rest-todos .todo input").forEach(wireTodo);
+  });
   drawRailThread();
   loadUpcoming();
   $("#notify-bell")?.addEventListener("click", async () => {
@@ -1033,7 +1057,7 @@ async function renderToday() {
     await fetch("/api/upcoming", { method: "POST", body: JSON.stringify({ title, at_ms: at, participants }) });
     loadUpcoming();
   });
-  main.querySelectorAll(".todo input").forEach((cb) =>
+  const wireTodo = (cb) =>
     cb.addEventListener("change", async () => {
       const item = cb.closest(".todo");
       fetch("/api/todo", { method: "POST", body: JSON.stringify({ id: Number(cb.dataset.id), done: cb.checked }) });
@@ -1043,7 +1067,8 @@ async function renderToday() {
         endWeave(cb.dataset.id ?? "x");
         document.querySelectorAll(`.weave-svg[data-claim="${cb.dataset.id}"]`).forEach((s) => s.remove());
       }
-    }));
+    });
+  main.querySelectorAll(".todo input").forEach(wireTodo);
   wireMeetingLinks();
 }
 
@@ -2096,8 +2121,38 @@ function wireMeetingLinks() {
 async function renderGraph() {
   const [{ nodes, edges }, meetingsList] = await Promise.all([api("/api/graph"), api("/api/meetings")]);
   const meetById = Object.fromEntries(meetingsList.map((m) => [m.id, m]));
+  // degree = how many meetings each person/topic touches, for the tooltip meta
+  const meetingNeighbors = {};
+  for (const e of edges) {
+    for (const [a, b] of [[e.src, e.dst], [e.dst, e.src]]) {
+      if (nodes.find((n) => n.id === b)?.kind === "meeting") (meetingNeighbors[a] ??= new Set()).add(b);
+    }
+  }
+  const metaOf = (n) => {
+    if (n.kind === "meeting") {
+      const m = meetById[n.id];
+      const people = (meetingNeighbors[n.id]?.size, edges.filter((e) => (e.src === n.id || e.dst === n.id) && e.kind === "attended").length);
+      return m ? `${fmtDate(m.started_at)}${people ? ` · ${people} people` : ""}` : "";
+    }
+    const k = meetingNeighbors[n.id]?.size ?? 0;
+    return `in ${k} meeting${k === 1 ? "" : "s"}`;
+  };
+  // Editorial cut: a knot earns its place by tying meetings together.
+  // Fragment topics touching one meeting are noise, not memory.
+  const topicDeg = (n) => meetingNeighbors[n.id]?.size ?? 0;
+  const keptTopics = nodes
+    .filter((n) => n.kind === "topic" && topicDeg(n) >= 2)
+    .sort((a, b) => topicDeg(b) - topicDeg(a))
+    .slice(0, 24);
+  const keptIds = new Set([
+    ...nodes.filter((n) => n.kind !== "topic").map((n) => n.id),
+    ...keptTopics.map((n) => n.id),
+  ]);
+  const totalTopics = nodes.filter((n) => n.kind === "topic").length;
+  const visible = nodes.filter((n) => keptIds.has(n.id));
+
   main.innerHTML = `<h1>Threads</h1>
-    <div class="sub">${nodes.length} knots · ${edges.length} threads. Drag to explore; click a meeting to open it.</div>
+    <div class="sub">${visible.filter((n) => n.kind === 'meeting').length} meetings · ${visible.filter((n) => n.kind === 'person').length} people · ${keptTopics.length} shared topic${keptTopics.length===1?'':'s'} (of ${totalTopics}). Click a meeting to open it.</div>
     <div class="card" id="graph-wrap">
       <canvas id="graph"></canvas>
       <div id="graph-tip"></div>
@@ -2125,29 +2180,13 @@ async function renderGraph() {
   const INK = css.getPropertyValue("--ink").trim(), INK3 = css.getPropertyValue("--ink-3").trim(),
     THREAD = css.getPropertyValue("--thread").trim(), SURFACE = css.getPropertyValue("--surface").trim();
 
-  // degree = how many meetings each person/topic touches, for the tooltip meta
-  const meetingNeighbors = {};
-  for (const e of edges) {
-    for (const [a, b] of [[e.src, e.dst], [e.dst, e.src]]) {
-      if (nodes.find((n) => n.id === b)?.kind === "meeting") (meetingNeighbors[a] ??= new Set()).add(b);
-    }
-  }
-  const metaOf = (n) => {
-    if (n.kind === "meeting") {
-      const m = meetById[n.id];
-      const people = (meetingNeighbors[n.id]?.size, edges.filter((e) => (e.src === n.id || e.dst === n.id) && e.kind === "attended").length);
-      return m ? `${fmtDate(m.started_at)}${people ? ` · ${people} people` : ""}` : "";
-    }
-    const k = meetingNeighbors[n.id]?.size ?? 0;
-    return `in ${k} meeting${k === 1 ? "" : "s"}`;
-  };
 
-  const ns = nodes.map((n, i) => ({
+  const ns = visible.map((n, i) => ({
     ...n, label: n.meeting_title ?? n.label, meta: "",
-    x: W / 2 + (n.kind === "meeting" ? 150 : n.kind === "person" ? 215 : 275) * Math.cos((i / nodes.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
-    y: H / 2 + (n.kind === "meeting" ? 130 : n.kind === "person" ? 200 : 250) * Math.sin((i / nodes.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
+    x: W / 2 + (n.kind === "meeting" ? 150 : n.kind === "person" ? 215 : 275) * Math.cos((i / visible.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
+    y: H / 2 + (n.kind === "meeting" ? 130 : n.kind === "person" ? 200 : 250) * Math.sin((i / visible.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
     vx: 0, vy: 0, seed: (i * 2.399) % 6.2832,
-    r: n.kind === "meeting" ? 22 : n.kind === "person" ? 13 : 8,
+    r: n.kind === "meeting" ? 18 : n.kind === "person" ? 11 : 6 + 2.4 * Math.sqrt(meetingNeighbors[n.id]?.size ?? 1),
   }));
   ns.forEach((n) => { n.meta = metaOf(n); });
   const byId = Object.fromEntries(ns.map((n) => [n.id, n]));
@@ -2169,7 +2208,7 @@ async function renderGraph() {
     }
     for (const e of es) {
       const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.max(Math.hypot(dx, dy), 1);
-      const rest = (e.a.kind === "topic" || e.b.kind === "topic") ? 145 : 125;
+      const rest = ns.length > 34 ? 95 : ((e.a.kind === "topic" || e.b.kind === "topic") ? 145 : 125);
       const f = (d - rest) * 0.008;
       e.a.vx += (dx / d) * f; e.a.vy += (dy / d) * f;
       e.b.vx -= (dx / d) * f; e.b.vy -= (dy / d) * f;
@@ -2192,7 +2231,7 @@ async function renderGraph() {
       for (let i = 0; i < ns.length; i++) {
         for (let j = i + 1; j < ns.length; j++) {
           const a = ns[i], b = ns[j];
-          const min = a.r + b.r + (a.kind === "meeting" && b.kind === "meeting" ? 120 : 46);
+          const min = a.r + b.r + (a.kind === "meeting" && b.kind === "meeting" ? (ns.length > 34 ? 48 : 120) : (ns.length > 34 ? 22 : 46));
           const dx = b.x - a.x, dy = b.y - a.y, d = Math.max(Math.hypot(dx, dy), 0.6);
           if (d < min) {
             const push = (min - d) / 2, ux = dx / d, uy = dy / d;
@@ -2302,9 +2341,16 @@ async function renderGraph() {
     // labels — biggest knots claim their space first; a label that would
     // collide steps below, and gives up rather than printing over another
     ctx.textAlign = "center";
+    const labelTopics = new Set([...ns.filter((n) => n.kind === "topic")].sort((a, b) => b.r - a.r).slice(0, 12).map((n) => n.id));
+    const wantsLabel = (n) =>
+      n === hover || (hover && lit(n)) ||
+      n.kind === "meeting" ||
+      (n.kind === "person" && ns.length <= 26) ||
+      (n.kind === "topic" && labelTopics.has(n.id) && !hover);
     const boxes = ns.map((n) => ({ l: n.x - n.r - 3, r: n.x + n.r + 3, t: n.y - n.r, b: n.y + n.r + 2 }));
     const order = [...ns].sort((a, b) => b.r - a.r);
     for (const n of order) {
+      if (!wantsLabel(n)) continue;
       if (n.kind === "topic") { ctx.fillStyle = INK3; ctx.font = "500 11px -apple-system, system-ui"; }
       else { ctx.fillStyle = INK; ctx.font = "600 11.5px -apple-system, system-ui"; }
       const t = n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label;

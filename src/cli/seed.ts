@@ -13,6 +13,7 @@ import path from "node:path";
 import { openDb } from "../lib/db.js";
 import { ensureApiKey } from "../lib/firstrun.js";
 import { processMeeting, type MeetingInput } from "../pipeline/extract.js";
+import { upsertNode, addEdge } from "../lib/db.js";
 import type { Utterance } from "../lib/pyai.js";
 
 // tiny .env loader
@@ -67,9 +68,13 @@ for (const f of files) {
     startedAt: Date.parse(raw.started_at) || Date.now(),
     utterances,
   };
+  // authored topics are canonical: identical strings across meetings become
+  // shared hubs, which is what makes the Brain legible
+  const rawTopics: string[] = (raw as { topics?: string[] }).topics ?? [];
   process.stdout.write(`▶ ${raw.title} … `);
   try {
     const res = await processMeeting(db, apiKey, input);
+    for (const t of rawTopics) addEdge(db, upsertNode(db, "meeting", raw.id), upsertNode(db, "topic", t), "mentions", raw.id);
     console.log(`${res.exit} (${res.stored.passed} claims)`);
     ok++;
   } catch (e) {
