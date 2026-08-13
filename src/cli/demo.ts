@@ -14,11 +14,11 @@ for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
 }
 
-const apiKey = process.env.PYAI_API_KEY;
-if (!apiKey) {
-  console.error("No PYAI_API_KEY found. Copy .env.example to .env and add your key.");
+import { ensureApiKey } from "../lib/firstrun.js";
+const apiKey = await ensureApiKey().catch((e: Error) => {
+  console.error(e.message);
   process.exit(1);
-}
+});
 
 const db = openDb();
 const meetings: MeetingInput[] = JSON.parse(readFileSync("samples/meetings.json", "utf8"));

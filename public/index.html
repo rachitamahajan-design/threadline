@@ -96,6 +96,15 @@
   .legend .l-p::before { background: var(--node-person); border-radius: 2px; }
   .legend .l-t::before { background: var(--node-topic); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
   .empty { color: var(--ink-3); text-align: center; padding: 40px 0; }
+  #rec {
+    border: 0; font: inherit; font-weight: 600; cursor: pointer;
+    padding: 7px 16px; border-radius: 10px; color: #fff; background: var(--block);
+  }
+  #rec.recording { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.65; } }
+  .live-partial { color: var(--ink-3); font-style: italic; }
+  .live-you .who { color: var(--accent); }
+  .live-status { font-size: 12px; color: var(--ink-3); padding: 2px 0; }
   .exit-line { font-size: 13px; color: var(--ink-2); margin-top: 10px; }
   b { color: var(--accent); }
 </style>
@@ -109,6 +118,7 @@
     <button data-view="graph">Graph</button>
   </nav>
   <input id="search" placeholder="Search everything you've ever discussed…">
+  <button id="rec">● Record</button>
 </header>
 <main id="main"></main>
 
@@ -324,6 +334,64 @@ async function renderGraph() {
     const n = hit(ev.clientX - r.left, ev.clientY - r.top);
     if (n?.kind === "meeting") { state.meetingId = n.id; render(); }
   });
+}
+
+// ── Live recording ──────────────────────────────────────────────────────
+const recBtn = $("#rec");
+let recording = false, evtSource = null;
+
+recBtn.addEventListener("click", async () => {
+  if (!recording) {
+    const title = prompt("Meeting title?", "Untitled meeting");
+    if (title === null) return;
+    const r = await fetch("/api/record/start", { method: "POST", body: JSON.stringify({ title }) }).then((x) => x.json());
+    if (r.error) return alert(r.error);
+    recording = true;
+    recBtn.textContent = "■ Stop & process";
+    recBtn.classList.add("recording");
+    renderLive(title);
+  } else {
+    recBtn.textContent = "… processing";
+    recBtn.disabled = true;
+    const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
+    recording = false;
+    recBtn.disabled = false;
+    recBtn.textContent = "● Record";
+    recBtn.classList.remove("recording");
+    evtSource?.close();
+    if (r.meetingId && r.exit !== "failed") { state.meetingId = r.meetingId; render(); }
+    else { alert("Nothing was captured — check mic/screen-recording permissions."); render(); }
+  }
+});
+
+function renderLive(title) {
+  main.innerHTML = `<h1>${esc(title)}</h1><div class="sub">Recording — no bot in your call. Speak normally; words appear as they land.</div>
+    <div class="card"><h2>Live transcript</h2><div id="live-feed"><div class="empty">listening…</div></div></div>
+    <div class="card"><h2>Capture status</h2><div id="live-status"></div></div>`;
+  const feed = $("#live-feed"), statusBox = $("#live-status");
+  const partials = {};
+  evtSource = new EventSource("/api/record/events");
+  evtSource.onmessage = (ev) => {
+    const e = JSON.parse(ev.data);
+    if (e.type === "status") {
+      statusBox.insertAdjacentHTML("beforeend", `<div class="live-status">${esc(e.message)}</div>`);
+    } else if (e.type === "partial") {
+      if (feed.querySelector(".empty")) feed.innerHTML = "";
+      let el = partials[e.speaker];
+      if (!el) {
+        feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}" id="p-${e.speaker}"><div class="who">${e.speaker}</div><div class="live-partial"></div></div>`);
+        el = partials[e.speaker] = feed.lastElementChild;
+      }
+      el.querySelector(".live-partial").textContent = e.text;
+      feed.parentElement.scrollTop = 1e9;
+    } else if (e.type === "final") {
+      if (feed.querySelector(".empty")) feed.innerHTML = "";
+      const el = partials[e.speaker];
+      if (el) { delete partials[e.speaker]; el.remove(); }
+      feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}"><div class="ts">${fmtTs(e.offsetS)}</div><div class="who">${e.speaker}</div><div>${esc(e.text)}</div></div>`);
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+  };
 }
 
 let searchTimer;

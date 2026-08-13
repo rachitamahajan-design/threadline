@@ -8,6 +8,8 @@ import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { openDb } from "../lib/db.js";
+import { LiveSession, type LiveEvent } from "./live.js";
+import { ensureApiKey } from "../lib/firstrun.js";
 
 // tiny .env loader
 for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"); } catch { return []; } })()) {
@@ -19,7 +21,15 @@ const db = openDb();
 const PORT = Number(process.env.PORT ?? 4640);
 const PUBLIC = path.resolve("public");
 
-type Handler = (params: URLSearchParams, body: unknown) => unknown;
+const apiKey = await ensureApiKey().catch((e: Error) => {
+  console.error(e.message);
+  process.exit(1);
+});
+let live: LiveSession | null = null;
+const sseClients = new Set<(e: LiveEvent) => void>();
+const recentEvents: LiveEvent[] = [];
+
+type Handler = (params: URLSearchParams, body: unknown) => unknown | Promise<unknown>;
 
 const api: Record<string, Handler> = {
   "GET /api/today"() {
@@ -92,6 +102,31 @@ const api: Record<string, Handler> = {
       .all(safe.split(/\s+/).map((w) => `"${w}"`).join(" OR "));
   },
 
+  "POST /api/record/start"(p, body) {
+    if (live) return { error: "already recording" };
+    const { title, mode } = (body ?? {}) as { title?: string; mode?: string };
+    recentEvents.length = 0;
+    live = new LiveSession(db, apiKey, title?.trim() || `Meeting ${new Date().toLocaleString()}`, mode ?? "discovery");
+    live.onEvent((e) => {
+      recentEvents.push(e);
+      if (recentEvents.length > 200) recentEvents.shift();
+      for (const send of sseClients) send(e);
+    });
+    live.start();
+    return { ok: true, meetingId: live.meetingId };
+  },
+
+  async "POST /api/record/stop"() {
+    if (!live) return { error: "not recording" };
+    const s = live;
+    live = null;
+    return await s.stop();
+  },
+
+  "GET /api/record/state"() {
+    return { recording: !!live, meetingId: live?.meetingId ?? null, title: live?.title ?? null };
+  },
+
   "POST /api/todo"(p, body) {
     const { id, done } = body as { id: number; done: boolean };
     db.prepare(`UPDATE claims SET done = ? WHERE id = ? AND kind = 'action_item'`).run(done ? 1 : 0, id);
@@ -107,6 +142,16 @@ createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   const key = `${req.method} ${url.pathname}`;
 
+  // Live transcript stream (SSE)
+  if (key === "GET /api/record/events") {
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+    for (const e of recentEvents) res.write(`data: ${JSON.stringify(e)}\n\n`);
+    const send = (e: LiveEvent) => res.write(`data: ${JSON.stringify(e)}\n\n`);
+    sseClients.add(send);
+    req.on("close", () => sseClients.delete(send));
+    return;
+  }
+
   if (api[key]) {
     let body: unknown = null;
     if (req.method === "POST") {
@@ -115,7 +160,7 @@ createServer(async (req, res) => {
       try { body = JSON.parse(Buffer.concat(chunks).toString() || "null"); } catch { body = null; }
     }
     try {
-      const out = api[key](url.searchParams, body);
+      const out = await api[key](url.searchParams, body);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(out));
     } catch (e) {
