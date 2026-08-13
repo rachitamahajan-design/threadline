@@ -926,7 +926,7 @@ recBtn.addEventListener("click", async () => {
       sessionStorage.setItem("tl-thread-anim", "1"); // Home plays the needle run: meeting → loose ends
       state.meetingId = r.meetingId; render();
     }
-    else { alert("Nothing was captured — check mic/screen-recording permissions."); render(); }
+    else { alert(r.reason ?? "Nothing was captured."); render(); }
   }
 });
 

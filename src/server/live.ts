@@ -19,7 +19,7 @@ export type LiveEvent =
   | { type: "status"; message: string }
   | { type: "partial"; speaker: "You" | "Them"; text: string; utteranceId: string }
   | { type: "final"; speaker: "You" | "Them"; text: string; offsetS: number; durationS: number }
-  | { type: "stopped"; meetingId: string; exit: string }
+  | { type: "stopped"; meetingId: string; exit: string; reason?: string }
   | { type: "error"; message: string };
 
 const SPEAKER: Record<number, "Them" | "You"> = { 0: "Them", 1: "You" };
@@ -30,6 +30,8 @@ export class LiveSession {
   private sockets: (WebSocket | null)[] = [null, null];
   /** Audio always lands on disk too, so a PyAI outage never loses a meeting. */
   private tapes: (WriteStream | null)[] = [null, null];
+  private audioBytes = [0, 0];
+  private lastStreamError: string | null = null;
   private listeners = new Set<(e: LiveEvent) => void>();
   private finals: Utterance[] = [];
   private startedAt = 0;
@@ -84,6 +86,7 @@ export class LiveSession {
         const pcm = buf.subarray(5, 5 + len);
         buf = buf.subarray(5 + len);
         this.tapes[channel]?.write(pcm);
+        this.audioBytes[channel] += pcm.length;
         const ws = this.sockets[channel];
         if (ws?.readyState === WebSocket.OPEN) ws.send(pcm);
       }
@@ -116,7 +119,8 @@ export class LiveSession {
         this.finals.push({ speaker, speaker_role: ROLE[speaker], text: msg.text, offset_s: offsetS, duration_s: durationS });
         this.emit({ type: "final", speaker, text: msg.text, offsetS, durationS });
       } else if (msg.type === "error") {
-        this.emit({ type: "error", message: `${speaker} stream: ${JSON.stringify(msg)}` });
+        this.lastStreamError = `${speaker} stream: ${JSON.stringify(msg)}`;
+        this.emit({ type: "error", message: this.lastStreamError });
       }
     });
     ws.on("close", (code) => {
@@ -126,7 +130,10 @@ export class LiveSession {
         setTimeout(() => { if (!this.stopping) this.openSocket(channel); }, 800);
       }
     });
-    ws.on("error", (e) => this.emit({ type: "status", message: `${speaker} socket: ${e.message}` }));
+    ws.on("error", (e) => {
+      this.lastStreamError = `${speaker} socket: ${e.message}`;
+      this.emit({ type: "status", message: this.lastStreamError });
+    });
   }
 
   /** True if this mic text substantially overlaps a recent "Them" line. */
@@ -146,7 +153,7 @@ export class LiveSession {
   private themRecent: { text: string; at: number }[] = [];
 
   /** Stop capture, flush finals, then run the extraction pipeline. */
-  async stop(): Promise<{ meetingId: string; exit: string }> {
+  async stop(): Promise<{ meetingId: string; exit: string; reason?: string }> {
     this.stopping = true;
     for (const ws of this.sockets)
       if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "commit" }));
@@ -176,8 +183,20 @@ export class LiveSession {
       }
     }
     if (this.finals.length === 0) {
-      this.emit({ type: "error", message: "No speech captured — nothing to process." });
-      return { meetingId: this.meetingId, exit: "failed" };
+      // Same symptom, three causes — name the one that actually happened.
+      const totalAudio = this.audioBytes[0] + this.audioBytes[1];
+      let reason: string;
+      if (totalAudio < 32_000) {
+        // under ~1s of audio across both channels: capture never really ran
+        reason =
+          "No audio reached the app. Check Microphone and Screen Recording permissions (System Settings → Privacy & Security), then fully restart the app you run Threadline from.";
+      } else if (this.lastStreamError) {
+        reason = `Audio was captured (${Math.round(totalAudio / 32_000)}s) but transcription failed: ${this.lastStreamError}. The recording is saved and can be processed once the service is reachable.`;
+      } else {
+        reason = "Audio was captured but no speech was recognized — the recording may be silence or too quiet.";
+      }
+      this.emit({ type: "error", message: reason });
+      return { meetingId: this.meetingId, exit: "failed", reason };
     }
     const res = await processMeeting(this.db, this.apiKey, {
       id: this.meetingId,
