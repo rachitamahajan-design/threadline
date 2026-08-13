@@ -116,6 +116,12 @@
   #nav-toggle { display: none; }
 
   /* ── the record button: one component, everywhere ── */
+  /* the header pill hides at rest — recording starts via double-Fn or in-page
+     buttons; it surfaces only as the Stop control while a take is live */
+  #rec { display: none; }
+  #rec.on { display: inline-flex; }
+  #hotkey-help.rec-live { border-color: #e0443e; color: #e0443e; animation: recpulse 1.6s ease-in-out infinite; }
+  @keyframes recpulse { 0%,100% { box-shadow: 0 0 0 0 rgb(224 68 62 / .35); } 50% { box-shadow: 0 0 0 6px rgb(224 68 62 / 0); } }
   .rec-btn {
     display: inline-flex; align-items: center; gap: 8px; flex: none;
     border: 1px solid var(--glass-border); border-radius: 999px;
@@ -1088,6 +1094,8 @@
   <symbol id="i-folder-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 18.5v-13a1 1 0 0 1 1-1H9l2.2 2.6h8.3a1 1 0 0 1 1 1v10.4a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1Z"/><path d="M12 10.8v5.2M9.4 13.4h5.2"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
   <symbol id="i-pip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="3"/><rect x="12" y="12" width="7" height="6" rx="1.6"/></symbol>
+  <!-- global recording: a needle through a loop of thread, the eye lit red like a record light -->
+  <symbol id="i-needle-rec" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="13" r="7.4" stroke-dasharray="2.6 3.4"/><path d="M5.6 18.4 18.6 5.4"/><circle cx="18.1" cy="5.9" r="1.6" fill="#e0443e" stroke="#e0443e"/></symbol>
   <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.8 4.2h6v6"/><path d="m19.2 4.8-8 8"/><path d="M18.5 14v5.5a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1H10"/></symbol>
 </svg>
 <header>
@@ -1118,7 +1126,7 @@
     Threadline
   </div>
   <span class="hspacer"></span>
-  <button id="hotkey-help" class="copybtn" style="margin:0" title="Start or stop recording from any app — setup guide">Global recording</button>
+  <button id="hotkey-help" class="icon-btn bordered" title="Global recording — double-tap Fn to record from any app (click for setup)" aria-label="Global recording guide"><svg class="ic" width="19" height="19"><use href="#i-needle-rec"/></svg></button>
   <button id="pip-btn" class="icon-btn bordered" title="Pop out the floating companion" aria-label="Pop out the floating companion" style="display:none"><svg class="ic" width="17" height="17"><use href="#i-pip"/></svg></button>
   <button id="rec" class="rec-btn">Record</button>
 </header>
@@ -2361,6 +2369,7 @@ function setRecordingUI(on) {
   recBtn.classList.toggle("on", on);          // .rec-btn.on = red pill + pulsing dot
   recBtn.classList.toggle("recording", on);
   recBtn.disabled = false;
+  $("#hotkey-help")?.classList.toggle("rec-live", on);
 }
 
 /** Project tags on the meeting: add/remove, picked from the projects list.
