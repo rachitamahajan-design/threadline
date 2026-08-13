@@ -1,0 +1,44 @@
+[
+  {
+    "id": "meeting_sample_kickoff",
+    "title": "ANZ pricing kickoff",
+    "mode": "discovery",
+    "startedAt": 1786080600000,
+    "utterances": [
+      { "speaker": "Rachita", "speaker_role": "agent", "text": "Okay, ANZ pricing. Where do we stand on the rollout?", "offset_s": 0.0, "duration_s": 3.5 },
+      { "speaker": "Prabhav", "speaker_role": "customer", "text": "Prabhav here. The usage measurement logic is still wrong for annual accounts, so August is not realistic.", "offset_s": 3.8, "duration_s": 6.5 },
+      { "speaker": "Rachita", "speaker_role": "agent", "text": "What are prospects actually saying about the pricing model?", "offset_s": 10.6, "duration_s": 3.4 },
+      { "speaker": "Prabhav", "speaker_role": "customer", "text": "Enterprise prospects pushed back hard on per seat pricing. They want usage based tiers. Rebuilding takes three weeks.", "offset_s": 14.2, "duration_s": 7.2 },
+      { "speaker": "Rachita", "speaker_role": "agent", "text": "Then the decision is we delay the ANZ rollout to September and rebuild the tiers.", "offset_s": 21.8, "duration_s": 5.0 },
+      { "speaker": "Sharon", "speaker_role": "customer", "text": "Sharon here. I will send the timeline for when portfolio changes reflect in the CS dashboard by Friday.", "offset_s": 27.2, "duration_s": 5.8 },
+      { "speaker": "Rachita", "speaker_role": "agent", "text": "And I will build the prospecting table of two hundred fifty B2B SaaS companies matching the ICP before our next call.", "offset_s": 33.4, "duration_s": 6.0 },
+      { "speaker": "Prabhav", "speaker_role": "customer", "text": "One more thing. There is a risk flagged on the student account renewal we should not ignore.", "offset_s": 39.8, "duration_s": 4.6 }
+    ]
+  },
+  {
+    "id": "meeting_sample_sharon_1on1",
+    "title": "1:1 with Sharon",
+    "mode": "one_on_one",
+    "startedAt": 1786339800000,
+    "utterances": [
+      { "speaker": "Rachita", "speaker_role": "agent", "text": "Quick check in. Where is the CS dashboard timeline you promised on the kickoff call?", "offset_s": 0.0, "duration_s": 4.5 },
+      { "speaker": "Sharon", "speaker_role": "customer", "text": "It slipped. The data team is blocked on the warehouse migration, so the portfolio changes will not reflect until next sprint.", "offset_s": 4.9, "duration_s": 7.0 },
+      { "speaker": "Rachita", "speaker_role": "agent", "text": "That is the second time the warehouse migration has blocked us. Who owns unblocking it?", "offset_s": 12.3, "duration_s": 4.4 },
+      { "speaker": "Sharon", "speaker_role": "customer", "text": "I will escalate it to the data team lead today and come back with a date by tomorrow.", "offset_s": 17.0, "duration_s": 4.8 },
+      { "speaker": "Rachita", "speaker_role": "agent", "text": "Good. Also flag the student account renewal in your review, Prabhav raised a risk on it.", "offset_s": 22.2, "duration_s": 4.9 }
+    ]
+  },
+  {
+    "id": "meeting_sample_investor",
+    "title": "Investor update call",
+    "mode": "investor",
+    "startedAt": 1786512600000,
+    "utterances": [
+      { "speaker": "Rachita", "speaker_role": "agent", "text": "Thanks for making time. Headline is that ANZ pricing moved to September, and I want to walk you through why that is the right call.", "offset_s": 0.0, "duration_s": 6.5 },
+      { "speaker": "Investor", "speaker_role": "customer", "text": "September is fine if the reason is demand shaped. Is it?", "offset_s": 6.9, "duration_s": 3.6 },
+      { "speaker": "Rachita", "speaker_role": "agent", "text": "Yes. Enterprise prospects want usage based tiers instead of per seat pricing, so we are rebuilding the tiers rather than shipping the wrong model.", "offset_s": 10.8, "duration_s": 7.4 },
+      { "speaker": "Investor", "speaker_role": "customer", "text": "Send me the prospecting table and the updated tier model when they are ready. And keep an eye on that renewal risk you mentioned last time.", "offset_s": 18.6, "duration_s": 6.8 },
+      { "speaker": "Rachita", "speaker_role": "agent", "text": "Will do. The prospecting table of two hundred fifty companies is in progress, I will share both by end of month.", "offset_s": 25.8, "duration_s": 5.6 }
+    ]
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "name": "opengranola",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first meeting brain. No bot in your call, notes with receipts, a to-do list that writes itself, and a graph of everything you've ever discussed.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "demo": "tsx src/cli/demo.ts",
+    "dev": "tsx src/server/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "tsx": "^4.19.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.7.0"
+  }
+}

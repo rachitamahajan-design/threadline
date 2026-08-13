@@ -1,0 +1,30 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Local meeting data (local-first: this never leaves the machine)
+data/
+*.db
+*.sqlite
+*.sqlite3
+recordings/
+*.wav
+*.pcm
+!samples/**/*.wav
+
+# Dependencies / build
+node_modules/
+dist/
+build/
+.next/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# macOS / editors
+.DS_Store
+.vscode/
+.idea/
+*.swp

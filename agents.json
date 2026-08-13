@@ -1,0 +1,54 @@
+{
+  "$comment": "Capability registry. Meeting modes are config, not code — swapping a model or changing what a mode extracts is one edit here, no rebuild. Slide 10, 'capability registry'.",
+  "version": 1,
+  "models": {
+    "transcribe_stream": { "provider": "pyai", "model": "pyai-hear", "surface": "hear.stream" },
+    "transcribe_batch": { "provider": "pyai", "model": "pyai-hear", "surface": "transcription.jobs", "diarize": true },
+    "recap": { "provider": "pyai", "surface": "recap.calls" },
+    "extract": { "provider": "anthropic", "model": "claude-sonnet-5" }
+  },
+  "budgets": {
+    "per_meeting_units": 60,
+    "per_meeting_ms": 180000,
+    "live_assist_min_gap_ms": 20000
+  },
+  "modes": [
+    {
+      "id": "investor",
+      "name": "Investor call",
+      "description": "Fundraising conversations. Tracks what you committed to and what they pushed on.",
+      "extract": ["decisions", "action_items", "objections", "metrics_quoted", "follow_ups"],
+      "assist": {
+        "watch_for": ["a metric you have quoted differently before", "a question about traction or burn", "a commitment to send materials"],
+        "recall_from": "past_meetings_with_same_people"
+      }
+    },
+    {
+      "id": "discovery",
+      "name": "Discovery",
+      "description": "Prospect calls. Pains, blockers, who actually decides.",
+      "extract": ["pains", "decision_makers", "objections", "next_steps", "action_items"],
+      "assist": {
+        "watch_for": ["a pricing question", "a competitor mentioned", "an objection you have heard before"],
+        "recall_from": "past_meetings_on_same_topic"
+      }
+    },
+    {
+      "id": "one_on_one",
+      "name": "1:1",
+      "description": "Direct reports. Carries last week's commitments into this week.",
+      "extract": ["action_items", "blockers", "decisions", "sentiment"],
+      "assist": {
+        "watch_for": ["an open action item from your last 1:1 with this person", "a blocker raised twice"],
+        "recall_from": "last_meeting_with_same_person"
+      }
+    },
+    {
+      "id": "standup",
+      "name": "Standup",
+      "description": "Short, fast, mostly action items. Assist stays quiet.",
+      "extract": ["action_items", "blockers"],
+      "assist": { "watch_for": ["a blocker with no owner"], "recall_from": "none" }
+    }
+  ]
+}
