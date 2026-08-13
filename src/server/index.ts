@@ -206,6 +206,28 @@ const api: Record<string, Handler> = {
     return await s.stop();
   },
 
+  /** Mid-meeting notes: extract from the transcript so far, keep recording. */
+  async "POST /api/record/notes"() {
+    if (!live) return { error: "not recording" };
+    const utts = live.snapshot();
+    if (utts.length < 1) return { error: "Not enough speech yet — give it a minute." };
+    const cid = `${live.meetingId}-sofar-${Date.now()}`;
+    const durationS = Math.max(...utts.map((u) => u.offset_s + u.duration_s));
+    try {
+      const { triggerRecap, awaitRecap } = await import("../lib/pyai.js");
+      await triggerRecap(apiKey, cid, utts, durationS);
+      const r = await awaitRecap(apiKey, cid, 30_000);
+      if (r.status !== "complete" || !r.record) throw new Error(r.error ?? "recap incomplete");
+      return { record: r.record, lines: utts.length };
+    } catch (e) {
+      const { hasOpenAI, openaiExtract } = await import("../lib/openai.js");
+      if (hasOpenAI()) {
+        try { return { record: await openaiExtract(utts), lines: utts.length, engine: "fallback" }; } catch {}
+      }
+      return { error: `Notes engine unavailable: ${e instanceof Error ? e.message : e}` };
+    }
+  },
+
   "GET /api/record/state"() {
     return { recording: !!live, meetingId: live?.meetingId ?? null, title: live?.title ?? null };
   },

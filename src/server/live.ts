@@ -174,6 +174,11 @@ export class LiveSession {
   }
   private themRecent: { text: string; at: number }[] = [];
 
+  /** The transcript captured so far, for mid-meeting notes. */
+  snapshot(): Utterance[] {
+    return [...this.finals].sort((a, b) => a.offset_s - b.offset_s);
+  }
+
   /** Stop capture, flush finals, then run the extraction pipeline. */
   async stop(): Promise<{ meetingId: string; exit: string; reason?: string }> {
     this.stopping = true;
