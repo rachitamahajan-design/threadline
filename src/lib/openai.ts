@@ -59,6 +59,11 @@ export async function whisperTranscribe(
     }));
 }
 
+/** The chat model. Chat always talks to OpenAI; the composer bar names it. */
+export function openaiModel(): string {
+  return process.env.SUMMARIZER_MODEL ?? "gpt-4o-mini";
+}
+
 /** One JSON-mode chat call. Callers own the schema and validation. */
 export async function chatJSON(system: string, user: string, model?: string): Promise<unknown> {
   const res = await fetch(`${BASE}/chat/completions`, {
@@ -68,7 +73,7 @@ export async function chatJSON(system: string, user: string, model?: string): Pr
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: model ?? process.env.SUMMARIZER_MODEL ?? "gpt-4o-mini",
+      model: model ?? openaiModel(),
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },

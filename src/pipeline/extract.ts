@@ -18,6 +18,9 @@ import { resolveCandidates, storeResolutions } from "./resolve.js";
 import { projectGraph } from "./project.js";
 import { indexMeeting } from "./chunker.js";
 import { hasOpenAI, openaiExtract } from "../lib/openai.js";
+import { modelConfigured } from "../lib/model.js";
+import { clearFacts } from "../lib/store.js";
+import { ensureNotes } from "./handoff.js";
 import { structureSummary } from "./summarize.js";
 import { suggestProjects } from "./match.js";
 import { applyDictionary } from "./corrections.js";
@@ -101,10 +104,10 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
      ON CONFLICT(id) DO UPDATE SET title=excluded.title`,
   ).run(m.id, m.title, m.mode, m.startedAt, durationS);
   const insUtt = db.prepare(
-    "INSERT OR REPLACE INTO utterances (meeting_id, idx, speaker, speaker_role, text, offset_s, duration_s) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    "INSERT OR REPLACE INTO utterances (meeting_id, idx, speaker, speaker_role, text, offset_s, duration_s, confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
   );
   m.utterances.forEach((u, i) =>
-    insUtt.run(m.id, i, u.speaker ?? null, u.speaker_role, u.text, u.offset_s, u.duration_s),
+    insUtt.run(m.id, i, u.speaker ?? null, u.speaker_role, u.text, u.offset_s, u.duration_s, u.confidence ?? null),
   );
 
   // core: Recap. 402s never succeed on retry, so only 429s are retried.
@@ -215,6 +218,33 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
       const match = await suggestProjects(db, budget, m, rec);
       if (match) steps.push(match);
     }
+  }
+
+  // The themed outline: the one output that generates itself. Handoffs never do
+  // — they wait to be asked. Non-core: a failure here leaves the meeting usable
+  // and the outline regenerable from the UI.
+  if (modelConfigured()) {
+    const startedAt = Date.now();
+    // Extraction re-runs when the transcript changed under us (corrections,
+    // "record more"), so notes are never composed from stale facts.
+    clearFacts(db, m.id);
+    const notes = await ensureNotes(db, m.id, { force: true, budget }).catch((e: unknown) => ({
+      outline: null,
+      error: e instanceof Error ? e.message : String(e),
+    }));
+    steps.push(
+      notes.outline
+        ? {
+            name: "notes:outline",
+            status: notes.outline.needsReview ? "blocked" : "ok",
+            attempts: 1,
+            ms: Date.now() - startedAt,
+            reason: notes.outline.needsReview
+              ? `${notes.outline.failures.length} grounding failure(s); ${notes.outline.dropped} bullet(s) dropped`
+              : undefined,
+          }
+        : { name: "notes:outline", status: "failed", attempts: 1, ms: Date.now() - startedAt, reason: notes.error ?? "unknown" },
+    );
   }
 
   const exit = decideExit(steps, budget);

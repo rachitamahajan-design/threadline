@@ -1,55 +1,18 @@
 /**
- * The notes brain: three LLM passes over the user's notes document.
+ * Meeting chat: grounded Q&A over one transcript, which may also rewrite the
+ * user's notes when they ask it to.
  *
- *   enhance   — polish the user's rough notes in place, transcript as ground truth
- *   structure — full structured notes: sections, team-wise action items,
- *               person inference (Meet/Zoom remote speakers are all "Them";
- *               identities come from how people address each other)
- *   chat      — grounded Q&A that may also rewrite the notes when asked
+ * Structured notes no longer live here — they are the grounded outline
+ * (pipeline/notes-outline.ts), where every bullet carries a receipt. This file
+ * keeps the conversational half, and it talks to OpenAI directly.
  *
- * All passes receive the *client's* current notes (not the DB copy) so an
- * in-flight autosave can never be clobbered by a stale read. Every write is
- * snapshotted to notes_versions first.
+ * Chat receives the *client's* current notes (not the DB copy) so an in-flight
+ * autosave can never be clobbered by a stale read. Every write is snapshotted
+ * to notes_versions first.
  */
 import { DatabaseSync } from "node:sqlite";
 import { chatJSON, flattenTranscript } from "../lib/openai.js";
 import type { Utterance } from "../lib/pyai.js";
-
-export type PersonMapping = { heard_as: string; inferred_name: string; team: string | null };
-
-const ENHANCE_SYSTEM = `You improve a person's rough meeting notes using the transcript as ground truth.
-Rules:
-- PRESERVE the user's structure, ordering, headings and personal phrasing. Their words win.
-- Expand fragments into complete points; fix obvious typos; fill clear gaps the transcript
-  covers that the notes gesture at. Add missing important items only under an
-  "Also discussed" section at the end.
-- Never state anything the transcript does not support. Prefer the transcript's spelling
-  of names, numbers and dates.
-- Keep it markdown: #/## headings, - bullets, - [ ] for open action items.
-- If the notes are empty, produce concise notes from the transcript alone.
-Reply as JSON: {"notes": "<full markdown document>"}`;
-
-const STRUCTURE_SYSTEM = `You turn a meeting transcript (plus the user's notes, if any) into fully structured
-meeting notes in markdown.
-
-Person inference: speakers may be labeled generically ("Them" is everyone on the remote
-side of a Google Meet / Zoom call; "You" is the note-taker). Infer real identities from how
-people address each other in the transcript ("thanks, Rachita", "Dev, can you take that").
-When confident, use the real name; when not, write "Unidentified speaker". Never invent names.
-
-Structure (omit empty sections):
-# <meeting title>
-## Summary            — 2-4 sentences
-## <one heading per topic actually discussed>  — specific bullets
-## Decisions
-## Action items       — group by TEAM when teams are identifiable (### Engineering,
-                        ### Sales, ...); infer team from role context in the transcript;
-                        otherwise group by owner. Each item:
-                        - [ ] **Name**: task (due date if stated)
-## Open questions
-
-Only facts supported by the transcript. Numbers, names, dates over vagueness.
-Reply as JSON: {"notes": "<markdown>", "people": [{"heard_as": string, "inferred_name": string, "team": string|null}]}`;
 
 const CHAT_SYSTEM = `You are the meeting assistant for the notes document below. Ground every answer ONLY
 in the transcript; cite moments as [Ns] using the transcript's second markers when useful.
@@ -93,56 +56,6 @@ async function callWithRetry<T>(
     }
   }
   throw new Error("unreachable");
-}
-
-const asNotes = (raw: unknown): { notes: string } | string => {
-  const r = raw as { notes?: unknown };
-  return typeof r?.notes === "string" && r.notes.trim()
-    ? { notes: r.notes.trim() }
-    : 'response must be {"notes": "<non-empty markdown>"}';
-};
-
-export async function enhanceNotes(
-  db: DatabaseSync,
-  meetingId: string,
-  currentNotes: string,
-  utterances: Utterance[],
-): Promise<{ notes: string }> {
-  const out = await callWithRetry(
-    ENHANCE_SYSTEM,
-    `Transcript:\n${flattenTranscript(utterances)}\n\nUser's rough notes:\n${currentNotes || "(empty)"}`,
-    asNotes,
-  );
-  writeNotes(db, meetingId, currentNotes, out.notes, "enhance");
-  return out;
-}
-
-export async function structureNotes(
-  db: DatabaseSync,
-  meetingId: string,
-  currentNotes: string,
-  utterances: Utterance[],
-  title: string,
-): Promise<{ notes: string; people: PersonMapping[] }> {
-  const out = await callWithRetry(
-    STRUCTURE_SYSTEM,
-    `Meeting title: ${title}\n\nTranscript:\n${flattenTranscript(utterances)}\n\nUser's notes (may be empty):\n${currentNotes || "(empty)"}`,
-    (raw): { notes: string; people: PersonMapping[] } | string => {
-      const n = asNotes(raw);
-      if (typeof n === "string") return n;
-      const people = Array.isArray((raw as { people?: unknown }).people)
-        ? ((raw as { people: unknown[] }).people.filter(
-            (p): p is PersonMapping =>
-              typeof p === "object" && p !== null &&
-              typeof (p as PersonMapping).heard_as === "string" &&
-              typeof (p as PersonMapping).inferred_name === "string",
-          ) as PersonMapping[])
-        : [];
-      return { notes: n.notes, people };
-    },
-  );
-  writeNotes(db, meetingId, currentNotes, out.notes, "structure");
-  return out;
 }
 
 export async function chatAboutMeeting(

@@ -13,6 +13,8 @@
     "export": "tsx src/cli/export.ts",
     "import": "tsx src/cli/import.ts",
     "dev": "tsx src/server/index.ts",
+    "test": "node --import tsx --test test/*.test.ts",
+    "eval-grounding": "tsx src/cli/eval-grounding.ts",
     "typecheck": "tsc --noEmit",
     "build:capture": "swiftc -O capture/ThreadlineCapture.swift -o capture/threadline-capture && swiftc -O capture/ThreadlineHotkey.swift -o capture/threadline-hotkey",
     "seed": "tsx src/cli/seed.ts"

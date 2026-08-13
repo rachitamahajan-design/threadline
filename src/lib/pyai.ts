@@ -22,6 +22,8 @@ export type Utterance = {
   text: string;
   offset_s: number;
   duration_s: number;
+  /** STT confidence 0..1 where the engine reports it. Absent = not reported. */
+  confidence?: number | null;
 };
 
 export type StreamFrame =
