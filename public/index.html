@@ -618,8 +618,13 @@ async function renderNeedle() {
       <div class="card" style="padding:14px">
         <button class="copybtn" id="needle-new" style="width:100%;margin-bottom:10px">+ New thread</button>
         ${convs.map((c) => `
-          <button class="side-link ${c.id === active ? "active" : ""}" data-conv="${c.id}" style="font-size:13px">
-            ${esc(c.title.slice(0, 26))}<span style="opacity:.5"> · ${c.n_messages}</span></button>`).join("") || `<div class="t-meta">No threads yet.</div>`}
+          <div class="needle-thread" data-conv="${c.id}" style="display:flex;align-items:center;gap:4px">
+            <button class="side-link ${c.id === active ? "active" : ""}" data-open="${c.id}" data-title="${esc(c.title)}"
+              title="Double-click to rename" style="font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              ${esc(c.title.slice(0, 26))}<span style="opacity:.5"> · ${c.n_messages}</span></button>
+            <button class="thread-del" data-del="${c.id}" title="Delete thread"
+              style="border:0;background:none;color:var(--ink-3);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:6px;visibility:hidden">×</button>
+          </div>`).join("") || `<div class="t-meta">No threads yet.</div>`}
       </div>
       <div class="card" style="display:flex;flex-direction:column;min-height:480px">
         <div id="needle-feed" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-bottom:14px"></div>
@@ -634,8 +639,49 @@ async function renderNeedle() {
     const { id } = await fetch("/api/needle/new", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then((r) => r.json());
     state.needleId = id; renderNeedle();
   });
-  main.querySelectorAll("[data-conv]").forEach((el) =>
-    el.addEventListener("click", () => { state.needleId = Number(el.dataset.conv); renderNeedle(); }));
+  main.querySelectorAll(".needle-thread").forEach((row) => {
+    row.addEventListener("mouseenter", () => { row.querySelector(".thread-del").style.visibility = "visible"; });
+    row.addEventListener("mouseleave", () => { row.querySelector(".thread-del").style.visibility = "hidden"; });
+  });
+  main.querySelectorAll("[data-open]").forEach((el) => {
+    // Single click re-renders the list, which would destroy this element
+    // before a double-click's second click lands — so: clicking the active
+    // thread is a no-op, and switching waits a beat for a possible dblclick.
+    let clickTimer = null;
+    el.addEventListener("click", () => {
+      const id = Number(el.dataset.open);
+      if (id === state.needleId) return; // already open — leave DOM alone for dblclick
+      clearTimeout(clickTimer);
+      clickTimer = setTimeout(() => { state.needleId = id; renderNeedle(); }, 260);
+    });
+    // Double-click: rename inline. Enter saves, Esc cancels.
+    el.addEventListener("dblclick", () => {
+      clearTimeout(clickTimer); // cancel the pending thread-switch
+      const id = Number(el.dataset.open);
+      const input = document.createElement("input");
+      input.value = el.dataset.title;
+      input.style.cssText = "width:100%;font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--thread);border-radius:8px;background:var(--surface);color:var(--ink)";
+      el.replaceWith(input);
+      input.focus(); input.select();
+      const commit = async () => {
+        const title = input.value.trim();
+        if (title && title !== el.dataset.title)
+          await fetch("/api/needle/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, title }) });
+        renderNeedle();
+      };
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") renderNeedle(); });
+      input.addEventListener("blur", commit);
+    });
+  });
+  main.querySelectorAll("[data-del]").forEach((el) =>
+    el.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = Number(el.dataset.del);
+      if (!confirm("Delete this thread and its messages?")) return;
+      await fetch("/api/needle/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      if (state.needleId === id) state.needleId = null;
+      renderNeedle();
+    }));
   if (active) await needleLoad(active);
   $("#needle-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -2468,8 +2514,23 @@ async function runAsk(q) {
         <span class="backlink" data-mid="${p.meeting_id}" data-off="${p.offset_s}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span></div>`).join("")
       : `<div class="t-meta">Couldn't ground an answer — the receipts below are what matched.</div>`}
     ${r.blocked.length ? `<div class="t-meta" style="margin-top:8px">${r.blocked.length} sentence(s) dropped — no receipt in the retrieved snippets</div>` : ""}
+    ${r.summary || r.answer.length ? `<div style="margin-top:10px"><button class="copybtn" id="askcard-continue">Continue in Needle 🪡</button></div>` : ""}
   </div>`;
   wireMeetingLinks();
+  $("#askcard-continue")?.addEventListener("click", async () => {
+    const seed = {
+      question: q,
+      content: r.summary || (r.answer[0]?.text ?? ""),
+      payload: { mode: r.mode, exit: r.exit,
+        points: r.answer.map((p) => ({ text: p.text, quote: p.quote, meeting_id: p.meeting_id, meeting_title: p.meeting_title, offset_s: p.offset_s })),
+        chunk_ids: r.receipts.map((s) => s.chunk_id) },
+    };
+    const { id } = await fetch("/api/needle/new", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seed }) }).then((x) => x.json());
+    $("#search").value = "";
+    state.needleId = id; state.view = "needle"; state.meetingId = null;
+    render();
+  });
 }
 
 // ── Command palette: Spotlight for your meetings ─────────────────────────

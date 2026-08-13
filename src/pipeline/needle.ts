@@ -182,6 +182,11 @@ export async function converse(db: DatabaseSync, conversationId: number, text: s
   db.prepare("INSERT INTO messages (conversation_id, role, content, payload, created_at) VALUES (?, 'user', ?, NULL, ?)")
     .run(conversationId, text, now);
 
+  // A thread still wearing its default name takes the first question as title.
+  if (!hist.length)
+    db.prepare("UPDATE conversations SET title = ? WHERE id = ? AND title = 'New thread'")
+      .run(text.slice(0, 60), conversationId);
+
   const steps: StepRecord[] = [];
   const budget = new Budget(4, 20_000);
   const save = (content: string, payload: object) => {

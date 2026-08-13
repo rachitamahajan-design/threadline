@@ -573,6 +573,21 @@ const api: Record<string, Handler> = {
     return await converse(db, conversation_id, text.trim());
   },
 
+  "POST /api/needle/rename"(p, body) {
+    const { id, title } = (body ?? {}) as { id?: number; title?: string };
+    if (!id || !title?.trim()) return { error: "missing id or title" };
+    db.prepare("UPDATE conversations SET title = ? WHERE id = ?").run(title.trim().slice(0, 80), id);
+    return { ok: true };
+  },
+
+  "POST /api/needle/delete"(p, body) {
+    const { id } = (body ?? {}) as { id?: number };
+    if (!id) return { error: "missing id" };
+    db.prepare("DELETE FROM messages WHERE conversation_id = ?").run(id);
+    db.prepare("DELETE FROM conversations WHERE id = ?").run(id);
+    return { ok: true };
+  },
+
   /** Re-run the full pipeline over a stored meeting. Idempotent; keeps corrections. */
   async "POST /api/meeting/regenerate"(p, body) {
     const { id } = (body ?? {}) as { id?: string };
