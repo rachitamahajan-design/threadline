@@ -20,6 +20,8 @@ export type AskPoint = { text: string; chunk_id: number; quote: string; meeting_
 export type AskResult = {
   question: string;
   mode: "synthesized" | "extractive";
+  /** One direct answer in plain language. Empty in extractive mode. */
+  summary: string;
   answer: AskPoint[];
   blocked: { text: string; reason: string }[];
   receipts: Snippet[];
@@ -59,7 +61,11 @@ function gates(snippets: Snippet[]): Gate<RawPoint> {
   return allOf(citesRetrieved, groundedInCited, noNewFacts);
 }
 
-async function synthesize(question: string, snippets: Snippet[], lastError: string | null): Promise<RawPoint[]> {
+async function synthesize(
+  question: string,
+  snippets: Snippet[],
+  lastError: string | null,
+): Promise<{ summary: string; points: RawPoint[] }> {
   const context = snippets
     .map((s) => `[#${s.chunk_id}] (meeting "${s.meeting_title}", ${Math.round(s.offset_s)}s) ${s.text}`)
     .join("\n\n");
@@ -73,8 +79,9 @@ async function synthesize(question: string, snippets: Snippet[], lastError: stri
         {
           role: "system",
           content:
-            'Answer the question using ONLY the numbered snippets. Reply with JSON {"points":[{"text": string, "chunk_id": number, "quote": string}]}. ' +
-            "Each point must cite the snippet number it came from as chunk_id and copy a verbatim quote from THAT snippet. " +
+            'Answer the question using ONLY the numbered snippets. Reply with JSON {"summary": string, "points":[{"text": string, "chunk_id": number, "quote": string}]}. ' +
+            "summary: a direct 1-3 sentence answer to the question, written in your own plain third-person words — do NOT copy transcript sentences or speak in first person. " +
+            "points: the evidence behind the summary; each cites its snippet number as chunk_id and copies a short VERBATIM quote from that snippet as quote, with text being a one-line paraphrase of what that quote establishes. " +
             "Do not introduce names or numbers that are not in the snippets." +
             (lastError ? ` Your previous answer was rejected: ${lastError}. Every point must quote its cited snippet verbatim.` : ""),
         },
@@ -84,7 +91,8 @@ async function synthesize(question: string, snippets: Snippet[], lastError: stri
   });
   if (!res.ok) throw new Error(`synthesis failed: HTTP ${res.status} ${(await res.text()).slice(0, 150)}`);
   const data = (await res.json()) as { choices: { message: { content: string } }[] };
-  return (JSON.parse(data.choices[0].message.content).points ?? []) as RawPoint[];
+  const parsed = JSON.parse(data.choices[0].message.content) as { summary?: string; points?: RawPoint[] };
+  return { summary: parsed.summary ?? "", points: parsed.points ?? [] };
 }
 
 export async function ask(db: DatabaseSync, question: string): Promise<AskResult> {
@@ -96,10 +104,26 @@ export async function ask(db: DatabaseSync, question: string): Promise<AskResult
   steps.push({ name: "retrieve", status: receipts.length ? "ok" : "failed", attempts: 1, ms: Date.now() - t0,
     reason: receipts.length ? undefined : "nothing matched" });
   if (!receipts.length)
-    return { question, mode: "extractive", answer: [], blocked: [], receipts, exit: "failed", steps };
+    return { question, mode: "extractive", summary: "", answer: [], blocked: [], receipts, exit: "failed", steps };
 
   const gate = gates(receipts);
-  const finish = (kept: RawPoint[], blocked: { item: RawPoint; reason: string }[], mode: AskResult["mode"]): AskResult => {
+
+  // The summary is free prose, so it gets the no-new-facts check against the
+  // whole retrieved corpus: every proper noun / number it asserts must appear
+  // in some retrieved snippet, or the summary is dropped and only receipted
+  // points render.
+  const corpus = normalize(receipts.map((s) => s.text).join(" "));
+  const summaryOk = (s: string): string | null => {
+    if (!s.trim()) return "empty summary";
+    const tokens = s.match(/\b[A-Z][a-z]{2,}\b|\b\d[\d.,%$/-]*\b/g) ?? [];
+    for (const t of tokens) {
+      const n = normalize(t);
+      if (n && !corpus.includes(n)) return `summary asserts "${t}" which appears in no retrieved snippet`;
+    }
+    return null;
+  };
+
+  const finish = (summary: string, kept: RawPoint[], blocked: { item: RawPoint; reason: string }[], mode: AskResult["mode"]): AskResult => {
     const byId = new Map(receipts.map((s) => [s.chunk_id, s]));
     const answer = kept.map((p) => {
       const s = byId.get(p.chunk_id!)!;
@@ -109,7 +133,7 @@ export async function ask(db: DatabaseSync, question: string): Promise<AskResult
     if (blocked.length)
       steps.push({ name: "gate:synthesis", status: "blocked", attempts: 1, ms: 0,
         reason: `${blocked.length} point(s) had no receipt in the retrieved snippets` });
-    return { question, mode, answer, blocked: blocked.map((b) => ({ text: b.item.text ?? "", reason: b.reason })),
+    return { question, mode, summary, answer, blocked: blocked.map((b) => ({ text: b.item.text ?? "", reason: b.reason })),
       receipts, exit: decideExit(steps, budget), steps };
   };
 
@@ -118,27 +142,34 @@ export async function ask(db: DatabaseSync, question: string): Promise<AskResult
     const points: RawPoint[] = receipts.slice(0, 3).map((s) => ({ text: s.text, chunk_id: s.chunk_id, quote: s.text.slice(0, 80) }));
     steps.push({ name: "synthesize", status: "skipped", attempts: 0, ms: 0, reason: "local-only — extractive answer" });
     const { kept, blocked } = applyGate(points, gate);
-    return finish(kept, blocked, "extractive");
+    return finish("", kept, blocked, "extractive");
   }
 
   // The aimed retry: a fully-gated answer throws, so attempt 2 sees WHY.
-  let kept: RawPoint[] = [], blocked: { item: RawPoint; reason: string }[] = [];
+  let summary = "", kept: RawPoint[] = [], blocked: { item: RawPoint; reason: string }[] = [];
   const run = await retry("synthesize", budget, async (_attempt, lastError) => {
     budget.spendUnits(1);
-    const points = await synthesize(question, receipts, lastError);
-    const res = applyGate(points, gate);
+    const out = await synthesize(question, receipts, lastError);
+    const res = applyGate(out.points, gate);
     if (!res.kept.length && res.blocked.length)
       throw new Error(res.blocked.map((b) => b.reason).slice(0, 2).join("; "));
-    return res;
+    return { ...res, summary: out.summary };
   }, { max: 2 });
   steps.push(run.record);
 
-  if (run.value) ({ kept, blocked } = run.value);
+  if (run.value) ({ kept, blocked, summary } = run.value);
+  const sumReason = summaryOk(summary);
+  if (sumReason) {
+    // Ungrounded summary never renders; the receipted points still can.
+    if (summary.trim())
+      steps.push({ name: "gate:summary", status: "blocked", attempts: 1, ms: 0, reason: sumReason });
+    summary = "";
+  }
   if (!kept.length) {
     // Never show an ungrounded sentence — fall back to extractive.
     const points: RawPoint[] = receipts.slice(0, 3).map((s) => ({ text: s.text, chunk_id: s.chunk_id, quote: s.text.slice(0, 80) }));
     const res = applyGate(points, gate);
-    return finish(res.kept, blocked.length ? blocked : res.blocked, "extractive");
+    return finish("", res.kept, blocked.length ? blocked : res.blocked, "extractive");
   }
-  return finish(kept, blocked, "synthesized");
+  return finish(summary, kept, blocked, "synthesized");
 }
