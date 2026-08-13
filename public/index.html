@@ -961,7 +961,7 @@ async function renderToday() {
       <div class="stat"><b>${stats?.decisions ?? 0}</b><span>decisions</span></div>
     </div>
     <div class="home-grid">
-      <div class="card"><h2>Up next · <button id="add-upcoming" style="border:0;background:none;font:inherit;font-weight:800;color:var(--thread);cursor:pointer">+ add</button></h2>
+      <div class="card"><h2>Up next · <button id="notify-bell" title="Notify me when meetings start" style="border:0;background:none;cursor:pointer;font-size:12px">🔔</button> <button id="add-upcoming" style="border:0;background:none;font:inherit;font-weight:800;color:var(--thread);cursor:pointer">+ add</button></h2>
         <div id="upcoming-box"><div class="empty" style="padding:16px 0">Nothing scheduled. Connect Google (soon) or add one.</div></div>
       </div>
       <div class="card"><h2>Past meetings</h2>
@@ -1018,6 +1018,11 @@ async function renderToday() {
   }
   drawRailThread();
   loadUpcoming();
+  $("#notify-bell")?.addEventListener("click", async () => {
+    const p = await Notification.requestPermission();
+    alert(p === "granted" ? "You'll get a notification when an Up next meeting starts." : "Notifications are blocked for this site — enable them in the browser's site settings.");
+  });
+  if (Notification.permission === "granted") { const b = $("#notify-bell"); if (b) b.style.opacity = ".45"; }
   $("#add-upcoming").addEventListener("click", async () => {
     const title = prompt("Meeting title?");
     if (!title?.trim()) return;
@@ -2425,37 +2430,47 @@ async function renderGraph() {
 
 // ── Live recording ──────────────────────────────────────────────────────
 const recBtn = $("#rec");
-let recording = false, evtSource = null;
+let recording = false, evtSource = null, pipWin = null;
+
+async function startRecording(title) {
+  const r = await fetch("/api/record/start", { method: "POST", body: JSON.stringify({ title }) }).then((x) => x.json());
+  if (r.error) { alert(r.error); return false; }
+  recording = true;
+  recBtn.textContent = "■ Stop";
+  recBtn.classList.add("recording");
+  renderLive(title);
+  openCompanion(title); // best effort — needs a recent user gesture
+  return true;
+}
+
+async function stopRecording() {
+  recBtn.textContent = "… processing";
+  recBtn.disabled = true;
+  const liveNotes = $("#live-notes")?.value ?? "";
+  const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
+  if (r.meetingId && liveNotes.trim())
+    await fetch("/api/notes", { method: "POST", body: JSON.stringify({ id: r.meetingId, notes: liveNotes }) });
+  recording = false;
+  recBtn.disabled = false;
+  recBtn.textContent = "● Record";
+  recBtn.classList.remove("recording");
+  evtSource?.close();
+  try { pipWin?.close(); } catch (e) {}
+  pipWin = null;
+  if (r.meetingId && r.exit !== "failed") {
+    sessionStorage.setItem("tl-thread-anim", "1");
+    state.meetingId = r.meetingId; render();
+  }
+  else { alert(r.reason ?? "Nothing was captured."); render(); }
+}
 
 recBtn.addEventListener("click", async () => {
   try {
   if (!recording) {
     const title = prompt("Meeting title?", "Untitled meeting");
     if (title === null) return;
-    const resp = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
-    if (!resp.ok) throw new Error(`server responded ${resp.status}`);
-    const r = await resp.json();
-    if (r.error) return alert(r.error);
-    recording = true;
-    recBtn.textContent = "■ Stop & stitch";
-    recBtn.classList.add("recording");
-    state.meetingId = r.meetingId;
-    renderMeeting(r.meetingId, { live: true });
-  } else {
-    recBtn.textContent = "… stitching";
-    recBtn.disabled = true;
-    const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
-    recording = false;
-    recBtn.disabled = false;
-    recBtn.textContent = "● Record";
-    recBtn.classList.remove("recording");
-    evtSource?.close();
-    if (r.meetingId && r.exit !== "failed") {
-      sessionStorage.setItem("tl-thread-anim", "1"); // Home plays the needle run: meeting → loose ends
-      state.meetingId = r.meetingId; render();
-    }
-    else { alert(r.reason ?? "Nothing was captured."); render(); }
-  }
+    await startRecording(title);
+  } else await stopRecording();
   } catch (err) {
     recording = false;
     recBtn.disabled = false;
@@ -2465,6 +2480,133 @@ recBtn.addEventListener("click", async () => {
     alert(`Recording failed: ${err.message}\n\nMake sure you opened http://localhost:4640 (served by \`npm run dev\`), not the file directly or another preview server.`);
   }
 });
+
+async function startRecording(title) {
+  const resp = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
+  if (!resp.ok) throw new Error(`server responded ${resp.status}`);
+  const r = await resp.json();
+  if (r.error) { alert(r.error); return false; }
+  recording = true;
+  recBtn.textContent = "■ Stop & stitch";
+  recBtn.classList.add("recording");
+  state.meetingId = r.meetingId;
+  renderMeeting(r.meetingId, { live: true });
+  openCompanion(title); // best effort — needs a recent user gesture
+  return true;
+}
+
+async function stopRecording() {
+  recBtn.textContent = "… stitching";
+  recBtn.disabled = true;
+  const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
+  recording = false;
+  recBtn.disabled = false;
+  recBtn.textContent = "● Record";
+  recBtn.classList.remove("recording");
+  evtSource?.close();
+  try { pipWin?.close(); } catch (e) {}
+  pipWin = null;
+  if (r.meetingId && r.exit !== "failed") {
+    sessionStorage.setItem("tl-thread-anim", "1"); // Home plays the needle run: meeting → loose ends
+    state.meetingId = r.meetingId; render();
+  }
+  else { alert(r.reason ?? "Nothing was captured."); render(); }
+}
+
+/**
+ * The floating companion: an always-on-top mini window (Document
+ * Picture-in-Picture) with the timer, the live line, and Stop — so the
+ * meeting stays visible over Zoom, docs, everything. Chrome/Arc/Edge.
+ */
+async function openCompanion(title) {
+  if (!("documentPictureInPicture" in window) || pipWin) return;
+  try {
+    pipWin = await documentPictureInPicture.requestWindow({ width: 330, height: 168 });
+  } catch (e) { pipWin = null; return; } // no gesture / unsupported — quiet no-op
+  const doc = pipWin.document;
+  doc.head.innerHTML = `<style>
+    body { margin:0; background:#faf8f5; color:#21201c; font:13px/1.5 -apple-system,system-ui;
+      -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; height:100vh; }
+    header { display:flex; align-items:center; gap:8px; padding:10px 12px 6px; }
+    .dot { width:8px; height:8px; border-radius:50%; background:#cf5a52; animation:p 1.6s ease-in-out infinite; }
+    @keyframes p { 50% { opacity:.4 } }
+    .t { font-weight:650; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; }
+    .clock { font-variant-numeric:tabular-nums; color:#6b675f; font-size:12px; }
+    .line { flex:1; padding:2px 12px; color:#6b675f; font-size:12.5px; overflow:hidden; }
+    .line b { color:#5b74e0; font-weight:600; }
+    footer { padding:8px 12px 10px; }
+    button { width:100%; border:0; border-radius:9px; padding:7px 0; font:inherit; font-weight:600;
+      color:#fff; background:#cf5a52; cursor:pointer; }
+  </style>`;
+  doc.body.innerHTML = `
+    <header><span class="dot"></span><span class="t">${esc(title)}</span><span class="clock" id="pc">00:00</span></header>
+    <div class="line" id="pl">listening…</div>
+    <footer><button id="ps">■ Stop &amp; process</button></footer>`;
+  const t0 = Date.now();
+  const iv = setInterval(() => {
+    if (!pipWin) return clearInterval(iv);
+    const s = Math.floor((Date.now() - t0) / 1000);
+    const el = doc.getElementById("pc");
+    if (el) el.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  }, 1000);
+  doc.getElementById("ps").addEventListener("click", () => { window.focus(); stopRecording(); });
+  pipWin.addEventListener("pagehide", () => { pipWin = null; });
+}
+
+function companionLine(speaker, text) {
+  const el = pipWin?.document?.getElementById("pl");
+  if (el) el.innerHTML = `<b>${esc(speaker)}</b> ${esc(text)}`;
+}
+
+// ── Meeting-start notifications ─────────────────────────────────────────
+async function checkUpcomingNotifications() {
+  if (Notification.permission !== "granted" || recording) return;
+  const ups = await api("/api/upcoming").catch(() => []);
+  for (const u of ups) {
+    const dt = u.at_ms - Date.now();
+    if (dt > -60_000 && dt <= 120_000 && !localStorage.getItem("tl-notified-" + u.title + u.at_ms)) {
+      localStorage.setItem("tl-notified-" + u.title + u.at_ms, "1");
+      const n = new Notification(`${u.title} is starting`, {
+        body: `${u.participants ? u.participants + " — " : ""}Click to record with Threadline`,
+        tag: "tl-meeting",
+      });
+      n.onclick = () => { window.focus(); startRecording(u.title); n.close(); };
+    }
+  }
+}
+setInterval(checkUpcomingNotifications, 30_000);
+
+function renderLive(title) {
+  main.innerHTML = `<h1>${esc(title)}</h1><div class="sub">Recording — no bot in your call. Words land as they're said.</div>
+    <div class="card"><h2>Your notes · type while you talk</h2>
+      <textarea class="notes" id="live-notes" placeholder="Jot anything — it's saved with the meeting when you stop."></textarea></div>
+    <div class="card"><h2>Live transcript</h2><div id="live-feed"><div class="empty">${SPOOL_SVG}listening…</div></div></div>
+    <div class="card"><h2>Capture status</h2><div id="live-status"></div></div>`;
+  const feed = $("#live-feed"), statusBox = $("#live-status");
+  const partials = {};
+  evtSource = new EventSource("/api/record/events");
+  evtSource.onmessage = (ev) => {
+    const e = JSON.parse(ev.data);
+    if (e.type === "status") {
+      statusBox.insertAdjacentHTML("beforeend", `<div class="live-status">${esc(e.message)}</div>`);
+    } else if (e.type === "partial") {
+      if (feed.querySelector(".empty")) feed.innerHTML = "";
+      let el = partials[e.speaker];
+      if (!el) {
+        feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}" id="p-${e.speaker}"><div class="who">${e.speaker}</div><div class="live-partial"></div></div>`);
+        el = partials[e.speaker] = feed.lastElementChild;
+      }
+      el.querySelector(".live-partial").textContent = e.text;
+      companionLine(e.speaker, e.text);
+    } else if (e.type === "final") {
+      if (feed.querySelector(".empty")) feed.innerHTML = "";
+      const el = partials[e.speaker];
+      if (el) { delete partials[e.speaker]; el.remove(); }
+      feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}"><div class="ts">${fmtTs(e.offsetS)}</div><div class="who">${e.speaker}</div><div>${esc(e.text)}</div></div>`);
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+  };
+}
 
 let searchTimer;
 let askSeq = 0; // superseded asks must not overwrite newer ones
