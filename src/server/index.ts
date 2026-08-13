@@ -16,6 +16,8 @@ import { enhanceNotes, structureNotes, chatAboutMeeting } from "../pipeline/note
 import { bulletAt, type StructuredSummary } from "../lib/summary.js";
 import { hasOpenAI } from "../lib/openai.js";
 import type { Utterance } from "../lib/pyai.js";
+import { googleConfigured, googleConnected, authUrl, exchangeCode, upcomingEvents } from "./google.js";
+import { ask } from "../pipeline/ask.js";
 
 // tiny .env loader
 for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"); } catch { return []; } })()) {
@@ -88,7 +90,10 @@ const api: Record<string, Handler> = {
     const runs = (db.prepare(`SELECT * FROM runs WHERE meeting_id = ? ORDER BY id DESC LIMIT 1`).all(id) as { steps: string }[]).map(
       (r) => ({ ...r, steps: JSON.parse(r.steps) }),
     );
-    // backlinks: other meetings sharing a person/topic node with this one
+    // backlinks: other meetings sharing a person/topic node with this one —
+    // plus meetings one `related` hop away, so "ANZ rollout" (kickoff) still
+    // threads to "ANZ pricing" (investor call) without pretending they are
+    // the same topic.
     const backlinks = db
       .prepare(
         `SELECT DISTINCT m.id, m.title, n.label AS via FROM edges e1
@@ -101,9 +106,17 @@ const api: Record<string, Handler> = {
          JOIN edges e2 ON e1.dst = e2.dst AND e2.meeting_id != e1.meeting_id
          JOIN meetings m ON m.id = e2.meeting_id
          JOIN nodes n ON n.id = e1.dst
-         WHERE e1.meeting_id = ? AND n.kind != 'meeting'`,
+         WHERE e1.meeting_id = ? AND n.kind != 'meeting'
+         UNION
+         SELECT DISTINCT m.id, m.title, n1.label || ' ~ ' || n2.label AS via FROM edges e1
+         JOIN edges r  ON r.src = e1.dst AND r.kind = 'related'
+         JOIN edges e2 ON e2.dst = r.dst AND e2.kind = 'mentions' AND e2.meeting_id != e1.meeting_id
+         JOIN meetings m ON m.id = e2.meeting_id
+         JOIN nodes n1 ON n1.id = e1.dst
+         JOIN nodes n2 ON n2.id = r.dst
+         WHERE e1.meeting_id = ? AND e1.kind = 'mentions'`,
       )
-      .all(id, id);
+      .all(id, id, id);
     const projects = db
       .prepare(
         `SELECT p.id, p.name FROM meeting_projects mp JOIN projects p ON p.id = mp.project_id WHERE mp.meeting_id = ?`,
@@ -124,18 +137,38 @@ const api: Record<string, Handler> = {
     return { nodes, edges };
   },
 
+  // Chunk-level search: every hit carries offset_s, so the UI can land the
+  // reader on the exact transcript line instead of just the meeting.
   "GET /api/search"(p) {
     const q = (p.get("q") ?? "").trim();
     if (!q) return [];
     const safe = q.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
     if (!safe) return [];
-    return db
-      .prepare(
-        `SELECT DISTINCT m.id, m.title, m.started_at, snippet(search, 2, '<b>', '</b>', '…', 12) AS hit
-         FROM search s JOIN meetings m ON m.id = s.meeting_id
-         WHERE search MATCH ? ORDER BY rank LIMIT 20`,
-      )
-      .all(safe.split(/\s+/).map((w) => `"${w}"`).join(" OR "));
+    const words = safe.split(/\s+/);
+    const run = (match: string) => {
+      try {
+        return db
+          .prepare(
+            `SELECT c.id AS chunk_id, c.meeting_id, m.title, m.started_at, c.kind, c.start_offset_s AS offset_s,
+                    snippet(chunk_fts, 0, '<b>', '</b>', '…', 12) AS hit
+             FROM chunk_fts f JOIN chunks c ON c.id = f.rowid JOIN meetings m ON m.id = c.meeting_id
+             WHERE chunk_fts MATCH ? ORDER BY bm25(chunk_fts, 10.0, 2.0) LIMIT 20`,
+          )
+          .all(match) as unknown[];
+      } catch { return []; }
+    };
+    // AND with a trailing prefix for precision while typing; OR keeps the old recall floor.
+    const strict = run(words.map((w, i) => (i === words.length - 1 ? `"${w}"*` : `"${w}"`)).join(" AND "));
+    return strict.length ? strict : run(words.map((w) => `"${w}"`).join(" OR "));
+  },
+
+  // Ask the brain: hybrid retrieval + gated synthesis. Costs an LLM call when
+  // OPENAI_API_KEY is set (extractive and fully local otherwise), so the UI
+  // fires it on Enter — never per keystroke.
+  async "GET /api/ask"(p) {
+    const q = (p.get("q") ?? "").trim();
+    if (!q) return { error: "missing q" };
+    return await ask(db, q);
   },
 
   "POST /api/record/start"(p, body) {
@@ -427,8 +460,23 @@ const api: Record<string, Handler> = {
     return { ok: true };
   },
 
-  "GET /api/upcoming"() {
-    return db.prepare(`SELECT * FROM upcoming WHERE at_ms > ? ORDER BY at_ms ASC LIMIT 6`).all(Date.now() - 3600_000);
+  async "GET /api/upcoming"() {
+    const manual = db.prepare(`SELECT * FROM upcoming WHERE at_ms > ? ORDER BY at_ms ASC LIMIT 6`).all(Date.now() - 3600_000) as { title: string; at_ms: number }[];
+    if (!googleConnected()) return manual;
+    try {
+      const events = await upcomingEvents();
+      // merge, manual entries first on conflicts (same title + start)
+      const seen = new Set(manual.map((m) => `${m.title}@${m.at_ms}`));
+      const merged = [...manual, ...events.filter((e) => !seen.has(`${e.title}@${e.at_ms}`)).map((e, i) => ({ id: -1 - i, ...e, source: "google" }))];
+      return merged.sort((a, b) => a.at_ms - b.at_ms).slice(0, 6);
+    } catch (e) {
+      // calendar hiccups must never break Home
+      return manual;
+    }
+  },
+
+  "GET /api/google/status"() {
+    return { configured: googleConfigured(), connected: googleConnected() };
   },
 
   "POST /api/upcoming"(p, body) {
@@ -697,6 +745,32 @@ const MIME: Record<string, string> = {
 createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   const key = `${req.method} ${url.pathname}`;
+
+  // Google OAuth
+  if (key === "GET /api/google/connect") {
+    if (!googleConfigured()) {
+      res.writeHead(302, { Location: "/" });
+      res.end();
+      return;
+    }
+    res.writeHead(302, { Location: authUrl() });
+    res.end();
+    return;
+  }
+  if (key === "GET /oauth2/callback") {
+    const code = url.searchParams.get("code");
+    try {
+      if (!code) throw new Error(url.searchParams.get("error") ?? "no code returned");
+      await exchangeCode(code);
+      res.writeHead(302, { Location: "/?google=connected" });
+    } catch (e) {
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(`<p>Google connection failed: ${e instanceof Error ? e.message : e}</p><p><a href="/">Back to Threadline</a></p>`);
+      return;
+    }
+    res.end();
+    return;
+  }
 
   // Live transcript stream (SSE)
   if (key === "GET /api/record/events") {

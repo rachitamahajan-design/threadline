@@ -128,12 +128,12 @@
     background: color-mix(in srgb, var(--thread) 50%, transparent);
   }
   .todo.done .receipt::before { background: var(--thread); }
-  .stitch-connector { display: block; margin: -10px 0 -10px 56px; }
+  .stitch-connector { display: block; margin: -24px 0 -2px 56px; }
   #rail-needle {
-    position: absolute; left: -12px; top: -6px; z-index: 3; pointer-events: none;
-    transform: rotate(24deg); transform-origin: 60% 50%;
-    filter: drop-shadow(0 1px 1px rgb(40 40 60 / 0.18));
-    transition: opacity .2s;
+    position: absolute; left: -13px; top: -9px; z-index: 3; pointer-events: none;
+    transform: rotate(38deg); transform-origin: 14% 50%;
+    filter: drop-shadow(0 1.5px 1.5px rgb(40 40 60 / 0.22));
+    transition: opacity .25s;
   }
   .open-stitch { display: none; width: 18px; height: 1.5px; margin-left: 10px; vertical-align: 4px; border-radius: 2px;
     background: color-mix(in srgb, var(--thread) 50%, transparent); }
@@ -152,11 +152,11 @@
   .todo input:checked { border-color: var(--thread); }
   .todo input:checked::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--thread); }
   .todo.done .t-task { text-decoration: line-through; color: var(--ink-3); }
-  .t-task { font-weight: 570; font-size: 14.5px; }
+  .t-task { font-weight: 620; font-size: 15px; letter-spacing: -0.008em; }
   .t-meta { color: var(--ink-3); font-size: 12.5px; margin-top: 1px; }
   .receipt {
-    font-size: 12.5px; color: var(--ink-2); margin-top: 7px; cursor: pointer;
-    padding: 3px 0; border-radius: 6px; transition: color .12s;
+    font-size: 12.5px; color: var(--ink-3); margin-top: 7px; cursor: pointer;
+    padding: 2px 0; transition: color .12s; font-style: italic;
   }
   .receipt:hover { color: var(--thread); }
 
@@ -186,9 +186,35 @@
   }
   .backlink:hover { filter: brightness(0.96); }
 
-  #graph-wrap { position: relative; height: 560px; overflow: hidden; padding: 0; }
+  #graph-wrap { position: relative; height: 640px; overflow: hidden; padding: 0; }
+  #graph-tip {
+    position: absolute; left: 0; top: 0; opacity: 0; pointer-events: none;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px 12px; box-shadow: 0 6px 20px rgb(60 50 30 / 0.12); max-width: 220px; transition: opacity .12s;
+  }
+  #graph-tip b { display: block; font-weight: 650; font-size: 13px; letter-spacing: -0.01em; }
+  #graph-tip span { color: var(--ink-3); font-size: 11.5px; }
+  #graph-panel {
+    position: absolute; right: 0; top: 0; bottom: 0; width: 372px; z-index: 2;
+    background: var(--surface); border-left: 1px solid var(--line);
+    box-shadow: -14px 0 34px rgb(60 50 30 / 0.09); overflow-y: auto; padding: 22px 24px 26px;
+    transform: translateX(100%); opacity: 0;
+    transition: transform .26s cubic-bezier(.32,.72,.3,1), opacity .2s;
+  }
+  #graph-panel.open { transform: none; opacity: 1; }
+  .gp-k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-3); font-weight: 600; margin-bottom: 8px; }
+  .gp-item { position: relative; padding-left: 14px; margin: 0 0 8px 8px; }
+  .gp-item::before {
+    content: ""; position: absolute; left: 0; top: 5px; bottom: 5px; width: 1.4px; opacity: .65;
+    background: repeating-linear-gradient(to bottom, var(--thread) 0 7px, transparent 7px 12px);
+  }
+  .gp-avatar {
+    width: 22px; height: 22px; border-radius: 50%; border: 1.6px solid var(--ink-3);
+    display: grid; place-content: center; font-size: 10.5px; font-weight: 650; color: var(--ink-2); flex: none;
+  }
   #graph { width: 100%; height: 100%; display: block; cursor: grab; }
   .legend { display: flex; gap: 20px; align-items: center; padding: 14px 6px 0; font-size: 12.5px; color: var(--ink-2); }
+  .legend i { font-style: normal; color: var(--ink-3); font-size: 11.5px; }
   .legend span::before { content: ""; display: inline-block; margin-right: 7px; vertical-align: -1px; }
   .legend .l-m::before { width: 10px; height: 10px; border-radius: 50%; background: var(--thread); }
   .legend .l-p::before { width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--ink-3); }
@@ -218,16 +244,12 @@
   .up-item { padding: 12px 0; }
   .up-item + .up-item { border-top: 1px solid var(--line); }
   .up-when { font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em; color: var(--thread); text-transform: uppercase; }
-  .prep {
-    font-size: 12.5px; color: var(--ink-2); margin-top: 7px; position: relative;
-    border-left: 1.5px solid color-mix(in srgb, var(--thread) 25%, transparent);
-    padding: 3px 12px; border-radius: 0 6px 6px 0;
+  .prep { font-size: 12.5px; color: var(--ink-2); margin-top: 8px; position: relative; padding-left: 14px; }
+  .prep::before {
+    content: ""; position: absolute; left: 0; top: 5px; bottom: 5px; width: 1.4px; opacity: .65;
+    background: repeating-linear-gradient(to bottom, var(--thread) 0 7px, transparent 7px 12px);
   }
-  .prep.active { border-left-color: var(--thread); background: color-mix(in srgb, var(--thread) 4%, transparent); }
-  .prep.active::before {
-    content: ""; position: absolute; left: -5px; top: 11px; width: 9px; height: 2px; border-radius: 2px;
-    background: linear-gradient(90deg, #b9bec6, #e9ebee, #9aa1ad); transform: rotate(-36deg);
-  }
+  .prep.past::before { background: repeating-linear-gradient(to bottom, var(--ink-3) 0 7px, transparent 7px 12px); opacity: .5; }
   .prep b { display: block; font-weight: 600; color: var(--ink-2); }
   /* Structured summary document */
   .sum-sec { margin-top: 18px; }
@@ -395,6 +417,48 @@
   .people-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
   .people-chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; cursor: pointer; }
   .people-chip:hover { border-color: var(--thread); }
+  .up-item { position: relative; padding-left: 22px; }
+  .up-item::before {
+    content: ""; position: absolute; left: 5px; top: 20px; bottom: 6px; width: 1.4px; opacity: .45;
+    background: repeating-linear-gradient(to bottom, var(--ink-3) 0 11px, transparent 11px 19px);
+  }
+  .up-item:first-child::before { background: repeating-linear-gradient(to bottom, var(--thread) 0 11px, transparent 11px 19px); opacity: .5; }
+  .up-title { font-weight: 620; font-size: 15.5px; letter-spacing: -0.01em; margin: 1px 0 1px; }
+  .up-item:first-child .up-title { font-weight: 650; font-size: 18.5px; letter-spacing: -0.015em; line-height: 1.3; margin: 1px 0 2px; }
+  .up-needle {
+    position: absolute; left: -9px; top: 1px; transform: rotate(58deg); transform-origin: 14% 50%;
+    filter: drop-shadow(0 1px 1px rgb(40 40 60 / 0.18)); pointer-events: none;
+  }
+
+  /* ── command palette: Spotlight for your meetings (⌘K / ⌘Space) ── */
+  #palette-veil {
+    position: fixed; inset: 0; z-index: 40; display: none;
+    background: rgb(20 18 14 / 0.35); backdrop-filter: blur(3px);
+  }
+  #palette-veil.open { display: block; }
+  #palette {
+    position: fixed; left: 50%; top: 14%; transform: translateX(-50%);
+    width: min(640px, 92vw); z-index: 41;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 24px 80px rgb(30 25 15 / 0.28), var(--shadow); overflow: hidden;
+  }
+  #palette input {
+    width: 100%; border: 0; outline: none; background: transparent; color: var(--ink);
+    font: 500 17px/1.4 -apple-system, "SF Pro Text", system-ui; padding: 18px 20px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  #palette input::placeholder { color: var(--ink-3); }
+  #palette-body { max-height: 56vh; overflow-y: auto; padding: 10px 12px 12px; }
+  .pal-hint { color: var(--ink-3); font-size: 12px; padding: 10px 10px 6px; display: flex; gap: 14px; }
+  .pal-hint b { font-weight: 600; color: var(--ink-2); }
+  .pal-row {
+    display: flex; gap: 12px; align-items: baseline; padding: 9px 10px; border-radius: 9px; cursor: pointer;
+  }
+  .pal-row:hover, .pal-row.sel { background: var(--thread-soft); }
+  .pal-row .ts { color: var(--ink-3); font-size: 11.5px; flex: none; width: 118px; }
+  .pal-row .txt { font-size: 13.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pal-answer { padding: 12px 10px 4px; }
+  .pal-answer .claim { padding: 8px 0; }
 </style>
 </head>
 <body>
@@ -448,7 +512,7 @@
 <script>
 const $ = (s) => document.querySelector(s);
 const main = $("#main");
-const state = { view: "today", meetingId: null, highlight: null };
+const state = { view: "today", meetingId: null, highlight: null, deepLink: null };
 const fmtDate = (ms) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 const fmtTs = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -465,8 +529,22 @@ const SPOOL_SVG = `<svg width="72" height="72" viewBox="0 0 72 72" fill="none">
 document.querySelectorAll(".side-link").forEach((b) =>
   b.addEventListener("click", () => { state.view = b.dataset.view; state.meetingId = null; state.projectId = null; render(); }));
 
-$("#google-btn").addEventListener("click", () =>
-  alert("Google Workspace connection (Calendar, Drive, Gmail) is on the roadmap — it will fill Upcoming automatically.\n\nFor now, add upcoming meetings with the + in the Up next panel; prep works the same either way."));
+async function refreshGoogleButton() {
+  const s = await api("/api/google/status");
+  const b = $("#google-btn");
+  if (s.connected) { b.textContent = "Google ✓"; b.disabled = true; }
+  else if (s.configured) b.textContent = "Connect Google";
+  b.dataset.state = s.connected ? "connected" : s.configured ? "ready" : "unconfigured";
+}
+refreshGoogleButton();
+if (new URLSearchParams(location.search).get("google") === "connected") history.replaceState({}, "", "/");
+
+$("#google-btn").addEventListener("click", () => {
+  const state = $("#google-btn").dataset.state;
+  if (state === "ready") location.href = "/api/google/connect";
+  else if (state === "unconfigured")
+    alert("Google Calendar needs credentials first: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env (see README), then restart Threadline.\n\nGmail and Drive are on the roadmap.");
+});
 
 $("#add-project").addEventListener("click", () => projectModal());
 
@@ -760,33 +838,34 @@ async function renderToday() {
         <div id="upcoming-box"><div class="empty" style="padding:16px 0">Nothing scheduled. Connect Google (soon) or add one.</div></div>
       </div>
       <div class="card"><h2>Past meetings</h2>
-        ${meetings.slice(0, 6).map((m) => `
+        ${meetings.slice(0, 5).map((m) => `
           <div class="m-row" data-mid="${m.id}">
             <div class="m-date">${fmtDate(m.started_at)}</div>
             <div><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
           </div>`).join("")}
       </div>
     </div>
-    <svg class="stitch-connector" width="150" height="52" viewBox="0 0 150 52" aria-hidden="true">
-      <path id="conn-path" d="M10 2 C 34 26, 2 30, 46 36 C 88 41, 96 30, 118 48" fill="none" stroke="var(--thread)" stroke-width="1.3" stroke-linecap="round" opacity="0.3"/>
-      <g id="conn-needle" opacity="0">
-        <path d="M-7 3 L 5 -3" stroke="#9aa1ad" stroke-width="2.6" stroke-linecap="round"/>
-        <animateMotion id="conn-anim" dur="1.1s" begin="indefinite" fill="freeze" rotate="auto">
-          <mpath href="#conn-path"/>
-        </animateMotion>
+    <svg class="stitch-connector" width="120" height="44" viewBox="0 0 120 44" aria-hidden="true">
+      <path d="M78 3 C 58 13, 40 16, 24 26 C 16 31, 9 36, 5 41" fill="none" stroke="var(--thread)" stroke-width="1.3" stroke-linecap="round" opacity="0.38"/>
+      <g fill="#efeae2" stroke="rgb(33 32 28 / 0.14)" stroke-width="0.8">
+        <ellipse cx="78" cy="3" rx="2.6" ry="1.7" transform="rotate(-24 78 3)"/>
+        <ellipse cx="5" cy="41" rx="2.6" ry="1.7" transform="rotate(-52 5 41)"/>
       </g>
     </svg>
     <div class="card"><h2>Loose ends · pulled from your meetings</h2>
       <div class="loose-rail" id="loose-rail">
       <div id="rail-needle" aria-hidden="true">
-        <svg width="34" height="14" viewBox="0 0 34 14" fill="none">
+        <svg width="40" height="15" viewBox="0 0 40 15" fill="none">
           <defs>
-            <linearGradient id="rn-g" x1="4" y1="7" x2="32" y2="7" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stop-color="#9aa1ad"/><stop offset="0.5" stop-color="#e9ebee"/><stop offset="1" stop-color="#8d939e"/>
+            <linearGradient id="rn-g" x1="6" y1="3.4" x2="12" y2="11.6" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#f4f6f8"/><stop offset="0.42" stop-color="#c8ccd3"/>
+              <stop offset="0.7" stop-color="#8f959f"/><stop offset="1" stop-color="#6f757f"/>
             </linearGradient>
           </defs>
-          <path d="M3.5 7 L 29 5.2 C 31.5 5.05, 32.5 6.1, 32.6 7 C 32.5 7.9, 31.5 8.95, 29 8.8 Z" fill="url(#rn-g)"/>
-          <ellipse cx="29.5" cy="7" rx="1" ry="1.7" fill="var(--surface)" stroke="#8d939e" stroke-width="0.5"/>
+          <path d="M2.9 4.2 C 1.2 5.1, 1.2 9.9, 2.9 10.8 L 11 9.9 L 33 8.15 L 38.4 7.5 L 33 6.85 L 11 5.1 Z" fill="url(#rn-g)"/>
+          <path d="M3.4 5.1 L 32 6.95" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round" opacity="0.75"/>
+          <ellipse cx="6.4" cy="7.5" rx="1.05" ry="2.15" fill="var(--bg)" stroke="#7d838d" stroke-width="0.55"/>
+          <path d="M6.4 6 C 2.5 3.2, -1.6 3.6, -4.4 6.6" stroke="var(--thread)" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.55"/>
         </svg>
       </div>
       ${todos.length ? todos.map((t) => `
@@ -826,12 +905,10 @@ async function renderToday() {
     cb.addEventListener("change", async () => {
       const item = cb.closest(".todo");
       fetch("/api/todo", { method: "POST", body: JSON.stringify({ id: Number(cb.dataset.id), done: cb.checked }) });
-      if (cb.checked) {
-        // the list holds still; the needle weaves; the drawn thread rests on the row
-        await needleRunTo(cb);
-        item.classList.add("done");
-      } else {
-        item.classList.remove("done");
+      item.classList.toggle("done", cb.checked);
+      if (cb.checked) needleRunTo(cb);
+      else {
+        endWeave(cb.dataset.id ?? "x");
         document.querySelectorAll(`.weave-svg[data-claim="${cb.dataset.id}"]`).forEach((s) => s.remove());
       }
     }));
@@ -869,72 +946,103 @@ function drawRailThread() {
 }
 
 /**
- * Completing a task: the needle leaves its rest, glides down the slack
- * thread, and weaves through the row — under, through the checkbox's
- * eyelet (the thread vanishes behind it and re-emerges), over, and out —
- * drawing a fresh thread behind itself the whole way.
+ * The design-canvas weave: the thread stitches itself along the path as
+ * dashes (a masked reveal), a faint under-thread showing through the sheet,
+ * while the needle glides the curve and dips beneath the paper between
+ * stitches — surfacing, diving, surfacing — then exits. The stitches stay.
  */
+const _flyers = {};
+function endWeave(id) {
+  const f = _flyers[id];
+  if (!f) return;
+  delete _flyers[id];
+  try { f.anim?.cancel(); } catch (e) {}
+  f.node?.remove();
+  const rest = document.querySelector("#rail-needle");
+  if (rest && !Object.keys(_flyers).length) rest.style.opacity = "1";
+}
+
 function needleRunTo(checkbox) {
   return new Promise((done) => {
     const rail = document.getElementById("loose-rail");
-    const rest = document.getElementById("rail-needle");
     if (!rail || !checkbox) return done();
+    const id = checkbox.dataset.id ?? "x";
+    endWeave(id);
     const rb = rail.getBoundingClientRect(), cb = checkbox.getBoundingClientRect();
     const cx = cb.left - rb.left + cb.width / 2, cy = cb.top - rb.top + cb.height / 2;
-    // one graceful slack sweep down the rail, then two wide soft arcs:
-    // over, then under through the eyelet, then a gentle rising exit
     const x0 = Math.max(0, cx - 54);
-    const d = `M 9 6
-      C 24 ${cy * 0.25}, -6 ${cy * 0.55}, 8 ${cy * 0.8}
-      S ${x0 - 14} ${cy + 12}, ${x0} ${cy + 7}
-      c 12 -13, 26 -13, 36 -1
-      c 8 9, 20 9, 28 0
-      c 8 -9, 20 -9, 34 -6`;
+    const d = `M 9 6 C 24 ${cy * 0.25}, -6 ${cy * 0.55}, 8 ${cy * 0.8} S ${x0 - 14} ${cy + 12}, ${x0} ${cy + 7} c 12 -13, 26 -13, 36 -1 c 8 9, 20 9, 28 0 c 8 -9, 20 -9, 34 -6`;
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("class", "weave-svg");
-    svg.setAttribute("data-claim", checkbox.dataset.id ?? "");
+    svg.dataset.claim = String(id);
     svg.setAttribute("width", rail.clientWidth); svg.setAttribute("height", rail.scrollHeight);
+
+    const mid = "wv" + id + "-" + Math.random().toString(36).slice(2, 7);
+    const defs = document.createElementNS(ns, "defs");
+    const mask = document.createElementNS(ns, "mask");
+    mask.setAttribute("id", mid);
+    const mp = document.createElementNS(ns, "path");
+    mp.setAttribute("d", d); mp.setAttribute("fill", "none");
+    mp.setAttribute("stroke", "#fff"); mp.setAttribute("stroke-width", "40");
+    mask.appendChild(mp); defs.appendChild(mask); svg.appendChild(defs);
+
+    const g = document.createElementNS(ns, "g");
+    g.setAttribute("mask", `url(#${mid})`);
+    // the pass under the paper: the thread shows only faintly through the sheet
+    const under = document.createElementNS(ns, "path");
+    under.setAttribute("d", d); under.setAttribute("fill", "none");
+    under.setAttribute("stroke", "var(--thread)"); under.setAttribute("stroke-width", "1.2");
+    under.setAttribute("opacity", "0.14");
+    // the stitches that sit on top of the paper
     const p = document.createElementNS(ns, "path");
-    p.setAttribute("d", d);
-    p.setAttribute("fill", "none");
-    p.setAttribute("stroke", "var(--thread)");
-    p.setAttribute("stroke-width", "1.4");
-    p.setAttribute("stroke-linecap", "round");
-    p.setAttribute("opacity", "0.75");
-    svg.appendChild(p);
+    p.setAttribute("d", d); p.setAttribute("fill", "none");
+    p.setAttribute("stroke", "var(--thread)"); p.setAttribute("stroke-width", "1.5");
+    p.setAttribute("stroke-linecap", "round"); p.setAttribute("opacity", "0.8");
+    p.style.strokeDasharray = "15 9";
+    g.appendChild(under); g.appendChild(p); svg.appendChild(g);
     rail.appendChild(svg);
 
-    const L = p.getTotalLength();
-    p.style.strokeDasharray = String(L);
-    p.style.strokeDashoffset = String(L);
+    const L = mp.getTotalLength();
+    mp.style.strokeDasharray = String(L); mp.style.strokeDashoffset = String(L);
+    const DUR = 1900, EASE = "cubic-bezier(.42,.03,.28,.99)";
+    mp.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: DUR, easing: EASE, fill: "forwards" })
+      .onfinish = () => p.animate([{ opacity: 0.8 }, { opacity: 0.5 }], { duration: 900, fill: "forwards" });
 
+    const rest = document.querySelector("#rail-needle");
     const flyer = document.createElement("div");
     flyer.className = "needle-flyer";
-    flyer.innerHTML = document.getElementById("rail-needle")?.innerHTML ?? "";
-    flyer.style.offsetPath = `path('${d.replace(/\s+/g, " ")}')`;
+    flyer.innerHTML = `<svg width="40" height="15" viewBox="0 0 40 15" fill="none">
+      <defs><linearGradient id="${mid}-n" x1="34" y1="3.4" x2="28" y2="11.6" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#f4f6f8"/><stop offset="0.42" stop-color="#c8ccd3"/>
+        <stop offset="0.7" stop-color="#8f959f"/><stop offset="1" stop-color="#6f757f"/></linearGradient></defs>
+      <path d="M37.1 4.2 C 38.8 5.1, 38.8 9.9, 37.1 10.8 L 29 9.9 L 7 8.15 L 1.6 7.5 L 7 6.85 L 29 5.1 Z" fill="url(#${mid}-n)"/>
+      <path d="M36.6 5.1 L 8 6.95" stroke="#fff" stroke-width="0.7" stroke-linecap="round" opacity="0.75"/>
+      <ellipse cx="33.6" cy="7.5" rx="1.05" ry="2.15" fill="var(--bg)" stroke="#7d838d" stroke-width="0.55"/></svg>`;
+    flyer.style.offsetPath = `path('${d.replace(/\s+/g, " ").trim()}')`;
     flyer.style.offsetRotate = "auto";
-    flyer.style.offsetAnchor = "85% 50%";
+    flyer.style.offsetAnchor = "84% 50%";
     rail.appendChild(flyer);
     if (rest) rest.style.opacity = "0";
 
-    const DUR = 1700, EASE = "cubic-bezier(.5,.06,.22,.99)";
-    p.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: DUR, easing: EASE, fill: "forwards" });
+    // dips: the needle vanishes under the sheet between stitches, then surfaces
     const fa = flyer.animate(
-      [{ offsetDistance: "0%", opacity: 1 }, { offsetDistance: "94%", opacity: 1, offset: 0.9 }, { offsetDistance: "100%", opacity: 0 }],
+      [
+        { offsetDistance: "0%", opacity: 1 },
+        { offsetDistance: "52%", opacity: 1, offset: 0.52 },
+        { offsetDistance: "60%", opacity: 0.12, offset: 0.6 },
+        { offsetDistance: "68%", opacity: 1, offset: 0.68 },
+        { offsetDistance: "78%", opacity: 0.12, offset: 0.78 },
+        { offsetDistance: "86%", opacity: 1, offset: 0.86 },
+        { offsetDistance: "100%", opacity: 0 },
+      ],
       { duration: DUR, easing: EASE, fill: "forwards" },
     );
-    checkbox.animate(
-      [{ transform: "scale(1)" }, { transform: "scale(1.1)" }, { transform: "scale(1)" }],
-      { duration: 320, delay: DUR * 0.68, easing: "ease-in-out" },
-    );
-    fa.onfinish = () => {
-      // the stitch stays — only the needle has left. Thread softens to rest.
-      p.animate([{ opacity: 0.75 }, { opacity: 0.45 }], { duration: 900, fill: "forwards" });
-      flyer.remove();
-      if (rest) rest.style.opacity = "1";
-      done();
-    };
+    _flyers[id] = { node: flyer, anim: fa };
+    fa.onfinish = () => { endWeave(id); done(); };
+    fa.oncancel = () => endWeave(id);
+    // belt-and-braces: never leave the resting needle hidden if onfinish never fires
+    setTimeout(() => { endWeave(id); done(); }, DUR + 600);
   });
 }
 
@@ -955,12 +1063,16 @@ async function loadUpcoming() {
   if (!box) return;
   const ups = await api("/api/upcoming");
   if (!ups.length) return;
-  box.innerHTML = ups.map((u) => {
+  box.innerHTML = ups.map((u, i) => {
     const mins = Math.round((u.at_ms - Date.now()) / 60000);
     const when = mins < 60 ? `In ${mins} min` : new Date(u.at_ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
     return `<div class="up-item" data-up="${u.id}" data-people="${esc(u.participants ?? "")}">
+      ${i === 0 ? `<div class="up-needle"><svg width="30" height="12" viewBox="0 0 40 15" fill="none">
+        <path d="M2.9 4.2 C 1.2 5.1, 1.2 9.9, 2.9 10.8 L 11 9.9 L 33 8.15 L 38.4 7.5 L 33 6.85 L 11 5.1 Z" fill="url(#rn-g)"/>
+        <ellipse cx="6.4" cy="7.5" rx="1.05" ry="2.15" fill="var(--bg)" stroke="#7d838d" stroke-width="0.55"/>
+      </svg></div>` : ""}
       <div class="up-when">${when}${new Date(u.at_ms).getDate() !== new Date().getDate() ? " · " + fmtDate(u.at_ms) : ""}</div>
-      <div class="m-title">${esc(u.title)}</div>
+      <div class="up-title">${esc(u.title)}</div>
       ${u.participants ? `<div class="t-meta">${esc(u.participants)}</div>` : ""}
       <div class="prep-slot"></div>
     </div>`;
@@ -975,11 +1087,8 @@ async function loadUpcoming() {
     for (const o of prep.open.slice(0, 2))
       bits.push(`<div class="prep"><b>Still open — ${esc(o.body.owner)}</b>${esc(o.body.task)}${o.body.due ? ` (due ${esc(o.body.due)})` : ""}</div>`);
     for (const r of prep.recent.slice(0, 2))
-      bits.push(`<div class="prep" data-mid="${r.id}" style="cursor:pointer"><b>Last time — ${esc(r.title)}</b>${fmtDate(r.started_at)}</div>`);
+      bits.push(`<div class="prep past" data-mid="${r.id}" style="cursor:pointer"><b>Last time — ${esc(r.title)}</b>${fmtDate(r.started_at)}</div>`);
     slot.innerHTML = bits.join("") || "";
-    // the needle sits on the active stitch; older context stays faint
-    const first = slot.querySelector(".prep");
-    if (first) first.classList.add("active");
     slot.querySelectorAll("[data-mid]").forEach((p) =>
       p.addEventListener("click", () => { state.meetingId = p.dataset.mid; render(); }));
   }
@@ -1338,7 +1447,21 @@ async function renderMeeting(id, opts = {}) {
         btn.addEventListener("click", () => shareDecisionCard(decisions[Number(btn.dataset.shareDecision)].body.text, meeting, people)));
     }
   };
+  // Deep links from search / the command palette land on the exact line.
+  const deepLink = state.deepLink;
+  if (deepLink != null) {
+    state.deepLink = null;
+    panelState.tab = "transcript";
+    if (!panelState.open) {
+      panelState.open = true;
+      localStorage.setItem("tl-panel", "open");
+      main.querySelector(".workspace").classList.remove("collapsed");
+      document.getElementById("panel-reopen")?.remove();
+    }
+    main.querySelectorAll(".panel-tab").forEach((x) => x.classList.toggle("active", x.dataset.tab === "transcript"));
+  }
   renderPanel();
+  if (deepLink != null) setTimeout(() => jumpToOffset(deepLink), 60);
   main.querySelectorAll(".panel-tab").forEach((t) =>
     t.addEventListener("click", () => {
       panelState.tab = t.dataset.tab;
@@ -1832,36 +1955,72 @@ function wireMeetingLinks() {
     el.addEventListener("click", () => {
       state.meetingId = el.dataset.mid;
       if (el.dataset.q) state.highlight = el.dataset.q;
+      if (el.dataset.off) state.deepLink = Number(el.dataset.off);
       render();
       window.scrollTo(0, 0);
     }));
 }
 
 async function renderGraph() {
-  const { nodes, edges } = await api("/api/graph");
+  const [{ nodes, edges }, meetingsList] = await Promise.all([api("/api/graph"), api("/api/meetings")]);
+  const meetById = Object.fromEntries(meetingsList.map((m) => [m.id, m]));
   main.innerHTML = `<h1>Threads</h1>
     <div class="sub">${nodes.length} knots · ${edges.length} threads. Drag to explore; click a meeting to open it.</div>
-    <div class="card" id="graph-wrap"><canvas id="graph"></canvas></div>
-    <div class="legend"><span class="l-m">Meeting</span><span class="l-p">Person</span><span class="l-t">Topic</span>
-      <button class="copybtn" style="margin-left:auto" id="export-graph">Share this brain ↗</button></div>`;
-  const canvas = $("#graph"), wrap = $("#graph-wrap");
+    <div class="card" id="graph-wrap">
+      <canvas id="graph"></canvas>
+      <div id="graph-tip"></div>
+      <aside id="graph-panel"></aside>
+    </div>
+    <div class="legend">
+      <span style="display:flex;align-items:center;gap:8px">
+        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8.5" fill="var(--thread)"/><circle cx="11" cy="11" r="6.1" fill="none" stroke="#fff" stroke-width="1.1" stroke-dasharray="2 2.4" opacity=".55"/><path d="M7.6 8.4 L14.4 8.4 M7.6 13.6 L14.4 13.6" stroke="#fff" stroke-width="1.9" stroke-linecap="round" opacity=".95"/><circle cx="7.6" cy="8.4" r="1.3" fill="#33459c"/><circle cx="14.4" cy="8.4" r="1.3" fill="#33459c"/><circle cx="7.6" cy="13.6" r="1.3" fill="#33459c"/><circle cx="14.4" cy="13.6" r="1.3" fill="#33459c"/></svg>
+        Meeting <i>· a button sewn to the cloth</i></span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="6.4" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.6"/><circle cx="11" cy="11" r="2.4" fill="none" stroke="var(--ink-3)" stroke-width="1.1"/></svg>
+        Person <i>· an eyelet</i></span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="3.4" fill="var(--ink-3)"/><path d="M13.6 12.6 C 16 13.6, 17.6 12.2, 19 13.4" stroke="var(--ink-3)" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"/></svg>
+        Topic <i>· a knot with a loose end</i></span>
+      <button class="copybtn" style="margin:0 0 0 auto" id="export-graph">Share this brain ↗</button></div>`;
+
+  const canvas = $("#graph"), wrap = $("#graph-wrap"), tip = $("#graph-tip"), panel = $("#graph-panel");
   const dpr = window.devicePixelRatio || 1;
   const W = wrap.clientWidth, H = wrap.clientHeight;
   canvas.width = W * dpr; canvas.height = H * dpr;
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
   const css = getComputedStyle(document.documentElement);
-  const INK = css.getPropertyValue("--ink"), INK3 = css.getPropertyValue("--ink-3"), THREAD = css.getPropertyValue("--thread"), SURFACE = css.getPropertyValue("--surface").trim();
+  const INK = css.getPropertyValue("--ink").trim(), INK3 = css.getPropertyValue("--ink-3").trim(),
+    THREAD = css.getPropertyValue("--thread").trim(), SURFACE = css.getPropertyValue("--surface").trim();
+
+  // degree = how many meetings each person/topic touches, for the tooltip meta
+  const meetingNeighbors = {};
+  for (const e of edges) {
+    for (const [a, b] of [[e.src, e.dst], [e.dst, e.src]]) {
+      if (nodes.find((n) => n.id === b)?.kind === "meeting") (meetingNeighbors[a] ??= new Set()).add(b);
+    }
+  }
+  const metaOf = (n) => {
+    if (n.kind === "meeting") {
+      const m = meetById[n.id];
+      const people = (meetingNeighbors[n.id]?.size, edges.filter((e) => (e.src === n.id || e.dst === n.id) && e.kind === "attended").length);
+      return m ? `${fmtDate(m.started_at)}${people ? ` · ${people} people` : ""}` : "";
+    }
+    const k = meetingNeighbors[n.id]?.size ?? 0;
+    return `in ${k} meeting${k === 1 ? "" : "s"}`;
+  };
 
   const ns = nodes.map((n, i) => ({
-    ...n, label: n.meeting_title ?? n.label,
-    x: W / 2 + 180 * Math.cos((i / nodes.length) * 2 * Math.PI),
-    y: H / 2 + 180 * Math.sin((i / nodes.length) * 2 * Math.PI),
-    vx: 0, vy: 0, r: n.kind === "meeting" ? 22 : n.kind === "person" ? 13 : 9,
+    ...n, label: n.meeting_title ?? n.label, meta: "",
+    x: W / 2 + (n.kind === "meeting" ? 150 : n.kind === "person" ? 215 : 275) * Math.cos((i / nodes.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
+    y: H / 2 + (n.kind === "meeting" ? 130 : n.kind === "person" ? 200 : 250) * Math.sin((i / nodes.length) * 6.2832 + (n.kind === "topic" ? 0.9 : 0)),
+    vx: 0, vy: 0, seed: (i * 2.399) % 6.2832,
+    r: n.kind === "meeting" ? 22 : n.kind === "person" ? 13 : 8,
   }));
+  ns.forEach((n) => { n.meta = metaOf(n); });
   const byId = Object.fromEntries(ns.map((n) => [n.id, n]));
-  const es = edges.filter((e) => byId[e.src] && byId[e.dst]);
-  let drag = null;
+  const es = edges.filter((e) => byId[e.src] && byId[e.dst]).map((e) => ({ a: byId[e.src], b: byId[e.dst], kind: e.kind }));
+  let drag = null, hover = null, selected = null, frames = 0, stopped = false;
 
   function tick() {
     for (const a of ns) {
@@ -1869,95 +2028,266 @@ async function renderGraph() {
         if (a === b) continue;
         const dx = a.x - b.x, dy = a.y - b.y;
         const d2 = Math.max(dx * dx + dy * dy, 40);
-        const f = 2600 / d2;
+        const same = a.kind === b.kind;
+        const k = same ? (a.kind === "meeting" ? 120000 : 34000) : 15000;
+        const f = k / d2;
         a.vx += (dx / Math.sqrt(d2)) * f; a.vy += (dy / Math.sqrt(d2)) * f;
       }
-      a.vx += (W / 2 - a.x) * 0.004; a.vy += (H / 2 - a.y) * 0.004;
+      a.vx += (W / 2 - a.x) * 0.0022; a.vy += (H / 2 - a.y) * 0.0026;
     }
     for (const e of es) {
-      const a = byId[e.src], b = byId[e.dst];
-      const dx = b.x - a.x, dy = b.y - a.y, d = Math.max(Math.hypot(dx, dy), 1);
-      const f = (d - 110) * 0.012;
-      a.vx += (dx / d) * f; a.vy += (dy / d) * f;
-      b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
+      const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.max(Math.hypot(dx, dy), 1);
+      const rest = (e.a.kind === "topic" || e.b.kind === "topic") ? 145 : 125;
+      const f = (d - rest) * 0.008;
+      e.a.vx += (dx / d) * f; e.a.vy += (dy / d) * f;
+      e.b.vx -= (dx / d) * f; e.b.vy -= (dy / d) * f;
     }
+    separate();
     for (const n of ns) {
       if (n === drag) continue;
-      n.vx *= 0.82; n.vy *= 0.82;
-      n.x = Math.max(n.r + 4, Math.min(W - n.r - 4, n.x + n.vx));
-      n.y = Math.max(n.r + 4, Math.min(H - n.r - 4, n.y + n.vy));
+      n.vx *= 0.84; n.vy *= 0.84;
+      const cap = 9;
+      n.vx = Math.max(-cap, Math.min(cap, n.vx)); n.vy = Math.max(-cap, Math.min(cap, n.vy));
+      n.x = Math.max(n.r + 30, Math.min(W - n.r - 30, n.x + n.vx));
+      n.y = Math.max(n.r + 16, Math.min(H - n.r - 26, n.y + n.vy));
     }
+    separate(); // run the constraint after integration too, so it can't be outrun
+  }
+
+  // hard minimum separation so no two knots ever overlap
+  function separate() {
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 0; i < ns.length; i++) {
+        for (let j = i + 1; j < ns.length; j++) {
+          const a = ns[i], b = ns[j];
+          const min = a.r + b.r + (a.kind === "meeting" && b.kind === "meeting" ? 120 : 46);
+          const dx = b.x - a.x, dy = b.y - a.y, d = Math.max(Math.hypot(dx, dy), 0.6);
+          if (d < min) {
+            const push = (min - d) / 2, ux = dx / d, uy = dy / d;
+            if (a !== drag) { a.x -= ux * push; a.y -= uy * push; }
+            if (b !== drag) { b.x += ux * push; b.y += uy * push; }
+          }
+        }
+      }
+    }
+  }
+
+  // a meeting is a button sewn onto the cloth: rim, four holes, crossed thread
+  function drawButton(n, hot) {
+    const r = n.r + (hot ? 1.5 : 0);
+    ctx.save();
+    ctx.shadowColor = "rgba(40,45,90,.28)"; ctx.shadowBlur = hot ? 12 : 6; ctx.shadowOffsetY = 2;
+    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
+    ctx.fillStyle = hot ? "#4a63cf" : THREAD; ctx.fill();
+    ctx.restore();
+    ctx.save();
+    ctx.setLineDash([3, 3.6]);
+    ctx.beginPath(); ctx.arc(n.x, n.y, r - 5, 0, 6.2832);
+    ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.restore();
+    const o = r * 0.42;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(30,40,110,.35)"; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(n.x - o, n.y - o + 0.8); ctx.lineTo(n.x + o, n.y - o + 0.8);
+    ctx.moveTo(n.x - o, n.y + o + 0.8); ctx.lineTo(n.x + o, n.y + o + 0.8);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,.95)"; ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(n.x - o, n.y - o); ctx.lineTo(n.x + o, n.y - o);
+    ctx.moveTo(n.x - o, n.y + o); ctx.lineTo(n.x + o, n.y + o);
+    ctx.stroke();
+    for (const [dx, dy] of [[-o, -o], [o, -o], [-o, o], [o, o]]) {
+      ctx.beginPath(); ctx.arc(n.x + dx, n.y + dy, 2.5, 0, 6.2832);
+      ctx.fillStyle = "#33459c"; ctx.fill();
+      ctx.beginPath(); ctx.arc(n.x + dx, n.y + dy + 0.5, 2.2, 0.5, 2.4);
+      ctx.strokeStyle = "rgba(255,255,255,.4)"; ctx.lineWidth = 0.9; ctx.stroke();
+    }
+  }
+
+  // a person is an eyelet punched in the cloth: ring, hole, stitched rim
+  function drawEyelet(n, hot) {
+    const r = n.r + (hot ? 1.5 : 0);
+    ctx.save();
+    ctx.shadowColor = "rgba(60,50,30,.18)"; ctx.shadowBlur = hot ? 9 : 4; ctx.shadowOffsetY = 1.5;
+    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
+    ctx.fillStyle = SURFACE; ctx.fill();
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
+    ctx.strokeStyle = hot ? THREAD : INK3; ctx.lineWidth = 1.7; ctx.stroke();
+    ctx.beginPath(); ctx.arc(n.x, n.y, r * 0.38, 0, 6.2832);
+    ctx.strokeStyle = hot ? THREAD : INK3; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.strokeStyle = hot ? "rgba(91,116,224,.55)" : "rgba(163,158,148,.5)"; ctx.lineWidth = 1.1;
+    for (let i = 0; i < 8; i++) {
+      const a = n.seed + (i / 8) * 6.2832;
+      ctx.beginPath();
+      ctx.moveTo(n.x + Math.cos(a) * (r * 0.58), n.y + Math.sin(a) * (r * 0.58));
+      ctx.lineTo(n.x + Math.cos(a) * (r * 0.82), n.y + Math.sin(a) * (r * 0.82));
+      ctx.stroke();
+    }
+  }
+
+  // a topic is a knot with one loose end trailing off
+  function drawKnot(n, hot) {
+    const r = n.r + (hot ? 1 : 0);
+    ctx.beginPath(); ctx.arc(n.x, n.y, r * 0.62, 0, 6.2832);
+    ctx.fillStyle = hot ? THREAD : INK3; ctx.fill();
+    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 6.2832);
+    ctx.strokeStyle = hot ? "rgba(91,116,224,.5)" : "rgba(163,158,148,.45)"; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(n.x + r * 0.7, n.y + r * 0.5);
+    ctx.quadraticCurveTo(n.x + r * 2.2, n.y + r * 1.5, n.x + r * 3.4, n.y + r * 0.7);
+    ctx.strokeStyle = hot ? "rgba(91,116,224,.6)" : "rgba(163,158,148,.5)";
+    ctx.lineWidth = 1.1; ctx.stroke();
   }
 
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    // threads: fine solid curves with a gentle sag — silk, not sketch
-    ctx.lineWidth = 1.4; ctx.lineCap = "round"; ctx.strokeStyle = THREAD;
+    const lit = (n) => !hover || n === hover || es.some((e) => (e.a === hover && e.b === n) || (e.b === hover && e.a === n));
+
+    ctx.lineCap = "round";
     for (const e of es) {
-      const a = byId[e.src], b = byId[e.dst];
-      ctx.globalAlpha = 0.32;
-      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + Math.min(28, Math.hypot(b.x - a.x, b.y - a.y) * 0.1);
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx, my, b.x, b.y); ctx.stroke();
+      const on = !hover || e.a === hover || e.b === hover;
+      ctx.strokeStyle = THREAD;
+      ctx.globalAlpha = on ? (hover ? 0.6 : 0.3) : 0.08;
+      ctx.lineWidth = on && hover ? 1.8 : 1.3;
+      const sag = Math.min(30, Math.hypot(e.b.x - e.a.x, e.b.y - e.a.y) * 0.11);
+      ctx.beginPath();
+      ctx.moveTo(e.a.x, e.a.y);
+      ctx.quadraticCurveTo((e.a.x + e.b.x) / 2, (e.a.y + e.b.y) / 2 + sag, e.b.x, e.b.y);
+      ctx.stroke();
     }
     ctx.globalAlpha = 1;
+
     for (const n of ns) {
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r, 0, 2 * Math.PI);
-      if (n.kind === "meeting") {
-        ctx.fillStyle = THREAD; ctx.fill();
-      } else if (n.kind === "person") {
-        ctx.fillStyle = SURFACE; ctx.fill();
-        ctx.strokeStyle = INK3; ctx.lineWidth = 1.5; ctx.stroke();
-      } else {
-        ctx.fillStyle = INK3; ctx.globalAlpha = 0.65; ctx.fill(); ctx.globalAlpha = 1;
-      }
-      if (n.kind === "meeting" || n.kind === "person") {
-        ctx.fillStyle = INK; ctx.font = "600 11.5px -apple-system, system-ui"; ctx.textAlign = "center";
-        const label = n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label;
-        ctx.fillText(label, n.x, n.y + n.r + 15);
-      }
+      ctx.globalAlpha = lit(n) ? 1 : 0.22;
+      if (n.kind === "meeting") drawButton(n, n === hover || n.id === selected);
+      else if (n.kind === "person") drawEyelet(n, n === hover);
+      else drawKnot(n, n === hover);
     }
+    ctx.globalAlpha = 1;
+
+    // labels — biggest knots claim their space first; a label that would
+    // collide steps below, and gives up rather than printing over another
+    ctx.textAlign = "center";
+    const boxes = ns.map((n) => ({ l: n.x - n.r - 3, r: n.x + n.r + 3, t: n.y - n.r, b: n.y + n.r + 2 }));
+    const order = [...ns].sort((a, b) => b.r - a.r);
+    for (const n of order) {
+      if (n.kind === "topic") { ctx.fillStyle = INK3; ctx.font = "500 11px -apple-system, system-ui"; }
+      else { ctx.fillStyle = INK; ctx.font = "600 11.5px -apple-system, system-ui"; }
+      const t = n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label;
+      if (selected && n.x > W - 386) continue;
+      const w = ctx.measureText(t).width, hh = 13;
+      const cx2 = Math.max(w / 2 + 6, Math.min(W - w / 2 - 6, n.x));
+      let y = n.y + n.r + (n.kind === "topic" ? 13 : 16);
+      let placed = false;
+      for (let step = 0; step < 4; step++) {
+        const box = { l: cx2 - w / 2 - 3, r: cx2 + w / 2 + 3, t: y - hh + 2, b: y + 4 };
+        if (!boxes.some((o) => box.l < o.r && box.r > o.l && box.t < o.b && box.b > o.t)) {
+          boxes.push(box); placed = true; break;
+        }
+        y += hh + 2;
+      }
+      if (!placed && n !== hover) continue;
+      ctx.globalAlpha = lit(n) ? 1 : 0.2;
+      ctx.fillText(t, cx2, y);
+    }
+    ctx.globalAlpha = 1;
   }
 
-  let frames = 0;
-  (function loop() { tick(); draw(); if (++frames < 600 || drag) requestAnimationFrame(loop); else drawLabelsFinal(); })();
-  function drawLabelsFinal() {
-    draw();
-    ctx.fillStyle = INK3; ctx.font = "500 11px -apple-system, system-ui"; ctx.textAlign = "center";
-    for (const n of ns) if (n.kind === "topic") ctx.fillText(n.label.length > 18 ? n.label.slice(0, 17) + "…" : n.label, n.x, n.y + n.r + 13);
+  function loop() {
+    if (stopped || !document.body.contains(canvas)) { stopped = true; return; }
+    tick(); draw();
+    if (++frames < 620 || drag) requestAnimationFrame(loop);
   }
+  loop();
 
-  const hit = (mx, my) => ns.find((n) => Math.hypot(n.x - mx, n.y - my) <= n.r + 4);
-  canvas.addEventListener("mousedown", (ev) => {
+  const hit = (ev) => {
     const r = canvas.getBoundingClientRect();
-    drag = hit(ev.clientX - r.left, ev.clientY - r.top) ?? null;
-    if (drag) requestAnimationFrame(function dl() { tick(); draw(); if (drag) requestAnimationFrame(dl); });
+    const mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    return ns.find((n) => Math.hypot(n.x - mx, n.y - my) <= n.r + 5);
+  };
+  canvas.addEventListener("mousedown", (ev) => {
+    drag = hit(ev) ?? null;
+    if (drag) { frames = 0; loop(); }
   });
   canvas.addEventListener("mousemove", (ev) => {
     const r = canvas.getBoundingClientRect();
-    if (drag) { drag.x = ev.clientX - r.left; drag.y = ev.clientY - r.top; }
-    else canvas.style.cursor = hit(ev.clientX - r.left, ev.clientY - r.top) ? "pointer" : "grab";
+    if (drag) { drag.x = ev.clientX - r.left; drag.y = ev.clientY - r.top; return; }
+    const h = hit(ev);
+    canvas.style.cursor = h ? "pointer" : "grab";
+    if (h !== hover) {
+      hover = h;
+      if (h) {
+        tip.innerHTML = `<b>${esc(h.label)}</b><span>${esc(h.meta)}</span>`;
+        tip.style.left = Math.round(h.x + 18) + "px";
+        tip.style.top = Math.round(h.y - 34) + "px";
+        tip.style.opacity = "1";
+      } else tip.style.opacity = "0";
+      draw();
+    }
   });
+  canvas.addEventListener("mouseleave", () => { hover = null; tip.style.opacity = "0"; draw(); });
   window.addEventListener("mouseup", () => { drag = null; });
-  canvas.addEventListener("click", (ev) => {
-    const r = canvas.getBoundingClientRect();
-    const n = hit(ev.clientX - r.left, ev.clientY - r.top);
-    if (n?.kind === "meeting") { state.meetingId = n.id; render(); }
+  canvas.addEventListener("click", async (ev) => {
+    const n = hit(ev);
+    if (n?.kind === "meeting") { selected = n.id; await openPanel(n.id); }
+    else { selected = null; panel.classList.remove("open"); }
+    draw();
   });
 
-  // Growth loop: export the brain as a presentation-ready image.
+  async function openPanel(id) {
+    const { meeting, claims } = await api(`/api/meeting?id=${encodeURIComponent(id)}`);
+    const open = claims.filter((c) => c.kind === "action_item" && c.gate === "passed" && !c.done);
+    const decisions = claims.filter((c) => c.kind === "decision" && c.gate === "passed");
+    const byOwner = {};
+    for (const c of open) (byOwner[c.body.owner ?? "Unassigned"] ??= []).push(c);
+    panel.innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:2px">
+        <div>
+          <div class="gp-k" style="margin:0">Meeting</div>
+          <div style="font-weight:650;font-size:17px;letter-spacing:-.015em;line-height:1.3;margin-top:3px">${esc(meeting.title)}</div>
+          <div style="color:var(--ink-3);font-size:12.5px;margin-top:2px">${fmtDate(meeting.started_at)} · ${Math.max(1, Math.round(meeting.duration_s / 60))} min · ${esc(meeting.mode)}</div>
+        </div>
+        <button id="gp-close" style="margin-left:auto;flex:none;border:1px solid var(--line);background:var(--surface);width:26px;height:26px;border-radius:8px;cursor:pointer;color:var(--ink-3);font-size:14px;line-height:1">✕</button>
+      </div>
+      ${meeting.summary ? `<div style="margin-top:20px"><div class="gp-k">Summary</div><div style="font-size:13.5px;line-height:1.6">${esc(meeting.summary)}</div></div>` : ""}
+      <div style="margin-top:22px"><div class="gp-k">Pending · by stakeholder</div>
+      ${Object.keys(byOwner).length ? Object.entries(byOwner).map(([owner, items]) => `
+        <div style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span class="gp-avatar">${esc(owner[0] ?? "?")}</span>
+            <span style="font-weight:620;font-size:13.5px">${esc(owner)}</span>
+            <span style="font-size:11.5px;color:var(--ink-3)">${items.length} open</span>
+          </div>
+          ${items.map((it) => `<div class="gp-item">
+            <div style="font-size:13px;font-weight:570;line-height:1.5">${esc(it.body.task)}</div>
+            ${it.body.due ? `<div style="font-size:11.5px;color:var(--ink-3);margin-top:1px">due ${esc(it.body.due)}</div>` : ""}
+          </div>`).join("")}
+        </div>`).join("") : `<div style="font-size:13px;color:var(--ink-3)">Nothing outstanding from this one.</div>`}
+      </div>
+      ${decisions.length ? `<div style="margin-top:22px"><div class="gp-k">Decisions</div>
+        ${decisions.map((d) => `<div style="font-size:13px;line-height:1.55;padding:7px 0;border-top:1px solid var(--line)">✓ ${esc(d.body.text)}</div>`).join("")}</div>` : ""}
+      ${meeting.my_notes ? `<div style="margin-top:22px"><div class="gp-k">Your notes</div>
+        <div style="font-size:13px;line-height:1.6;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;white-space:pre-wrap">${esc(meeting.my_notes)}</div></div>` : ""}
+      <button id="gp-open" style="margin-top:20px;width:100%;border:0;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;padding:10px 16px;border-radius:10px;color:#fff;background:var(--thread);text-align:left;box-shadow:0 1px 2px rgb(50 60 140 / 0.25)">Open the full meeting →</button>`;
+    panel.classList.add("open");
+    $("#gp-close").addEventListener("click", () => { selected = null; panel.classList.remove("open"); draw(); });
+    $("#gp-open").addEventListener("click", () => { state.meetingId = id; render(); });
+  }
+
   $("#export-graph").addEventListener("click", () => {
-    const pad = 90, W2 = W + 40, H2 = H + pad + 70;
+    const pad = 84, W2 = W + 40, H2 = H + pad + 60;
     const out = document.createElement("canvas");
     out.width = W2 * dpr; out.height = H2 * dpr;
     const o = out.getContext("2d");
     o.scale(dpr, dpr);
-    o.fillStyle = "#f3efe7"; o.fillRect(0, 0, W2, H2);
-    o.strokeStyle = "#1d1b16"; o.lineWidth = 4; o.strokeRect(8, 8, W2 - 16, H2 - 16);
+    o.fillStyle = "#ffffff"; o.fillRect(0, 0, W2, H2);
+    o.strokeStyle = "#e7e9ee"; o.lineWidth = 2; o.strokeRect(1, 1, W2 - 2, H2 - 2);
     o.fillStyle = "#21201c"; o.font = "650 26px -apple-system, system-ui";
-    o.fillText("My meeting brain", 30, 52);
+    o.fillText("My meeting brain", 30, 48);
     o.fillStyle = "#a39e94"; o.font = "500 15px -apple-system, system-ui";
-    o.fillText(`${ns.filter((n) => n.kind === "meeting").length} meetings · ${ns.filter((n) => n.kind === "person").length} people · ${ns.filter((n) => n.kind === "topic").length} topics — stitched by Threadline`, 30, 76);
+    o.fillText(`${ns.filter((n) => n.kind === "meeting").length} meetings · ${ns.filter((n) => n.kind === "person").length} people · ${ns.filter((n) => n.kind === "topic").length} topics · 🪡 Threadline`, 30, 72);
     o.drawImage(canvas, 0, 0, canvas.width, canvas.height, 20, pad, W, H);
     const a = document.createElement("a");
     a.download = "threadline-brain.png";
@@ -1965,14 +2295,6 @@ async function renderGraph() {
     a.click();
   });
 }
-
-// Growth loop: long excerpts copied from notes carry a quiet attribution.
-document.addEventListener("copy", (e) => {
-  const sel = document.getSelection()?.toString() ?? "";
-  if (sel.length < 140 || !e.clipboardData) return;
-  e.clipboardData.setData("text/plain", `${sel}\n\n— stitched by Threadline`);
-  e.preventDefault();
-});
 
 // ── Live recording ──────────────────────────────────────────────────────
 const recBtn = $("#rec");
@@ -2018,20 +2340,141 @@ recBtn.addEventListener("click", async () => {
 });
 
 let searchTimer;
+let askSeq = 0; // superseded asks must not overwrite newer ones
 $("#search").addEventListener("input", (e) => {
   clearTimeout(searchTimer);
   const q = e.target.value.trim();
   if (!q) return render();
   searchTimer = setTimeout(async () => {
     const hits = await api(`/api/search?q=${encodeURIComponent(q)}`);
-    main.innerHTML = `<h1>“${esc(q)}”</h1><div class="sub">${hits.length} meeting${hits.length === 1 ? "" : "s"} on this thread</div>
+    const meetings = [...new Set(hits.map((h) => h.meeting_id))].length;
+    main.innerHTML = `<h1>“${esc(q)}”</h1>
+      <div class="sub">${hits.length} line${hits.length === 1 ? "" : "s"} across ${meetings} meeting${meetings === 1 ? "" : "s"}</div>
+      <div id="ask-card"><button class="copybtn" id="ask-btn" style="margin:0 0 12px">Ask across all meetings ↵</button></div>
       <div class="card">${hits.length ? hits.map((h) => `
-        <div class="m-row" data-mid="${h.id}">
-          <div class="m-date">${fmtDate(h.started_at)}</div>
+        <div class="m-row" data-mid="${h.meeting_id}" data-off="${h.offset_s}">
+          <div class="m-date">${fmtDate(h.started_at)} · ${fmtTs(h.offset_s)}</div>
           <div><div class="m-title">${esc(h.title)}</div><div class="t-meta">${h.hit}</div></div>
         </div>`).join("") : `<div class="empty">${SPOOL_SVG}No thread found — it searches every word of every meeting.</div>`}</div>`;
     wireMeetingLinks();
+    $("#ask-btn")?.addEventListener("click", () => runAsk(q));
   }, 250);
+});
+
+// Ask fires on Enter or the button — NEVER per keystroke: it can cost an LLM call.
+$("#search").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.value.trim()) runAsk(e.target.value.trim());
+});
+
+async function runAsk(q) {
+  const seq = ++askSeq;
+  const card = $("#ask-card");
+  if (!card) return;
+  card.innerHTML = `<div class="card"><div class="t-meta">Reading across every meeting…</div></div>`;
+  let r;
+  try { r = await api(`/api/ask?q=${encodeURIComponent(q)}`); }
+  catch (err) { if (seq === askSeq) card.innerHTML = `<div class="card"><div class="t-meta">Ask failed: ${esc(String(err))}</div></div>`; return; }
+  if (seq !== askSeq || !$("#ask-card")) return; // superseded or view changed
+  const pill = r.exit === "shipped" ? "pass" : "block";
+  $("#ask-card").innerHTML = `<div class="card">
+    <h2>${r.mode === "synthesized" ? "Answer" : "Closest passages"} <span class="pill ${pill}">${esc(r.exit)}</span></h2>
+    ${r.summary ? `<div style="font-size:15px;line-height:1.65;margin-bottom:14px">${esc(r.summary)}</div>
+      <div class="t-meta" style="margin-bottom:6px">Receipts</div>
+      ${r.answer.map((p) => `
+        <span class="backlink" data-mid="${p.meeting_id}" data-off="${p.offset_s}" title="${esc(p.quote)}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span>`).join(" ")}`
+    : r.answer.length ? r.answer.map((p) => `
+      <div class="claim">${esc(p.text)}<br>
+        <span class="backlink" data-mid="${p.meeting_id}" data-off="${p.offset_s}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span></div>`).join("")
+      : `<div class="t-meta">Couldn't ground an answer — the receipts below are what matched.</div>`}
+    ${r.blocked.length ? `<div class="t-meta" style="margin-top:8px">${r.blocked.length} sentence(s) dropped — no receipt in the retrieved snippets</div>` : ""}
+  </div>`;
+  wireMeetingLinks();
+}
+
+// ── Command palette: Spotlight for your meetings ─────────────────────────
+// ⌘K everywhere; ⌘Space too, though macOS usually reserves it for Spotlight.
+// Type → instant matches. Enter → grounded answer via /api/ask: synthesized
+// ONLY from meeting content, receipts required, refuses rather than invents.
+document.body.insertAdjacentHTML("beforeend", `
+  <div id="palette-veil">
+    <div id="palette">
+      <input id="pal-input" placeholder="Ask your meetings anything…" autocomplete="off">
+      <div id="palette-body">
+        <div class="pal-hint"><span><b>↵</b> ask</span><span><b>esc</b> close</span><span>Answers come only from your meeting notes.</span></div>
+      </div>
+    </div>
+  </div>`);
+const veil = $("#palette-veil"), palInput = $("#pal-input"), palBody = $("#palette-body");
+let palTimer, palSeq = 0;
+
+function palOpen() {
+  veil.classList.add("open");
+  palInput.value = ""; palReset();
+  setTimeout(() => palInput.focus(), 0);
+}
+function palClose() { veil.classList.remove("open"); }
+function palReset() {
+  palBody.innerHTML = `<div class="pal-hint"><span><b>↵</b> ask</span><span><b>esc</b> close</span><span>Answers come only from your meeting notes.</span></div>`;
+}
+
+document.addEventListener("keydown", (e) => {
+  const cmd = e.metaKey || e.ctrlKey;
+  if (cmd && (e.key.toLowerCase() === "k" || e.code === "Space")) { e.preventDefault(); palOpen(); }
+  else if (e.key === "Escape" && veil.classList.contains("open")) palClose();
+});
+veil.addEventListener("mousedown", (e) => { if (e.target === veil) palClose(); });
+
+function palGoto(mid, off) {
+  palClose();
+  state.meetingId = mid;
+  if (off != null) state.deepLink = Number(off);
+  render();
+  window.scrollTo(0, 0);
+}
+
+palInput.addEventListener("input", () => {
+  clearTimeout(palTimer);
+  const q = palInput.value.trim();
+  if (!q) return palReset();
+  palTimer = setTimeout(async () => {
+    const hits = await api(`/api/search?q=${encodeURIComponent(q)}`);
+    if (palInput.value.trim() !== q) return;
+    palBody.innerHTML = `
+      <div class="pal-hint"><span><b>↵</b> ask across all meetings</span><span>${hits.length} matching line${hits.length === 1 ? "" : "s"}</span></div>
+      ${hits.slice(0, 8).map((h) => `
+        <div class="pal-row" data-pmid="${h.meeting_id}" data-poff="${h.offset_s}">
+          <span class="ts">${esc(h.title.slice(0, 16))} · ${fmtTs(h.offset_s)}</span>
+          <span class="txt">${h.hit}</span>
+        </div>`).join("") || `<div class="pal-hint">No matching lines.</div>`}`;
+    palBody.querySelectorAll("[data-pmid]").forEach((el) =>
+      el.addEventListener("click", () => palGoto(el.dataset.pmid, el.dataset.poff)));
+  }, 200);
+});
+
+palInput.addEventListener("keydown", async (e) => {
+  if (e.key !== "Enter") return;
+  const q = palInput.value.trim();
+  if (!q) return;
+  const seq = ++palSeq;
+  palBody.innerHTML = `<div class="pal-hint">Reading across every meeting…</div>`;
+  let r;
+  try { r = await api(`/api/ask?q=${encodeURIComponent(q)}`); }
+  catch (err) { if (seq === palSeq) palBody.innerHTML = `<div class="pal-hint">Ask failed: ${esc(String(err))}</div>`; return; }
+  if (seq !== palSeq || !veil.classList.contains("open")) return;
+  palBody.innerHTML = `<div class="pal-answer">
+    <div class="pal-hint"><span><b>${r.mode === "synthesized" ? "Answer" : "Closest passages"}</b></span>
+      <span class="pill ${r.exit === "shipped" ? "pass" : "block"}">${esc(r.exit)}</span></div>
+    ${r.summary ? `<div style="font-size:14.5px;line-height:1.6;padding:2px 10px 10px">${esc(r.summary)}</div>
+      <div style="padding:0 10px 8px">${r.answer.map((p) => `
+        <span class="backlink" data-pmid="${p.meeting_id}" data-poff="${p.offset_s}" title="${esc(p.quote)}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span>`).join(" ")}</div>`
+    : r.answer.length ? r.answer.map((p) => `
+      <div class="claim">${esc(p.text)}<br>
+        <span class="backlink" data-pmid="${p.meeting_id}" data-poff="${p.offset_s}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span></div>`).join("")
+      : `<div class="pal-hint">Nothing in your meetings supports an answer to that — refusing rather than guessing.</div>`}
+    ${r.blocked.length ? `<div class="pal-hint">${r.blocked.length} sentence(s) dropped — no receipt in the notes</div>` : ""}
+  </div>`;
+  palBody.querySelectorAll("[data-pmid]").forEach((el) =>
+    el.addEventListener("click", () => palGoto(el.dataset.pmid, el.dataset.poff)));
 });
 
 render();

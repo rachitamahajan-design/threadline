@@ -13,7 +13,10 @@
 import { DatabaseSync } from "node:sqlite";
 import { triggerRecap, awaitRecap, PyAIError, type Utterance, type RecapRecord } from "../lib/pyai.js";
 import { Budget, retry, groundedIn, applyGate, decideExit, type StepRecord } from "../lib/harness.js";
-import { upsertNode, addEdge } from "../lib/db.js";
+import { candidates } from "./candidates.js";
+import { resolveCandidates, storeResolutions } from "./resolve.js";
+import { projectGraph } from "./project.js";
+import { indexMeeting } from "./chunker.js";
 import { hasOpenAI, openaiExtract } from "../lib/openai.js";
 import { structureSummary } from "./summarize.js";
 import { suggestProjects } from "./match.js";
@@ -181,11 +184,24 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
       }
     }
 
-    buildGraph(db, m, rec);
-    steps.push({ name: "graph:link", status: "ok", attempts: 1, ms: 0 });
+    // Canonical entities, then project them down into nodes/edges. Replaces
+    // the old buildGraph(), whose topics were the first six words of a
+    // decision — which is why reworded topics never joined across meetings.
+    const cands = candidates(m.utterances, rec);
+    const gate = groundedIn(m.utterances);
+    const hasProof = (c: { quote?: string; offset_s?: number }) =>
+      gate({ quote: c.quote, offset_s: c.offset_s }) === null;
+    const resolutions = resolveCandidates(db, cands);
+    const res = storeResolutions(db, m.id, resolutions, hasProof);
+    steps.push(res.step);
+    steps.push(projectGraph(db, [m.id]));
 
+    // Retrieval chunks (windows + claims + summary), delete-then-insert so
+    // reprocessing can never duplicate index rows. reindexMeeting fills the
+    // legacy `search` table (utterances + structured summary + notes) until
+    // every reader has moved to chunk_fts.
+    steps.push(indexMeeting(db, m.id));
     reindexMeeting(db, m.id);
-    steps.push({ name: "index:fts", status: "ok", attempts: 1, ms: 0 });
 
     // Project matching: suggestions only, the user files. Non-core — skipped
     // silently without OpenAI or candidate projects, never kills the run.
@@ -233,11 +249,6 @@ function storeClaims(db: DatabaseSync, m: MeetingInput, rec: RecapRecord) {
   return { passed: kept.length, blocked: blocked.length };
 }
 
-/** Only real labels become nodes — Recap sometimes emits null/"None" facts. */
-function usable(label: unknown): label is string {
-  return typeof label === "string" && label.trim().length > 1 && label.trim().toLowerCase() !== "none";
-}
-
 /**
  * Recap only knows the roles "agent"/"customer"; we know who actually spoke.
  * Map a role back to a name by finding the utterance that best matches the
@@ -259,26 +270,4 @@ export function resolveOwner(m: MeetingInput, owner: string | null, task: string
   // No text match — fall back to the sole speaker with that role, if unambiguous.
   const speakers = [...new Set(m.utterances.filter((u) => u.speaker_role === role && u.speaker).map((u) => u.speaker!))];
   return speakers.length === 1 ? speakers[0] : owner;
-}
-
-/** Meetings, people and topics become nodes; shared entities become edges. */
-function buildGraph(db: DatabaseSync, m: MeetingInput, rec: RecapRecord) {
-  const meetingNode = upsertNode(db, "meeting", m.id);
-
-  const people = new Set<string>();
-  for (const u of m.utterances) if (u.speaker) people.add(u.speaker);
-  for (const a of rec.action_items ?? []) {
-    const named = resolveOwner(m, a.owner, a.task);
-    if (usable(named) && !["agent", "customer"].includes(named.toLowerCase())) people.add(named);
-  }
-  for (const p of people) addEdge(db, upsertNode(db, "person", p), meetingNode, "attended", m.id);
-
-  for (const d of rec.key_decisions ?? []) {
-    if (!usable(d)) continue;
-    const topic = d.split(/\s+/).slice(0, 6).join(" ");
-    addEdge(db, meetingNode, upsertNode(db, "topic", topic), "mentions", m.id);
-  }
-  for (const g of rec.coverage_gaps ?? [])
-    if ((g.type === "product" || g.type === "name") && usable(g.fact))
-      addEdge(db, meetingNode, upsertNode(db, g.type === "name" ? "person" : "topic", g.fact), "mentions", m.id);
 }

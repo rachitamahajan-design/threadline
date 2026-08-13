@@ -79,7 +79,8 @@ export function groundedIn(transcript: { text: string; offset_s: number }[]) {
   };
 }
 
-function normalize(s: string) {
+/** Exported so entity resolution and the receipts gate agree on "same text". */
+export function normalize(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
@@ -91,6 +92,17 @@ function containsLooseley(haystack: string, needle: string) {
   if (words.length === 0) return haystack.includes(needle);
   const hits = words.filter((w) => haystack.includes(w)).length;
   return hits / words.length >= 0.7;
+}
+
+/** Composes gates: first reason wins, null only if every gate passes. */
+export function allOf<T>(...gates: Gate<T>[]): Gate<T> {
+  return (v) => {
+    for (const g of gates) {
+      const r = g(v);
+      if (r) return r;
+    }
+    return null;
+  };
 }
 
 /** Runs `gate` over a list, keeping what passes and recording what didn't. */
