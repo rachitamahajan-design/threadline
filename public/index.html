@@ -349,7 +349,11 @@
     display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
   .mtg-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; margin-top: 1px; }
-  .mtg-time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mtg-time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px; }
+  .mtg-time .ic { color: var(--ink-3); opacity: .8; }
+  .mtg-meta { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+  .mtg-meta b { color: var(--ink-2); font-weight: 600; }
   @media (max-width: 560px) {
     /* two-up so the stats stay a row, not a tower */
     .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -373,6 +377,51 @@
   .search-pill:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgb(16 24 40 / .08), 0 12px 34px rgb(16 24 40 / .13); }
   .search-pill .ic { color: var(--ink-3); }
   .search-pill .lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── meeting detail: the chip row under the title ── */
+  .chip-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 2px; }
+  button.up-chip { font: inherit; font-size: 11.5px; cursor: pointer; background: var(--card); }
+  button.up-chip:hover { border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); color: var(--thread); }
+  button.up-chip:hover .ic { color: var(--thread); }
+  .up-chip .who { max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── glass popovers & dropdowns (time editor, topic picker, ⋯ menu) ── */
+  .glass-pop {
+    position: absolute; z-index: 60; min-width: 250px;
+    background: var(--card); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 12px; font-size: 13px;
+  }
+  .glass-pop.menu { padding: 6px; min-width: 216px; }
+  .pop-title {
+    display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); margin: 2px 2px 10px;
+  }
+  .pop-lbl { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 10px; }
+  .pop-lbl input {
+    display: block; width: 100%; margin-top: 5px; font: inherit; font-size: 13px; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 6px 9px; box-sizing: border-box;
+  }
+  .pop-lbl input:focus { outline: none; border-color: color-mix(in srgb, var(--thread) 50%, var(--line)); }
+  .pop-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .pop-actions .copybtn { margin-top: 2px; }
+  .pop-actions .primary { background: var(--thread); border-color: var(--thread); color: #fff; font-weight: 600; }
+  .pop-actions .primary:hover { background: color-mix(in srgb, var(--thread) 85%, #000); color: #fff; }
+  .glass-pop .topic-select { width: 100%; max-width: none; font-size: 13px; padding: 7px 9px; color: var(--ink); }
+  .menu-row {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    border: none; background: none; font: inherit; font-size: 13px; color: var(--ink);
+    padding: 7px 10px; border-radius: var(--radius-sm); cursor: pointer;
+  }
+  .menu-row .ic { color: var(--ink-3); flex: none; }
+  .menu-row:hover { background: var(--hover); }
+  .menu-row:hover .ic { color: var(--thread); }
+  .menu-row.danger { color: var(--block); }
+  .menu-row.danger .ic { color: var(--block); }
+  .menu-row.danger:hover { background: color-mix(in srgb, var(--block) 12%, transparent); }
+  .menu-row.danger:hover .ic { color: var(--block); }
+  .menu-sep { height: 1px; background: var(--line); margin: 6px 6px; }
 
   /* ── responsive: sidebar becomes a drawer ── */
   @media (max-width: 900px) {
@@ -655,7 +704,11 @@
   #rec-inline { border: 1px solid var(--line); background: var(--surface); color: var(--block); font: inherit; font-size: 12.5px; font-weight: 650; border-radius: 10px; padding: 6px 14px; cursor: pointer; }
   #rec-inline:hover { border-color: var(--block); }
   .ws-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
-  .ws-head .spacer { flex: 1; }
+  /* title + chips take the slack; the action buttons wrap as one cluster,
+     pushed right by their own auto margin (so the old spacer can stay flat) */
+  .ws-head .spacer { flex: 0 0 0; }
+  .ws-head > div:first-child { flex: 1 1 320px; min-width: 0; }
+  .ws-actions { display: flex; align-items: center; gap: 10px; flex: none; margin-left: auto; }
   #notes-doc {
     background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
     box-shadow: var(--shadow); padding: 26px 30px; min-height: 320px;
@@ -1199,6 +1252,87 @@ async function topicSelectChange(sel, onPick) {
     sel.value = v;
   }
   if (v) onPick(Number(v));
+}
+
+/**
+ * A glass popover hung under an anchor element. One at a time; closes on
+ * outside mousedown or Esc. `wire(pop, close)` gets the live node.
+ */
+function openPopover(anchor, html, wire, extraClass = "") {
+  document.getElementById("tl-pop")?.remove();
+  const r = anchor.getBoundingClientRect(); // measure BEFORE any await
+  const pop = document.createElement("div");
+  pop.id = "tl-pop";
+  pop.className = `glass-pop ${extraClass}`.trim();
+  pop.innerHTML = html;
+  pop.style.visibility = "hidden";
+  document.body.appendChild(pop);
+  // keep the panel on screen on narrow viewports
+  const left = Math.max(10, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 12));
+  pop.style.left = `${left}px`;
+  pop.style.top = `${r.bottom + window.scrollY + 6}px`;
+  pop.style.visibility = "";
+  const close = () => {
+    pop.remove();
+    document.removeEventListener("mousedown", onDown);
+    document.removeEventListener("keydown", onKey);
+  };
+  const onDown = (ev) => { if (!pop.contains(ev.target) && !anchor.contains(ev.target)) close(); };
+  const onKey = (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); close(); } };
+  document.addEventListener("mousedown", onDown);
+  document.addEventListener("keydown", onKey);
+  wire?.(pop, close);
+  return pop;
+}
+
+/** Same shape, styled as a dropdown of icon+label rows. */
+function openMenuPopover(anchor, rows) {
+  const html = rows.map((r) => r.sep
+    ? `<div class="menu-sep"></div>`
+    : `<button class="menu-row ${r.danger ? "danger" : ""}" data-act="${r.id}">${icon(r.icon, 15)}${esc(r.label)}</button>`).join("");
+  return openPopover(anchor, html, (pop, close) => {
+    pop.querySelectorAll("[data-act]").forEach((b) =>
+      b.addEventListener("click", () => {
+        close();
+        rows.find((r) => r.id === b.dataset.act)?.run();
+      }));
+  }, "menu");
+}
+
+/** `<input type="datetime-local">` wants local wall time, not an ISO instant. */
+const toLocalInput = (ms) => {
+  const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000);
+  return d.toISOString().slice(0, 16);
+};
+
+/** Edit when a meeting started and how long it ran; persists, then re-renders. */
+function openTimeEditor(anchor, meeting, onSaved) {
+  openPopover(anchor, `
+    <div class="pop-title">${icon("clock", 13)}Meeting time</div>
+    <label class="pop-lbl">Starts<input type="datetime-local" id="pop-when" value="${toLocalInput(meeting.started_at)}"></label>
+    <label class="pop-lbl">Duration (minutes)<input type="number" id="pop-dur" min="0" step="5" placeholder="—" value="${meeting.duration_minutes ?? ""}"></label>
+    <div class="pop-actions">
+      <button class="copybtn" data-cancel>Cancel</button>
+      <button class="copybtn primary" data-save>Save</button>
+    </div>`, (pop, close) => {
+    pop.querySelector("[data-cancel]").addEventListener("click", close);
+    pop.querySelector("[data-save]").addEventListener("click", async () => {
+      const when = pop.querySelector("#pop-when").value;
+      const dur = pop.querySelector("#pop-dur").value;
+      const payload = { id: meeting.id };
+      if (when) {
+        const ms = new Date(when).getTime();
+        if (Number.isFinite(ms)) payload.started_at = ms;
+      }
+      if (dur !== "") payload.duration_minutes = Number(dur);
+      const out = await fetch("/api/meeting/time", { method: "POST", body: JSON.stringify(payload) }).then((r) => r.json());
+      close();
+      if (out.error) return alert(out.error);
+      showToast("Meeting time updated");
+      onSaved?.();
+    });
+    setTimeout(() => pop.querySelector("#pop-when")?.focus(), 0);
+  });
 }
 
 const SPOOL_SVG = `<svg width="72" height="72" viewBox="0 0 72 72" fill="none">
@@ -1839,15 +1973,35 @@ async function renderToday() {
     alert(p === "granted" ? "You'll get a notification when an Up next meeting starts." : "Notifications are blocked for this site — enable them in the browser's site settings.");
   });
   if (Notification.permission === "granted") { const b = $("#notify-bell"); if (b) b.style.opacity = ".45"; }
-  $("#add-upcoming").addEventListener("click", async () => {
-    const title = prompt("Meeting title?");
-    if (!title?.trim()) return;
-    const when = prompt("When? (e.g. 15:30 or tomorrow 10:00)", "15:00");
-    if (when === null) return;
-    const participants = prompt("Who's in it? (comma-separated names)", "") ?? "";
-    const at = parseWhen(when);
-    await fetch("/api/upcoming", { method: "POST", body: JSON.stringify({ title, at_ms: at, participants }) });
-    loadUpcoming();
+  $("#add-upcoming").addEventListener("click", (e) => {
+    // Real date/time and duration fields; parseWhen still picks the default slot.
+    openPopover(e.currentTarget, `
+      <div class="pop-title">${icon("calendar", 13)}Add an upcoming meeting</div>
+      <label class="pop-lbl">Title<input id="up-title" placeholder="Weekly sync"></label>
+      <label class="pop-lbl">When<input type="datetime-local" id="up-when" value="${toLocalInput(parseWhen(""))}"></label>
+      <label class="pop-lbl">Duration (minutes)<input type="number" id="up-dur" min="0" step="5" value="30"></label>
+      <label class="pop-lbl">Who's in it<input id="up-people" placeholder="Ana, Dev"></label>
+      <div class="pop-actions">
+        <button class="copybtn" data-cancel>Cancel</button>
+        <button class="copybtn primary" data-save>Add</button>
+      </div>`, (pop, close) => {
+      pop.querySelector("[data-cancel]").addEventListener("click", close);
+      pop.querySelector("[data-save]").addEventListener("click", async () => {
+        const title = pop.querySelector("#up-title").value;
+        if (!title.trim()) return pop.querySelector("#up-title").focus();
+        const whenVal = pop.querySelector("#up-when").value;
+        const at = whenVal ? new Date(whenVal).getTime() : parseWhen("");
+        const dur = Number(pop.querySelector("#up-dur").value);
+        const participants = pop.querySelector("#up-people").value;
+        close();
+        await fetch("/api/upcoming", {
+          method: "POST",
+          body: JSON.stringify({ title, at_ms: at, participants, duration_minutes: dur }),
+        });
+        loadUpcoming();
+      });
+      setTimeout(() => pop.querySelector("#up-title")?.focus(), 0);
+    });
   });
   const wireTodo = (cb) =>
     cb.addEventListener("change", async () => {
@@ -2073,20 +2227,26 @@ async function loadUpcoming() {
   }
 }
 
+/** "4:00 PM · 32 min" — the clock line every meeting row and chip shares. */
+const fmtWhenDur = (ms, mins) => `${fmtClock(ms)}${mins ? ` · ${mins} min` : ""}`;
+
 function meetingRow(m) {
   const bits = [];
   if (m.n_decisions) bits.push(`${m.n_decisions} decision${m.n_decisions === 1 ? "" : "s"}`);
   if (m.n_actions) bits.push(`${m.n_actions} action${m.n_actions === 1 ? "" : "s"}`);
   const people = (m.participants ?? "").split(",").filter(Boolean).join(" · ");
   return `
-    <div class="m-row" data-mid="${m.id}">
-      <div class="m-date">${fmtDate(m.started_at)}</div>
-      <div>
-        <div class="m-title">${esc(m.title)}${m.n_actions ? `<span class="open-stitch" title="${m.n_actions} unresolved"></span>` : ""}</div>
-        <div class="t-meta">${esc(m.headline ?? "")}</div>
-        <div class="t-meta">${bits.length ? `<b>${bits.join(" · ")}</b>` : ""}${bits.length && people ? " — " : ""}${esc(people)}</div>
+    <div class="mtg-row" data-mid="${m.id}">
+      <div class="mtg-ico">${icon("doc", 16)}</div>
+      <div class="mtg-main">
+        <div class="mtg-title">${esc(m.title)}${m.n_actions ? `<span class="open-stitch" title="${m.n_actions} unresolved"></span>` : ""}</div>
+        ${m.headline ? `<div class="mtg-sum">${esc(m.headline)}</div>` : ""}
+        ${bits.length || people ? `<div class="mtg-meta">${bits.length ? `<b>${bits.join(" · ")}</b>` : ""}${bits.length && people ? " — " : ""}${esc(people)}</div>` : ""}
       </div>
-      <span class="pill ${m.exit === "shipped" ? "pass" : ""}" style="margin-left:auto">${esc(m.exit ?? "…")}</span>
+      <div class="mtg-side">
+        <span class="mtg-time">${icon("clock", 12)}${fmtWhenDur(m.started_at, m.duration_minutes)}</span>
+        <span class="pill ${m.exit === "shipped" ? "pass" : ""}">${esc(m.exit ?? "…")}</span>
+      </div>
     </div>`;
 }
 
@@ -2094,7 +2254,11 @@ async function renderMeetings() {
   const ms = await api("/api/meetings");
   main.innerHTML = `<h1>Meetings</h1><div class="sub">Every stitch stays on this laptop.</div>
     ${searchPill()}
-    <div class="card">${ms.length ? ms.map(meetingRow).join("") : `<div class="empty">${SPOOL_SVG}Nothing here yet.</div>`}</div>`;
+    <div class="card">${ms.length
+      ? groupByDay(ms).map(([label, rows]) => `
+          <div class="eyebrow day-head">${esc(label)}</div>
+          ${rows.map(meetingRow).join("")}`).join("")
+      : `<div class="empty">${SPOOL_SVG}Nothing here yet.</div>`}</div>`;
   wireMeetingLinks();
 }
 
@@ -2339,17 +2503,32 @@ async function renderMeeting(id, opts = {}) {
   if (error) { main.innerHTML = `<div class="empty">${esc(error)}</div>`; return; }
   const byKind = (k) => claims.filter((c) => c.kind === k && c.gate === "passed");
   const blocked = claims.filter((c) => c.gate === "blocked");
+  // The chip row under the title: who was in it, when it ran, how long, where it files.
+  const durMin = meeting.duration_minutes ?? (meeting.duration_s ? Math.round(meeting.duration_s / 60) : 0);
+  const speakers = [...new Set(utterances.map((u) => u.speaker).filter(Boolean))];
+  const chipRow = `
+    <div class="chip-row" id="meta-chips">
+      ${speakers.length ? `<span class="up-chip" title="${esc(speakers.join(", "))}">${icon("people", 12)}<span class="who">${esc(speakers.join(", "))}</span></span>` : ""}
+      <span class="up-chip">${icon("calendar", 12)}${esc(fmtDate(meeting.started_at))} · ${esc(fmtClock(meeting.started_at))}</span>
+      ${durMin ? `<span class="up-chip">${icon("hourglass", 12)}${durMin} min</span>` : ""}
+      <button class="up-chip" id="edit-time" title="Edit the date, start time and duration">${icon("clock", 12)}Edit time</button>
+      <button class="up-chip" id="chip-topic" title="File this meeting in a topic">${icon("folder-plus", 12)}Add to topic</button>
+    </div>`;
 
   main.innerHTML = `
     <div class="ws-head">
       <div>
         <h1 style="margin:0">${esc(meeting.title)}</h1>
-        <div class="sub" style="margin:2px 0 0">${fmtDate(meeting.started_at)}${live ? ` · <span class="pill block">● recording</span>` : ` · ${Math.round(meeting.duration_s / 60)} min`}</div>
+        ${live
+          ? `<div class="sub" style="margin:2px 0 0">${fmtDate(meeting.started_at)} · <span class="pill block">● recording</span></div>`
+          : chipRow}
         <div class="tag-row" id="tag-row"></div>
       </div>
       <span class="spacer"></span>
-      <span id="mode-slot"></span>
-      <button class="copybtn" id="more" style="margin:0" title="More actions" aria-label="More actions">${icon("kebab", 15)}</button>
+      <div class="ws-actions">
+        <span id="mode-slot"></span>
+        <button class="copybtn" id="more" style="margin:0" title="More actions" aria-label="More actions">${icon("kebab", 15)}</button>
+      </div>
     </div>
     <div class="workspace ${panelState.open ? "" : "collapsed"}" style="--panel-w:${panelState.width}px">
       <div class="ws-main">
@@ -2387,6 +2566,25 @@ async function renderMeeting(id, opts = {}) {
 
   wireTags(id, projects, live ? [] : suggestions);
   wirePanelChrome(id);
+  $("#edit-time")?.addEventListener("click", (e) =>
+    openTimeEditor(e.currentTarget, { id, started_at: meeting.started_at, duration_minutes: meeting.duration_minutes ?? null }, () => renderMeeting(id)));
+  // Same topic picker as everywhere else (new topics included), hung off a chip.
+  $("#chip-topic")?.addEventListener("click", async (e) => {
+    const anchor = e.currentTarget;
+    const { html } = await topicOptions(projects.map((p) => p.id));
+    openPopover(anchor, `
+      <div class="pop-title">${icon("tag", 13)}Add to topic</div>
+      <select class="topic-select" id="pop-topic">${html}</select>`, (pop, close) => {
+      const sel = pop.querySelector("#pop-topic");
+      sel.addEventListener("change", () =>
+        topicSelectChange(sel, async (tid) => {
+          await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: tid, meeting_id: id }) });
+          loadSidebar();
+          close();
+          renderMeeting(id);
+        }));
+    });
+  });
   $("#rec-inline")?.addEventListener("click", async () => {
     const r = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ meeting_id: id }) }).then((x) => x.json());
     if (r.error) return alert(r.error);
@@ -2437,31 +2635,43 @@ async function renderMeeting(id, opts = {}) {
     if (label && data?.chat) label.textContent = data.chat.available ? data.chat.model : "no OpenAI key";
   });
 
-  // Overflow menu (regenerate / file / advanced correct)
-  $("#more").addEventListener("click", async () => {
-    const pick = prompt("1. Regenerate extraction\n2. Tag topic…\n3. Advanced find & replace…\n4. Delete meeting", "1");
-    if (pick === "1") {
+  // Overflow menu (regenerate / file / advanced correct) — a glass dropdown
+  // over the exact same four actions the prompt() list ran.
+  const moreActions = {
+    async regenerate() {
       const out = await fetch("/api/meeting/regenerate", { method: "POST", body: JSON.stringify({ id }) }).then((r) => r.json());
       if (out.error) return alert(out.error);
       renderMeeting(id);
-    } else if (pick === "2") {
+    },
+    async tagTopic() {
       const projects = await api("/api/projects");
       if (!projects.length) return alert("No topics yet — create one with + in the sidebar first.");
       const p = projects[Number(prompt("Tag this meeting with which topic?\n" + projects.map((x, i) => `${i + 1}. ${x.name}`).join("\n"), "1")) - 1];
       if (!p) return;
       await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: p.id, meeting_id: id }) });
       loadSidebar();
-    } else if (pick === "4") {
-      if (!confirm("Delete this meeting and its notes, transcript and threads? This cannot be undone.")) return;
-      await fetch("/api/meeting/delete", { method: "POST", body: JSON.stringify({ id }) });
-      state.meetingId = null; state.view = "today"; render();
-    } else if (pick === "3") {
+    },
+    async findReplace() {
       const from = prompt("Find:", ""); if (!from?.trim()) return;
       const to = prompt(`Replace "${from}" with:`, ""); if (!to?.trim()) return;
       const { occurrences } = await fetch("/api/correction/preview", { method: "POST", body: JSON.stringify({ meeting_id: id, from_text: from, to_text: to }) }).then((r) => r.json());
       if (!occurrences?.length) return alert("No occurrences found.");
       correctionModal(id, from.trim(), to.trim(), occurrences);
-    }
+    },
+    async deleteMeeting() {
+      if (!confirm("Delete this meeting and its notes, transcript and threads? This cannot be undone.")) return;
+      await fetch("/api/meeting/delete", { method: "POST", body: JSON.stringify({ id }) });
+      state.meetingId = null; state.view = "today"; render();
+    },
+  };
+  $("#more").addEventListener("click", (e) => {
+    openMenuPopover(e.currentTarget, [
+      { id: "regen", icon: "sparkle", label: "Regenerate extraction", run: moreActions.regenerate },
+      { id: "tag", icon: "tag", label: "Tag topic…", run: moreActions.tagTopic },
+      { id: "find", icon: "search", label: "Advanced find & replace…", run: moreActions.findReplace },
+      { sep: true },
+      { id: "del", icon: "trash", label: "Delete meeting", danger: true, run: moreActions.deleteMeeting },
+    ]);
   });
 
   wireCorrections(id);

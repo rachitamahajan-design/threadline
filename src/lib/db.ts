@@ -256,6 +256,21 @@ export function openDb(dir = "data"): DatabaseSync {
   } catch {
     /* column already exists */
   }
+  // Additive migration: a meeting's length as the user says it is. NULL means
+  // "nobody told us" — the list SQL then falls back to the transcript's own
+  // last offset, so a duration always shows.
+  try {
+    db.exec("ALTER TABLE meetings ADD COLUMN duration_minutes INTEGER");
+  } catch {
+    /* column already exists */
+  }
+  // Additive migration: manually-added upcoming meetings can carry an end,
+  // the same way Google events do.
+  try {
+    db.exec("ALTER TABLE upcoming ADD COLUMN end_ms INTEGER");
+  } catch {
+    /* column already exists */
+  }
   db.exec(`
     -- Every summary the user sees is recoverable: generation, edits and
     -- corrections all snapshot here before overwriting summary_json.
