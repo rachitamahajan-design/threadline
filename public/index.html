@@ -2597,7 +2597,7 @@ async function openCompanion(title, manual) {
     return;
   }
   try {
-    pipWin = await documentPictureInPicture.requestWindow({ width: 272, height: 74 });
+    pipWin = await documentPictureInPicture.requestWindow({ width: 272, height: 74, disallowReturnToOpener: true });
   } catch (e) {
     pipWin = null;
     if (manual) alert("Couldn't open the floating window: " + (e && e.message ? e.message : e));
