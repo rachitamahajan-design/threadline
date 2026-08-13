@@ -12,8 +12,9 @@
     --ink: #1d1b16;           /* cartoon outline ink */
     --ink-2: #57534a;
     --ink-3: #8f8a7d;
-    --thread: #e8752e;        /* the orange thread */
-    --thread-soft: #f7d9c4;
+    --thread: #5b74e0;        /* warm blue thread */
+    --thread-soft: #dde3fb;
+    --warm: #e8752e;          /* warm counterpoint, used sparingly */
     --node-meeting: #2a78d6; --node-person: #eb6834; --node-topic: #1baf7a;
     --pass: #17694a; --block: #cf3f3e;
     --line: #d9d3c5;
@@ -23,7 +24,7 @@
       color-scheme: dark;
       --bg: #201e19; --surface: #2a2721;
       --ink: #f4f1e8; --ink-2: #c6c1b2; --ink-3: #8f8a7d;
-      --thread: #f08644; --thread-soft: #4a3826;
+      --thread: #7b90f0; --thread-soft: #2c3554; --warm: #f08644;
       --node-meeting: #3987e5; --node-person: #d95926; --node-topic: #199e70;
       --pass: #3fa87b; --block: #e66767;
       --line: #454034;
@@ -69,7 +70,39 @@
   #rec.recording { animation: pulse 1.4s ease-in-out infinite; background: var(--block); }
   @keyframes pulse { 50% { opacity: 0.7; } }
 
-  main { max-width: 960px; margin: 0 auto; padding: 30px 26px 60px; }
+  .shell { display: grid; grid-template-columns: 208px 1fr; min-height: calc(100vh - 60px); }
+  #side {
+    border-right: 2px solid var(--ink); background: var(--surface); padding: 18px 12px;
+    position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto;
+  }
+  .side-section { margin-bottom: 22px; }
+  .side-section + .side-section { border-top: 2px dashed var(--line); padding-top: 16px; }
+  .side-head {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3);
+    font-weight: 800; padding: 0 10px 6px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .side-head button {
+    border: 2px solid var(--ink); background: var(--surface); border-radius: 7px; width: 22px; height: 22px;
+    font-weight: 800; cursor: pointer; line-height: 1; color: var(--ink);
+  }
+  .side-link {
+    display: block; width: 100%; text-align: left; border: 2px solid transparent; background: none;
+    color: var(--ink-2); font: inherit; font-weight: 700; padding: 7px 10px; border-radius: 10px; cursor: pointer;
+  }
+  .side-link:hover { color: var(--ink); }
+  .side-link.active { background: var(--thread-soft); color: var(--ink); border-color: var(--ink); }
+  main { max-width: 1060px; margin: 0 auto; padding: 30px 26px 60px; width: 100%; }
+  .home-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .home-grid { grid-template-columns: 1fr; } .shell { grid-template-columns: 1fr; } #side { display: none; } }
+  #google-btn {
+    border: 2px solid var(--ink); background: var(--surface); font: inherit; font-weight: 700; font-size: 13px;
+    padding: 6px 13px; border-radius: 99px; cursor: pointer; color: var(--ink-2);
+  }
+  .up-item { padding: 10px 0; }
+  .up-item + .up-item { border-top: 2px dashed var(--line); }
+  .up-when { font-size: 12.5px; font-weight: 800; color: var(--thread); }
+  .prep { font-size: 13px; color: var(--ink-2); margin-top: 5px; border-left: 3px solid var(--thread); padding: 2px 10px; background: color-mix(in srgb, var(--thread) 6%, transparent); border-radius: 3px; }
+  .prep b { display: block; }
   h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 4px; }
   .sub { color: var(--ink-2); margin-bottom: 26px; }
   .card {
@@ -186,15 +219,26 @@
     </svg>
     Threadline
   </div>
-  <nav>
-    <button data-view="today" class="active">Today</button>
-    <button data-view="meetings">Meetings</button>
-    <button data-view="graph">Threads</button>
-  </nav>
   <input id="search" placeholder="Pull a thread… search every meeting">
+  <button id="google-btn" title="Google Workspace">Connect Google</button>
   <button id="rec">● Record</button>
 </header>
-<main id="main"></main>
+<div class="shell">
+  <aside id="side">
+    <div class="side-section">
+      <button class="side-link active" data-view="today">⌂&nbsp; Home</button>
+      <button class="side-link" data-view="meetings">🗎&nbsp; Meetings</button>
+    </div>
+    <div class="side-section">
+      <div class="side-head">Projects <button id="add-project" title="New project">+</button></div>
+      <div id="project-list"></div>
+    </div>
+    <div class="side-section">
+      <button class="side-link" data-view="graph">✳&nbsp; Brain</button>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
 
 <script>
 const $ = (s) => document.querySelector(s);
@@ -213,15 +257,57 @@ const SPOOL_SVG = `<svg width="72" height="72" viewBox="0 0 72 72" fill="none">
   <path d="M50 40 C 62 42, 58 56, 68 58" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="0.1 5.4"/>
 </svg>`;
 
-document.querySelectorAll("nav button").forEach((b) =>
-  b.addEventListener("click", () => { state.view = b.dataset.view; state.meetingId = null; render(); }));
+document.querySelectorAll(".side-link").forEach((b) =>
+  b.addEventListener("click", () => { state.view = b.dataset.view; state.meetingId = null; state.projectId = null; render(); }));
+
+$("#google-btn").addEventListener("click", () =>
+  alert("Google Workspace connection (Calendar, Drive, Gmail) is on the roadmap — it will fill Upcoming automatically.\n\nFor now, add upcoming meetings with the + in the Up next panel; prep works the same either way."));
+
+$("#add-project").addEventListener("click", async () => {
+  const name = prompt("Project name?", "");
+  if (!name?.trim()) return;
+  await fetch("/api/project", { method: "POST", body: JSON.stringify({ name }) });
+  loadSidebar();
+});
+
+async function loadSidebar() {
+  const projects = await api("/api/projects");
+  $("#project-list").innerHTML = projects.map((p) => `
+    <button class="side-link ${state.view === "project" && state.projectId === p.id ? "active" : ""}" data-project="${p.id}">
+      ▸&nbsp; ${esc(p.name)} <span style="opacity:.55;font-size:12px">${p.n_open ? p.n_open + " open" : ""}</span>
+    </button>`).join("") || `<div style="padding:0 10px;font-size:12.5px;color:var(--ink-3)">No projects yet — hit +</div>`;
+  $("#project-list").querySelectorAll("[data-project]").forEach((b) =>
+    b.addEventListener("click", () => { state.view = "project"; state.projectId = Number(b.dataset.project); state.meetingId = null; render(); }));
+}
 
 async function render() {
-  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("active", b.dataset.view === state.view && !state.meetingId));
+  document.querySelectorAll(".side-link[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === state.view && !state.meetingId));
+  loadSidebar();
   if (state.meetingId) return renderMeeting(state.meetingId);
   if (state.view === "today") return renderToday();
   if (state.view === "meetings") return renderMeetings();
   if (state.view === "graph") return renderGraph();
+  if (state.view === "project") return renderProject(state.projectId);
+}
+
+async function renderProject(id) {
+  const { project, meetings, claims, people } = await api(`/api/project?id=${id}`);
+  const open = claims.filter((c) => c.kind === "action_item" && !c.done);
+  const decisions = claims.filter((c) => c.kind === "decision");
+  main.innerHTML = `
+    <h1>${esc(project.name)}</h1>
+    <div class="sub">${meetings.length} meeting${meetings.length === 1 ? "" : "s"} · ${people.map((p) => esc(p.speaker)).join(" · ") || "no people yet"}</div>
+    ${decisions.length ? `<div class="card"><h2>Where this stands</h2>${decisions.slice(0, 4).map((d) => `<div class="claim">✓ ${esc(d.body.text)} <span class="t-meta">· ${esc(d.meeting_title)}</span></div>`).join("")}</div>` : ""}
+    ${open.length ? `<div class="card"><h2>Open in this project</h2>${open.map((c) => `
+      <div class="claim"><b>${esc(c.body.owner ?? "?")}</b> — ${esc(c.body.task)}${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""} <span class="t-meta">· ${esc(c.meeting_title)}</span></div>`).join("")}</div>` : ""}
+    <div class="card"><h2>Meetings in this box</h2>
+      ${meetings.length ? meetings.map((m) => `
+        <div class="m-row" data-mid="${m.id}">
+          <div class="m-date">${fmtDate(m.started_at)}</div>
+          <div><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
+        </div>`).join("") : `<div class="empty">Nothing filed here yet — open a meeting and add it to this project.</div>`}
+    </div>`;
+  wireMeetingLinks();
 }
 
 function greeting() {
@@ -242,6 +328,18 @@ async function renderToday() {
       <div class="stat"><b>${stats?.open_actions ?? 0}</b><span>loose ends</span></div>
       <div class="stat"><b>${stats?.decisions ?? 0}</b><span>decisions</span></div>
     </div>
+    <div class="home-grid">
+      <div class="card"><h2>Up next · <button id="add-upcoming" style="border:0;background:none;font:inherit;font-weight:800;color:var(--thread);cursor:pointer">+ add</button></h2>
+        <div id="upcoming-box"><div class="empty" style="padding:16px 0">Nothing scheduled. Connect Google (soon) or add one.</div></div>
+      </div>
+      <div class="card"><h2>Past meetings</h2>
+        ${meetings.slice(0, 6).map((m) => `
+          <div class="m-row" data-mid="${m.id}">
+            <div class="m-date">${fmtDate(m.started_at)}</div>
+            <div><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
+          </div>`).join("")}
+      </div>
+    </div>
     <div class="card"><h2>Loose ends · pulled from your meetings</h2>
       ${todos.length ? todos.map((t) => `
         <div class="todo ${t.done ? "done" : ""}">
@@ -253,13 +351,68 @@ async function renderToday() {
           </div>
         </div>`).join("") : `<div class="empty">${SPOOL_SVG}No loose ends yet. Run <code>npm run demo</code> or hit ● Record.</div>`}
     </div>
-    <div class="card"><h2>Recent meetings</h2>${meetings.map(meetingRow).join("")}</div>`;
+    `;
+  loadUpcoming();
+  $("#add-upcoming").addEventListener("click", async () => {
+    const title = prompt("Meeting title?");
+    if (!title?.trim()) return;
+    const when = prompt("When? (e.g. 15:30 or tomorrow 10:00)", "15:00");
+    if (when === null) return;
+    const participants = prompt("Who's in it? (comma-separated names)", "") ?? "";
+    const at = parseWhen(when);
+    await fetch("/api/upcoming", { method: "POST", body: JSON.stringify({ title, at_ms: at, participants }) });
+    loadUpcoming();
+  });
   main.querySelectorAll(".todo input").forEach((cb) =>
     cb.addEventListener("change", async () => {
       await fetch("/api/todo", { method: "POST", body: JSON.stringify({ id: Number(cb.dataset.id), done: cb.checked }) });
       render();
     }));
   wireMeetingLinks();
+}
+
+function parseWhen(s) {
+  const now = new Date();
+  const t = s.trim().toLowerCase();
+  const m = t.match(/(\d{1,2}):(\d{2})/);
+  const d = new Date(now);
+  if (t.includes("tomorrow")) d.setDate(d.getDate() + 1);
+  if (m) d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+  else d.setHours(d.getHours() + 1, 0, 0, 0);
+  if (d < now && !t.includes("tomorrow")) d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+
+async function loadUpcoming() {
+  const box = $("#upcoming-box");
+  if (!box) return;
+  const ups = await api("/api/upcoming");
+  if (!ups.length) return;
+  box.innerHTML = ups.map((u) => {
+    const mins = Math.round((u.at_ms - Date.now()) / 60000);
+    const when = mins < 60 ? `In ${mins} min` : new Date(u.at_ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    return `<div class="up-item" data-up="${u.id}" data-people="${esc(u.participants ?? "")}">
+      <div class="up-when">${when}${new Date(u.at_ms).getDate() !== new Date().getDate() ? " · " + fmtDate(u.at_ms) : ""}</div>
+      <div class="m-title">${esc(u.title)}</div>
+      ${u.participants ? `<div class="t-meta">${esc(u.participants)}</div>` : ""}
+      <div class="prep-slot"></div>
+    </div>`;
+  }).join("");
+  // prep: what the brain knows about each meeting's people
+  for (const el of box.querySelectorAll(".up-item")) {
+    const people = el.dataset.people;
+    if (!people) continue;
+    const prep = await api(`/api/prep?people=${encodeURIComponent(people)}`);
+    const slot = el.querySelector(".prep-slot");
+    const bits = [];
+    for (const o of prep.open.slice(0, 2))
+      bits.push(`<div class="prep"><b>Still open — ${esc(o.body.owner)}</b>${esc(o.body.task)}${o.body.due ? ` (due ${esc(o.body.due)})` : ""}</div>`);
+    for (const r of prep.recent.slice(0, 2))
+      bits.push(`<div class="prep" data-mid="${r.id}" style="cursor:pointer"><b>Last time — ${esc(r.title)}</b>${fmtDate(r.started_at)}</div>`);
+    slot.innerHTML = bits.join("") || "";
+    slot.querySelectorAll("[data-mid]").forEach((p) =>
+      p.addEventListener("click", () => { state.meetingId = p.dataset.mid; render(); }));
+  }
 }
 
 function meetingRow(m) {
@@ -293,7 +446,8 @@ async function renderMeeting(id) {
   const hl = state.highlight;
   main.innerHTML = `
     <h1>${esc(meeting.title)}</h1>
-    <div class="sub">${fmtDate(meeting.started_at)} · ${Math.round(meeting.duration_s / 60)} min · mode: ${esc(meeting.mode)}</div>
+    <div class="sub">${fmtDate(meeting.started_at)} · ${Math.round(meeting.duration_s / 60)} min · mode: ${esc(meeting.mode)}
+      · <button class="copybtn" style="margin:0;padding:2px 12px" id="file-project">File in project…</button></div>
     ${meeting.summary ? `<div class="card"><h2>Summary</h2><p>${esc(meeting.summary)}</p></div>` : ""}
     <div class="card"><h2>Your notes · editable, saved locally</h2>
       <textarea class="notes" id="my-notes" placeholder="Type anything — your words live alongside the generated notes.">${esc(meeting.my_notes ?? "")}</textarea>
@@ -323,6 +477,16 @@ async function renderMeeting(id) {
   state.highlight = null;
   wireMeetingLinks();
   wireNotesAutosave(id);
+  $("#file-project")?.addEventListener("click", async () => {
+    const projects = await api("/api/projects");
+    if (!projects.length) { alert("No projects yet — create one with + in the sidebar first."); return; }
+    const pick = prompt("File this meeting in which project?\n" + projects.map((p, i) => `${i + 1}. ${p.name}`).join("\n"), "1");
+    const p = projects[Number(pick) - 1];
+    if (!p) return;
+    await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: p.id, meeting_id: id }) });
+    alert(`Filed in "${p.name}".`);
+    loadSidebar();
+  });
   const decisions = byKind("decision");
   const people = [...new Set(utterances.map((u) => u.speaker).filter(Boolean))];
   main.querySelectorAll("[data-share-decision]").forEach((btn) =>

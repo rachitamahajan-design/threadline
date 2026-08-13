@@ -140,6 +140,91 @@ const api: Record<string, Handler> = {
     return { recording: !!live, meetingId: live?.meetingId ?? null, title: live?.title ?? null };
   },
 
+  "GET /api/projects"() {
+    return db
+      .prepare(
+        `SELECT p.id, p.name,
+          (SELECT COUNT(*) FROM meeting_projects mp WHERE mp.project_id = p.id) AS n_meetings,
+          (SELECT COUNT(*) FROM meeting_projects mp JOIN claims c ON c.meeting_id = mp.meeting_id
+             WHERE mp.project_id = p.id AND c.kind='action_item' AND c.gate='passed' AND c.done=0) AS n_open
+         FROM projects p ORDER BY p.created_at DESC`,
+      )
+      .all();
+  },
+
+  "POST /api/project"(p, body) {
+    const { name } = (body ?? {}) as { name?: string };
+    if (!name?.trim()) return { error: "missing name" };
+    db.prepare(`INSERT INTO projects (name, created_at) VALUES (?, ?) ON CONFLICT(name) DO NOTHING`).run(name.trim(), Date.now());
+    return db.prepare(`SELECT id, name FROM projects WHERE name = ?`).get(name.trim());
+  },
+
+  "POST /api/project/assign"(p, body) {
+    const { project_id, meeting_id, remove } = (body ?? {}) as { project_id?: number; meeting_id?: string; remove?: boolean };
+    if (!project_id || !meeting_id) return { error: "missing ids" };
+    if (remove) db.prepare(`DELETE FROM meeting_projects WHERE project_id = ? AND meeting_id = ?`).run(project_id, meeting_id);
+    else db.prepare(`INSERT INTO meeting_projects (meeting_id, project_id) VALUES (?, ?) ON CONFLICT DO NOTHING`).run(meeting_id, project_id);
+    return { ok: true };
+  },
+
+  "GET /api/project"(p) {
+    const id = Number(p.get("id"));
+    const project = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id);
+    if (!project) return { error: "not found" };
+    const meetings = db
+      .prepare(`SELECT m.id, m.title, m.started_at, m.duration_s, m.headline FROM meeting_projects mp JOIN meetings m ON m.id = mp.meeting_id WHERE mp.project_id = ? ORDER BY m.started_at DESC`)
+      .all(id);
+    const claims = (db
+      .prepare(
+        `SELECT c.id, c.kind, c.body, c.done, c.quote, m.title AS meeting_title, m.id AS meeting_id, m.started_at
+         FROM meeting_projects mp JOIN claims c ON c.meeting_id = mp.meeting_id JOIN meetings m ON m.id = mp.meeting_id
+         WHERE mp.project_id = ? AND c.gate = 'passed' AND c.kind IN ('decision','action_item') ORDER BY m.started_at DESC`,
+      )
+      .all(id) as { body: string }[]).map((c) => ({ ...c, body: JSON.parse(c.body) }));
+    const people = db
+      .prepare(
+        `SELECT DISTINCT u.speaker FROM meeting_projects mp JOIN utterances u ON u.meeting_id = mp.meeting_id
+         WHERE mp.project_id = ? AND u.speaker IS NOT NULL`,
+      )
+      .all(id);
+    return { project, meetings, claims, people };
+  },
+
+  "GET /api/upcoming"() {
+    return db.prepare(`SELECT * FROM upcoming WHERE at_ms > ? ORDER BY at_ms ASC LIMIT 6`).all(Date.now() - 3600_000);
+  },
+
+  "POST /api/upcoming"(p, body) {
+    const { title, at_ms, participants, remove_id } = (body ?? {}) as { title?: string; at_ms?: number; participants?: string; remove_id?: number };
+    if (remove_id) { db.prepare(`DELETE FROM upcoming WHERE id = ?`).run(remove_id); return { ok: true }; }
+    if (!title?.trim() || !at_ms) return { error: "missing fields" };
+    db.prepare(`INSERT INTO upcoming (title, at_ms, participants) VALUES (?, ?, ?)`).run(title.trim(), at_ms, participants ?? null);
+    return { ok: true };
+  },
+
+  /** Prep for an upcoming meeting: what the brain knows about its participants. */
+  "GET /api/prep"(p) {
+    const names = (p.get("people") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (!names.length) return { open: [], recent: [] };
+    const like = names.map(() => `u.speaker = ?`).join(" OR ");
+    const recent = db
+      .prepare(
+        `SELECT DISTINCT m.id, m.title, m.started_at FROM utterances u JOIN meetings m ON m.id = u.meeting_id
+         WHERE ${like} ORDER BY m.started_at DESC LIMIT 4`,
+      )
+      .all(...names);
+    const open = (db
+      .prepare(
+        `SELECT c.body, c.quote, m.title AS meeting_title, m.id AS meeting_id FROM claims c JOIN meetings m ON m.id = c.meeting_id
+         WHERE c.kind='action_item' AND c.gate='passed' AND c.done=0 ORDER BY m.started_at DESC LIMIT 30`,
+      )
+      .all() as { body: string }[])
+      .map((c) => ({ ...c, body: JSON.parse(c.body) }))
+      .filter((c: any) => names.some((n) => (c.body.owner ?? "").toLowerCase() === n.toLowerCase()))
+      .slice(0, 5);
+    return { open, recent };
+  },
+
   "POST /api/notes"(p, body) {
     const { id, notes } = (body ?? {}) as { id?: string; notes?: string };
     if (!id) return { error: "missing id" };

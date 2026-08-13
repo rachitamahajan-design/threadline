@@ -94,6 +94,24 @@ export function openDb(dir = "data"): DatabaseSync {
       units_spent REAL NOT NULL DEFAULT 0
     );
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS meeting_projects (
+      meeting_id TEXT NOT NULL REFERENCES meetings(id),
+      project_id INTEGER NOT NULL REFERENCES projects(id),
+      PRIMARY KEY (meeting_id, project_id)
+    );
+    CREATE TABLE IF NOT EXISTS upcoming (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      at_ms INTEGER NOT NULL,
+      participants TEXT
+    );
+  `);
   // Additive migration: user-editable notes alongside the generated ones.
   try {
     db.exec("ALTER TABLE meetings ADD COLUMN my_notes TEXT");
