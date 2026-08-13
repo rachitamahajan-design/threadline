@@ -40,6 +40,7 @@ export class LiveSession {
 
   /** New utterances land after everything already recorded (resume support). */
   private offsetBase = 0;
+  private reconnects = [0, 0]; // capped per channel — a refused stream must not loop forever
   private resuming = false;
   private tapeSuffix = "";
 
@@ -148,8 +149,17 @@ export class LiveSession {
     ws.on("close", (code) => {
       // 1011 straight after a flushed final is a known benign close.
       if (!this.stopping && code !== 1000 && code !== 1011) {
-        this.emit({ type: "status", message: `${speaker} stream closed (${code}), reconnecting` });
-        setTimeout(() => { if (!this.stopping) this.openSocket(channel); }, 800);
+        // Capped with backoff: an auth-refused stream used to reconnect every
+        // 800ms for the whole meeting. Audio still tapes to disk regardless,
+        // so giving up here loses nothing — Whisper fallback covers stop().
+        if (++this.reconnects[channel] > 5) {
+          this.lastStreamError = `${speaker} stream refused ${this.reconnects[channel] - 1} reconnects (last close ${code}) — check your PyAI key`;
+          this.emit({ type: "error", message: this.lastStreamError });
+          return;
+        }
+        const delay = 800 * 2 ** (this.reconnects[channel] - 1);
+        this.emit({ type: "status", message: `${speaker} stream closed (${code}), reconnecting in ${Math.round(delay / 1000)}s (${this.reconnects[channel]}/5)` });
+        setTimeout(() => { if (!this.stopping) this.openSocket(channel); }, delay);
       }
     });
     ws.on("error", (e) => {

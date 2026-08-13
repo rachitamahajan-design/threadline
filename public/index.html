@@ -1192,7 +1192,7 @@ function groupByDay(rows, key = (r) => r.started_at) {
   return out;
 }
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const api = (p) => fetch(p).then((r) => r.json());
+const api = (p) => fetch(p).then(async (r) => { const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` })); if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`); return j; });
 /** One sprite, one helper: every button in the app gets a real icon. */
 const icon = (n, s = 16) => `<svg class="ic" width="${s}" height="${s}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
 

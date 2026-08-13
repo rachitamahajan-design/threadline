@@ -27,5 +27,8 @@
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.13",
     "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=23.4"
   }
 }

@@ -24,7 +24,7 @@ const db = openDb();
 const meetings: MeetingInput[] = JSON.parse(readFileSync("samples/meetings.json", "utf8"));
 
 for (const m of meetings) {
-  const already = db.prepare("SELECT exit FROM meetings WHERE id = ? AND exit IS NOT NULL").get(m.id);
+  const already = db.prepare("SELECT exit FROM meetings WHERE id = ? AND exit IS NOT NULL AND exit != 'failed'").get(m.id);
   if (already) {
     console.log(`− ${m.title}: already processed (${(already as { exit: string }).exit}), skipping`);
     continue;

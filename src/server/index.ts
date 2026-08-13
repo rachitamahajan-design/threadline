@@ -145,7 +145,7 @@ const api: Record<string, Handler> = {
   },
 
   "GET /api/meetings"() {
-    return db.prepare(MEETING_LIST_SQL).all();
+    return db.prepare(`${MEETING_LIST_SQL} LIMIT 500`).all();
   },
 
   "GET /api/meeting"(p) {
@@ -328,15 +328,24 @@ const api: Record<string, Handler> = {
   "POST /api/meeting/delete"(p, body) {
     const { id } = (body ?? {}) as { id?: string };
     if (!id) return { error: "missing id" };
-    const tryRun = (sql: string, ...args: unknown[]) => { try { db.prepare(sql).run(...(args as [])); } catch {} };
-    tryRun("DELETE FROM chunk_fts WHERE rowid IN (SELECT id FROM chunks WHERE meeting_id = ?)", id);
-    for (const t of ["chunks", "entity_mentions", "claims", "utterances", "runs", "meeting_projects", "search",
-                     "summary_versions", "corrections", "notes_versions", "correction_events"])
-      tryRun(`DELETE FROM ${t} WHERE meeting_id = ?`, id);
-    tryRun("DELETE FROM edges WHERE meeting_id = ? OR src = ? OR dst = ?", id, id, id);
-    tryRun("DELETE FROM nodes WHERE id = ?", id);
-    tryRun("DELETE FROM meetings WHERE id = ?", id);
-    tryRun("DELETE FROM nodes WHERE kind != 'meeting' AND id NOT IN (SELECT src FROM edges UNION SELECT dst FROM edges)");
+    // One transaction, real errors. The old version ran ~15 deletes each in
+    // its own try{}catch{} and returned ok:true no matter what — a partial
+    // failure silently corrupted the graph. It also deleted from corrections
+    // by a meeting_id column that table doesn't have (rules are scoped via
+    // scope='meeting:<id>'), so rules survived their meeting.
+    db.exec("BEGIN");
+    try {
+      for (const t of ["entity_mentions", "chunks", "search", "edges", "claims", "utterances", "runs",
+        "summary_versions", "notes_versions", "project_suggestions", "meeting_projects", "meeting_people"])
+        db.prepare(`DELETE FROM ${t} WHERE meeting_id = ?`).run(id);
+      db.prepare("DELETE FROM corrections WHERE scope = ?").run(`meeting:${id}`);
+      db.prepare("DELETE FROM nodes WHERE id = ?").run(id);
+      db.prepare("DELETE FROM meetings WHERE id = ?").run(id);
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
     return { ok: true };
   },
 
@@ -677,7 +686,9 @@ const api: Record<string, Handler> = {
     if (!id) return { error: "missing id" };
     const doc = db.prepare(`SELECT path FROM documents WHERE id = ?`).get(id) as { path: string | null } | undefined;
     if (!doc) return { error: "not found" };
-    if (doc.path) { try { rmSync(path.resolve(doc.path)); } catch { /* already gone */ } }
+    if (doc.path) { try { const full = path.resolve(doc.path);
+    if (!full.startsWith(DOCS_DIR + path.sep)) return { error: "path outside docs dir" };
+    rmSync(path.resolve(full)); } catch { /* already gone */ } }
     db.prepare(`DELETE FROM document_versions WHERE document_id = ?`).run(id);
     db.prepare(`UPDATE claims SET document_id = NULL WHERE document_id = ?`).run(id);
     db.prepare(`DELETE FROM documents WHERE id = ?`).run(id);
@@ -754,7 +765,8 @@ const api: Record<string, Handler> = {
   },
 
   "POST /api/todo"(p, body) {
-    const { id, done } = body as { id: number; done: boolean };
+    const { id, done } = (body ?? {}) as { id?: number; done?: boolean };
+    if (id == null) return { error: "missing id" };
     db.prepare(`UPDATE claims SET done = ? WHERE id = ? AND kind = 'action_item'`).run(done ? 1 : 0, id);
     return { ok: true };
   },

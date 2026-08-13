@@ -14,7 +14,7 @@ import { DatabaseSync } from "node:sqlite";
 import { triggerRecap, awaitRecap, PyAIError, type Utterance, type RecapRecord } from "../lib/pyai.js";
 import { Budget, retry, groundedIn, applyGate, decideExit, type StepRecord } from "../lib/harness.js";
 import { candidates } from "./candidates.js";
-import { resolveCandidates, storeResolutions } from "./resolve.js";
+import { resolveCandidates, storeResolutions, relateEntities } from "./resolve.js";
 import { projectGraph } from "./project.js";
 import { indexMeeting } from "./chunker.js";
 import { hasOpenAI, openaiExtract } from "../lib/openai.js";
@@ -181,7 +181,7 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
           "INSERT INTO summary_versions (meeting_id, json, source, created_at) VALUES (?, ?, 'generated', ?)",
         ).run(m.id, JSON.stringify(structured.value), Date.now());
         steps.push({
-          name: "gate:summary-grounding",
+          name: "check:summary-grounding",
           status: structured.ungrounded > 0 ? "blocked" : "ok",
           attempts: 1,
           ms: 0,
@@ -204,6 +204,10 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
     const res = storeResolutions(db, m.id, resolutions, hasProof);
     steps.push(res.step);
     steps.push(projectGraph(db, [m.id]));
+    // Without this, `related` edges only existed after a manual rebuild-brain —
+    // leaving the retrieval graph arm and the backlinks related-hop inert in
+    // production. (Audit finding: half the hybrid retrieval design was off.)
+    steps.push(relateEntities(db).step);
 
     // Retrieval chunks (windows + claims + summary), delete-then-insert so
     // reprocessing can never duplicate index rows. reindexMeeting fills the
