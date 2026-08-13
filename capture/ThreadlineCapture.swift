@@ -66,14 +66,9 @@ let micDown = Downsampler()
 
 func startMic() {
     let input = engine.inputNode
-    // Voice processing = system echo cancellation: the mic stops hearing what
-    // the Mac itself is playing, so speaker playback doesn't leak into "You".
-    do {
-        try input.setVoiceProcessingEnabled(true)
-        status("mic echo cancellation on")
-    } catch {
-        status("mic echo cancellation unavailable: \(error.localizedDescription)")
-    }
+    // NOTE: do not enable setVoiceProcessingEnabled here — on macOS it can
+    // silence the input entirely (observed: all-zero samples). Echo between
+    // speakers and mic is handled by the server-side echo gate instead.
     let fmt = input.outputFormat(forBus: 0)
     input.installTap(onBus: 0, bufferSize: 2048, format: fmt) { buf, _ in
         emit(1, micDown.convert(buf))
