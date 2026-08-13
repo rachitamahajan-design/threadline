@@ -16,12 +16,45 @@ func status(_ s: String) {
     FileHandle.standardError.write(("[hotkey] " + s + "\n").data(using: .utf8)!)
 }
 
+/// Same narration as the Shortcuts script: every tap gets a notification, so
+/// a hotkey press is never a leap of faith.
+func notify(_ text: String) {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+    p.arguments = ["-e", "display notification \"\(text)\" with title \"Threadline\""]
+    try? p.run()
+}
+
+let STATE_URL = URL(string: "http://127.0.0.1:4640/api/record/state")!
+
 func toggle() {
-    var req = URLRequest(url: TOGGLE_URL)
-    req.httpMethod = "POST"
-    URLSession.shared.dataTask(with: req) { data, _, err in
-        if let err = err { status("toggle failed: \(err.localizedDescription)") }
-        else if let d = data, let s = String(data: d, encoding: .utf8) { status("toggled: \(s)") }
+    // Peek at state first so the stop case can announce itself immediately —
+    // the toggle response only arrives after the whole stitching pipeline.
+    URLSession.shared.dataTask(with: STATE_URL) { data, _, _ in
+        let wasRecording = data.flatMap { String(data: $0, encoding: .utf8) }?.contains("\"recording\":true") ?? false
+        if wasRecording { notify("■ Stopped — stitching the meeting…") }
+
+        var req = URLRequest(url: TOGGLE_URL)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 300 // stop blocks through transcription + notes
+        URLSession.shared.dataTask(with: req) { data, _, err in
+            if let err = err { status("toggle failed: \(err.localizedDescription)"); notify("Threadline isn't reachable — is npm run dev running?"); return }
+            let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            status("toggled: \(body)")
+            if body.contains("\"action\":\"started\"") {
+                notify("● Recording")
+            } else if body.contains("\"exit\":\"discarded\"") {
+                notify("Too short — discarded. Hold recordings ≥15s to keep them.")
+            } else if body.contains("\"exit\":\"failed\"") {
+                notify("Nothing was captured — check mic/screen permissions")
+            } else if wasRecording {
+                if let r = body.range(of: "\"title\":\""), let end = body[r.upperBound...].range(of: "\"") {
+                    notify("✓ Saved: \(body[r.upperBound..<end.lowerBound])")
+                } else {
+                    notify("✓ Meeting saved")
+                }
+            }
+        }.resume()
     }.resume()
 }
 
