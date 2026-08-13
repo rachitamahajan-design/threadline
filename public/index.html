@@ -522,8 +522,8 @@
   <button id="google-btn" title="Google Workspace">Connect Google</button>
   <button id="pip-btn" title="Pop out the floating companion" style="display:none">⧉</button>
   <button id="rec">● Record</button>
-  <button id="hotkey-help" title="Record from anywhere — hotkey setup"
-    style="border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font:inherit;font-size:13px;padding:7px 11px;border-radius:10px;cursor:pointer">⌨</button>
+  <button id="hotkey-help" title="Start or stop recording from any app — setup guide"
+    style="border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font:inherit;font-size:13px;padding:7px 12px;border-radius:10px;cursor:pointer">Global recording</button>
 </header>
 <div class="shell">
   <aside id="side">
@@ -2991,8 +2991,8 @@ $("#hotkey-help").addEventListener("click", async () => {
   document.getElementById("hotkey-modal")?.remove();
   document.body.insertAdjacentHTML("beforeend", `
     <div class="tl-modal" id="hotkey-modal"><div class="box" style="max-width:560px">
-      <h2>Record from anywhere</h2>
-      <div class="t-meta" style="margin-bottom:14px">Two ways to start/stop recording without touching this window. Both show notifications: ● Recording · ■ Stopped — stitching · ✓ Saved with the meeting's name.</div>
+      <h2>Global recording</h2>
+      <div class="t-meta" style="margin-bottom:14px">Start or stop recording from any app — Zoom, Slack, anywhere — without switching to this window. Two ways to set it up; both show notifications for every step: ● Recording · ■ Stopped — stitching · ✓ Saved with the meeting's name.</div>
 
       <div style="font-weight:650;margin-bottom:4px">1 · Double-tap the Fn key ${info.daemon ? "" : "<span class='pill block'>daemon not built</span>"}</div>
       <div class="t-meta" style="margin-bottom:12px;line-height:1.7">
