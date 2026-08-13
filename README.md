@@ -32,21 +32,15 @@ npm run demo                # processes 3 sample meetings, zero setup
 
 ## Record from anywhere (global hotkey)
 
-You're in Zoom when you want to start recording — not in this app. Bind a
-system-wide key to toggle recording (same combo starts and stops):
-
-1. Open the macOS **Shortcuts** app → new Shortcut → add a **Run Shell Script**
-   action: `/path/to/threadline/scripts/record-toggle.sh`
-2. In the Shortcut's settings, **Add Keyboard Shortcut** — e.g. `⌘⇧R`.
-
-You'll get a notification on start (`● Recording`) and stop (`■ Stopped —
-stitching…`). Meetings you never name are titled automatically from their own
-content; if the app is open when you stop, a prompt lets you rename on the spot.
-`⌘⇧R` also works inside the app itself.
+Double-tap the **Fn** key from any app to start recording; double-tap again to
+stop. The hotkey daemon starts with the server (`npm run dev`) — no setup.
+Meetings you never name are titled automatically from their own content, and a
+prompt lets you rename on the spot when you stop. Recordings under 15 seconds
+are discarded as accidental taps.
 
 Prerequisite: whatever app owns the `npm run dev` process needs Screen Recording
-and Microphone permission (System Settings → Privacy & Security), fully restarted
-after granting.
+and Microphone permission (System Settings → Privacy & Security), fully
+restarted after granting.
 
 ## Local-first, actually
 
