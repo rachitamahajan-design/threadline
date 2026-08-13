@@ -65,6 +65,11 @@
     transition: border-color .15s, color .15s;
   }
   #google-btn:hover { border-color: var(--ink-3); color: var(--ink); }
+  #pip-btn {
+    border: 1px solid var(--line); background: var(--surface); font: inherit; font-weight: 600; font-size: 14px;
+    padding: 7px 12px; border-radius: 10px; cursor: pointer; color: var(--thread);
+  }
+  #pip-btn:hover { border-color: var(--thread); }
   #rec {
     border: 0; font: inherit; font-weight: 600; font-size: 13.5px; cursor: pointer;
     padding: 8px 17px; border-radius: 10px; color: #fff; background: var(--thread);
@@ -500,6 +505,7 @@
   </div>
   <input id="search" placeholder="Pull a thread… search every meeting">
   <button id="google-btn" title="Google Workspace">Connect Google</button>
+  <button id="pip-btn" title="Pop out the floating companion" style="display:none">⧉</button>
   <button id="rec">● Record</button>
 </header>
 <div class="shell">
@@ -2523,39 +2529,9 @@ async function renderGraph() {
 
 // ── Live recording ──────────────────────────────────────────────────────
 const recBtn = $("#rec");
-let recording = false, evtSource = null, pipWin = null;
+let recording = false, evtSource = null, pipWin = null, recTitle = "";
 
-async function startRecording(title) {
-  const r = await fetch("/api/record/start", { method: "POST", body: JSON.stringify({ title }) }).then((x) => x.json());
-  if (r.error) { alert(r.error); return false; }
-  recording = true;
-  recBtn.textContent = "■ Stop";
-  recBtn.classList.add("recording");
-  renderLive(title);
-  openCompanion(title); // best effort — needs a recent user gesture
-  return true;
-}
-
-async function stopRecording() {
-  recBtn.textContent = "… processing";
-  recBtn.disabled = true;
-  const liveNotes = $("#live-notes")?.value ?? "";
-  const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
-  if (r.meetingId && liveNotes.trim())
-    await fetch("/api/notes", { method: "POST", body: JSON.stringify({ id: r.meetingId, notes: liveNotes }) });
-  recording = false;
-  recBtn.disabled = false;
-  recBtn.textContent = "● Record";
-  recBtn.classList.remove("recording");
-  evtSource?.close();
-  try { pipWin?.close(); } catch (e) {}
-  pipWin = null;
-  if (r.meetingId && r.exit !== "failed") {
-    sessionStorage.setItem("tl-thread-anim", "1");
-    state.meetingId = r.meetingId; render();
-  }
-  else { alert(r.reason ?? "Nothing was captured."); render(); }
-}
+$("#pip-btn").addEventListener("click", () => openCompanion(recTitle || "Recording", true));
 
 recBtn.addEventListener("click", async () => {
   try {
@@ -2580,11 +2556,13 @@ async function startRecording(title) {
   const r = await resp.json();
   if (r.error) { alert(r.error); return false; }
   recording = true;
+  recTitle = title;
   recBtn.textContent = "■ Stop & stitch";
   recBtn.classList.add("recording");
+  $("#pip-btn").style.display = "";
   state.meetingId = r.meetingId;
   renderMeeting(r.meetingId, { live: true });
-  openCompanion(title); // best effort — needs a recent user gesture
+  openCompanion(title); // best effort — the header ⧉ button is the sure path
   return true;
 }
 
@@ -2596,6 +2574,7 @@ async function stopRecording() {
   recBtn.disabled = false;
   recBtn.textContent = "● Record";
   recBtn.classList.remove("recording");
+  $("#pip-btn").style.display = "none";
   evtSource?.close();
   try { pipWin?.close(); } catch (e) {}
   pipWin = null;
@@ -2722,13 +2701,16 @@ setInterval(async () => {
   if (!s) return;
   if (s.recording && !recording) {
     recording = true;
+    recTitle = s.title ?? "Recording";
     recBtn.textContent = "■ Stop";
     recBtn.classList.add("recording");
-    renderLive(s.title ?? "Recording");
+    $("#pip-btn").style.display = "";
+    if (s.meetingId) { state.meetingId = s.meetingId; renderMeeting(s.meetingId, { live: true }); }
   } else if (!s.recording && recording && !recBtn.disabled) {
     recording = false;
     recBtn.textContent = "● Record";
     recBtn.classList.remove("recording");
+    $("#pip-btn").style.display = "none";
     evtSource?.close();
     try { pipWin?.close(); } catch (e) {}
     pipWin = null;
