@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -229,6 +229,172 @@
     background: linear-gradient(90deg, #b9bec6, #e9ebee, #9aa1ad); transform: rotate(-36deg);
   }
   .prep b { display: block; font-weight: 600; color: var(--ink-2); }
+  /* Structured summary document */
+  .sum-sec { margin-top: 18px; }
+  .sum-sec h3 { font-size: 14px; margin: 10px 0 4px; }
+  .sum-sec h4 { font-size: 13px; margin: 8px 0 2px; color: var(--ink-2); }
+  .sum-sec ul { margin: 4px 0 0 18px; padding: 0; }
+  .sum-sec li { margin: 3px 0; }
+  .sum-bullet[contenteditable="true"] { outline: 2px solid var(--thread-soft); border-radius: 4px; padding: 1px 4px; }
+  .sum-bullet.edited::after { content: "edited"; font-size: 10px; color: var(--ink-3); margin-left: 6px; }
+  .sum-bullet.ungrounded { opacity: .62; }
+  .ts-chip {
+    font-size: 10.5px; color: var(--thread); background: var(--thread-soft);
+    border: none; border-radius: 6px; padding: 1px 6px; margin-left: 6px;
+    cursor: pointer; font-variant-numeric: tabular-nums;
+  }
+  .unverified { font-size: 10px; color: var(--block); background: color-mix(in srgb, var(--block) 10%, transparent);
+    border-radius: 6px; padding: 1px 6px; margin-left: 6px; }
+  /* Correction flow */
+  #correct-fab {
+    position: absolute; z-index: 30; padding: 5px 12px; font-size: 12.5px;
+    background: var(--ink); color: var(--bg); border: none; border-radius: 8px;
+    cursor: pointer; box-shadow: var(--shadow);
+  }
+  #correct-modal, .tl-modal {
+    position: fixed; inset: 0; z-index: 40; background: rgb(0 0 0 / .35);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #correct-modal .box, .tl-modal .box {
+    background: var(--surface); border-radius: 14px; box-shadow: var(--shadow);
+    max-width: 620px; width: 92%; max-height: 80vh; overflow-y: auto; padding: 22px 24px;
+  }
+  #correct-modal h2, .tl-modal h2 { margin-bottom: 10px; }
+  #correct-modal .occ { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  #correct-modal .occ input { margin-top: 3px; }
+  #correct-modal .grp { margin: 14px 0 4px; font-size: 12px; font-weight: 650; color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
+  #correct-modal .actions, .tl-modal .actions { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
+  .tl-modal input[type=text], .tl-modal textarea, .tl-modal select {
+    width: 100%; font: inherit; font-size: 13.5px; padding: 8px 10px; margin: 4px 0 10px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
+  }
+  .tl-modal label { font-size: 12.5px; font-weight: 650; color: var(--ink-2); }
+  /* Suggestion chips: the model proposes, the user files. */
+  .tag-chip.suggest { background: none; border-style: dashed; color: var(--ink-2); }
+  .tag-chip.suggest button { font-weight: 700; }
+  .tag-chip.suggest button[data-accept] { color: var(--pass); }
+  .tag-chip.suggest button[data-dismiss] { color: var(--block); }
+  /* Project workspace */
+  .proj-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  .proj-grid .card { margin: 0; }
+  .proj-desc { font-size: 14px; color: var(--ink-2); margin: 4px 0 14px; cursor: pointer; max-width: 720px; }
+  .proj-desc:hover { color: var(--thread); }
+  .doc-row { display: flex; gap: 10px; align-items: baseline; padding: 9px 0; cursor: pointer; }
+  .doc-row + .doc-row { border-top: 1px solid var(--line); }
+  .doc-row:hover .doc-title { color: var(--thread); }
+  .doc-row .doc-title { font-weight: 600; font-size: 14px; }
+  .claim.todo.done > div { text-decoration: line-through; color: var(--ink-3); }
+  .add-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .add-row input, .add-row select {
+    font: inherit; font-size: 13px; padding: 6px 9px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--bg); color: var(--ink);
+  }
+  .add-row input[name=task] { flex: 1; min-width: 160px; }
+  #doc-editor {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 26px 30px; min-height: 380px;
+    font-size: 14.5px; line-height: 1.65; outline: none;
+  }
+  #doc-editor:focus-within { border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); }
+  #doc-title {
+    font: inherit; font-size: 24px; font-weight: 800; border: none; background: none;
+    color: var(--ink); width: 100%; outline: none; margin-bottom: 8px;
+  }
+  /* Granola-style workspace: notes are the main frame */
+  .workspace { display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-w, 400px); gap: 22px; align-items: start; }
+  .workspace.collapsed { grid-template-columns: minmax(0, 1fr) 0px; gap: 0; }
+  .workspace.collapsed #side-panel { display: none; }
+  #panel-reopen {
+    position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 20;
+    writing-mode: vertical-rl; padding: 14px 6px; font-size: 12px; font-weight: 650;
+    background: var(--surface); color: var(--ink-2); border: 1px solid var(--line); border-right: none;
+    border-radius: 10px 0 0 10px; cursor: pointer; box-shadow: var(--shadow);
+  }
+  .panel-grip {
+    position: absolute; left: -4px; top: 0; bottom: 0; width: 9px; cursor: col-resize; z-index: 5;
+  }
+  .panel-grip:hover, .panel-grip.dragging { background: linear-gradient(to right, transparent 3px, var(--thread) 3px, var(--thread) 5px, transparent 5px); opacity: .55; }
+  .tag-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+  .tag-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: var(--thread-soft); color: var(--thread);
+    border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600;
+  }
+  .tag-chip button { border: none; background: none; color: inherit; cursor: pointer; font-size: 13px; padding: 0; opacity: .7; }
+  .tag-chip button:hover { opacity: 1; }
+  .tag-add { border: 1px dashed var(--line); background: none; color: var(--ink-3); border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
+  .tag-add:hover { color: var(--thread); border-color: var(--thread); }
+  #tag-menu {
+    position: absolute; z-index: 35; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; box-shadow: var(--shadow); padding: 6px; min-width: 180px;
+  }
+  #tag-menu button { display: block; width: 100%; text-align: left; border: none; background: none; font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 6px; cursor: pointer; color: var(--ink); }
+  #tag-menu button:hover { background: var(--thread-soft); }
+  #rec-inline { border: 1px solid var(--line); background: var(--surface); color: var(--block); font: inherit; font-size: 12.5px; font-weight: 650; border-radius: 10px; padding: 6px 14px; cursor: pointer; }
+  #rec-inline:hover { border-color: var(--block); }
+  .ws-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .ws-head .spacer { flex: 1; }
+  #notes-doc {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 26px 30px; min-height: 320px;
+    font-size: 14.5px; line-height: 1.65; outline: none;
+  }
+  #notes-doc:focus-within { border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); }
+  #notes-doc h1, #doc-editor h1 { font-size: 20px; margin: 14px 0 6px; }
+  #notes-doc h2, #doc-editor h2 { font-size: 16px; margin: 14px 0 4px; }
+  #notes-doc h3, #doc-editor h3 { font-size: 14px; margin: 10px 0 2px; color: var(--ink-2); }
+  #notes-doc p, #doc-editor p { margin: 6px 0; }
+  #notes-doc ul, #doc-editor ul { margin: 4px 0 4px 20px; padding: 0; }
+  #notes-doc li, #doc-editor li { margin: 2px 0; }
+  #notes-doc li.task, #doc-editor li.task { list-style: none; margin-left: -18px; }
+  #notes-doc li.task input, #doc-editor li.task input { margin-right: 7px; accent-color: var(--thread); }
+  #notes-doc { position: relative; }
+  #notes-doc.is-empty::before {
+    content: attr(data-ph);
+    position: absolute; top: 26px; left: 30px; right: 30px;
+    color: var(--ink-3); pointer-events: none;
+  }
+  #notes-doc.flash { animation: notes-flash 1.2s ease; }
+  @keyframes notes-flash { 0% { background: var(--thread-soft); } 100% { background: var(--surface); } }
+  /* Chat */
+  #chat-log { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 8px; }
+  .chat-b { max-width: 85%; padding: 8px 13px; border-radius: 12px; font-size: 13.5px; box-shadow: var(--shadow); }
+  .chat-b.user { align-self: flex-end; background: var(--thread-soft); }
+  .chat-b.ai { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); }
+  .chat-b.thinking { color: var(--ink-3); }
+  #chat-bar {
+    position: sticky; bottom: 14px; display: flex; gap: 8px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: var(--shadow); padding: 8px 10px; margin-top: 10px;
+  }
+  #chat-input { flex: 1; border: none; background: none; font: inherit; font-size: 13.5px; color: var(--ink); outline: none; }
+  /* Side panel */
+  #side-panel {
+    position: sticky; top: 76px; height: calc(100vh - 96px); overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+  }
+  .panel-tabs { display: flex; gap: 4px; padding: 10px 12px 0; position: sticky; top: 0; background: var(--surface); z-index: 2; border-bottom: 1px solid var(--line); }
+  .panel-tab { border: none; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-3); padding: 6px 10px 9px; cursor: pointer; border-bottom: 2px solid transparent; }
+  .panel-tab.active { color: var(--ink); border-bottom-color: var(--thread); }
+  .panel-body { padding: 12px 16px 16px; }
+  .panel-body .utt { font-size: 13px; }
+  .utt .txt[contenteditable="true"] { outline: 2px solid var(--thread-soft); border-radius: 4px; padding: 1px 4px; }
+  .utt .txt { cursor: text; }
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 60;
+    background: var(--ink); color: var(--bg); border-radius: 10px; padding: 10px 16px;
+    font-size: 13px; box-shadow: var(--shadow); display: flex; gap: 14px; align-items: center;
+  }
+  #toast button { border: none; background: none; color: var(--thread-soft); font: inherit; font-weight: 650; cursor: pointer; }
+  /* Selection fix input */
+  #fix-pop { position: absolute; z-index: 30; display: flex; gap: 6px; align-items: center;
+    background: var(--ink); border-radius: 8px; padding: 5px 8px; box-shadow: var(--shadow); }
+  #fix-pop span { color: var(--bg); font-size: 12px; }
+  #fix-pop input { border: none; border-radius: 5px; font: inherit; font-size: 12.5px; padding: 2px 7px; width: 120px; outline: none; }
+  .people-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  .people-chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; cursor: pointer; }
+  .people-chip:hover { border-color: var(--thread); }
 </style>
 </head>
 <body>
@@ -302,12 +468,43 @@ document.querySelectorAll(".side-link").forEach((b) =>
 $("#google-btn").addEventListener("click", () =>
   alert("Google Workspace connection (Calendar, Drive, Gmail) is on the roadmap — it will fill Upcoming automatically.\n\nFor now, add upcoming meetings with the + in the Up next panel; prep works the same either way."));
 
-$("#add-project").addEventListener("click", async () => {
-  const name = prompt("Project name?", "");
-  if (!name?.trim()) return;
-  await fetch("/api/project", { method: "POST", body: JSON.stringify({ name }) });
-  loadSidebar();
-});
+$("#add-project").addEventListener("click", () => projectModal());
+
+/** Create-project modal: name + what it's about. */
+function projectModal(onCreated) {
+  document.getElementById("project-modal")?.remove();
+  const modal = document.createElement("div");
+  modal.id = "project-modal";
+  modal.className = "tl-modal";
+  modal.innerHTML = `<div class="box">
+    <h2>New project</h2>
+    <label>Name</label>
+    <input type="text" id="pm-name" placeholder="e.g. Frontend Revamp">
+    <label>What's it about? <span style="font-weight:400">(helps file meetings automatically)</span></label>
+    <textarea id="pm-desc" rows="3" placeholder="Goal, scope, who's involved…"></textarea>
+    <div class="actions">
+      <span style="flex:1"></span>
+      <button class="copybtn" id="pm-cancel">Cancel</button>
+      <button class="copybtn" id="pm-create" style="background:var(--ink);color:var(--bg)">Create</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+  modal.querySelector("#pm-cancel").addEventListener("click", () => modal.remove());
+  const create = async () => {
+    const name = modal.querySelector("#pm-name").value.trim();
+    if (!name) return;
+    const description = modal.querySelector("#pm-desc").value.trim();
+    const proj = await fetch("/api/project", { method: "POST", body: JSON.stringify({ name, description }) }).then((r) => r.json());
+    modal.remove();
+    if (proj?.error || !proj?.id) return alert(proj?.error ?? "Could not create project");
+    loadSidebar();
+    onCreated?.(proj);
+  };
+  modal.querySelector("#pm-create").addEventListener("click", create);
+  modal.querySelector("#pm-name").addEventListener("keydown", (e) => { if (e.key === "Enter") create(); });
+  modal.querySelector("#pm-name").focus();
+}
 
 async function loadSidebar() {
   const projects = await api("/api/projects");
@@ -327,26 +524,217 @@ async function render() {
   if (state.view === "meetings") return renderMeetings();
   if (state.view === "graph") return renderGraph();
   if (state.view === "project") return renderProject(state.projectId);
+  if (state.view === "doc") return renderDoc(state.docId);
 }
 
 async function renderProject(id) {
-  const { project, meetings, claims, people } = await api(`/api/project?id=${id}`);
-  const open = claims.filter((c) => c.kind === "action_item" && !c.done);
+  const { project, meetings, claims, people, speakers = [], docs = [], items = [], error } = await api(`/api/project?id=${id}`);
+  if (error) { main.innerHTML = `<div class="empty">${esc(error)}</div>`; return; }
   const decisions = claims.filter((c) => c.kind === "decision");
+  // Meeting-extracted + manual project items, one list: pending first.
+  const actionRow = (c, manual) => `
+    <div class="claim todo ${c.done ? "done" : ""}" style="display:flex;gap:10px;align-items:baseline">
+      <input type="checkbox" ${c.done ? "checked" : ""} data-todo="${c.id}">
+      <div style="flex:1">
+        <b>${esc(manual ? (c.person_name ?? c.body.owner ?? "unassigned") : (c.body.owner ?? "unassigned"))}</b> — ${esc(c.body.task)}
+        ${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""}
+        ${manual && c.document_id ? ` <span class="pill" data-doc="${c.document_id}" style="cursor:pointer" title="Open the linked doc">🗎 ${esc(c.doc_title ?? "doc")}</span>` : ""}
+        <span class="t-meta">· ${manual ? `project item <button data-del-item="${c.id}" title="Delete" style="border:none;background:none;color:var(--ink-3);cursor:pointer">✕</button>` : esc(c.meeting_title)}</span>
+      </div>
+    </div>`;
+  const actions = [
+    ...items.map((c) => ({ c, manual: true })),
+    ...claims.filter((c) => c.kind === "action_item").map((c) => ({ c, manual: false })),
+  ].sort((a, b) => (a.c.done ? 1 : 0) - (b.c.done ? 1 : 0));
+
   main.innerHTML = `
     <h1>${esc(project.name)}</h1>
-    <div class="sub">${meetings.length} meeting${meetings.length === 1 ? "" : "s"} · ${people.map((p) => esc(p.speaker)).join(" · ") || "no people yet"}</div>
+    <div class="proj-desc" id="proj-desc" title="Click to edit">${project.description ? esc(project.description) : `<span style="color:var(--ink-3)">What's this project about? Click to add — it helps file meetings automatically.</span>`}</div>
+    <div class="sub">${meetings.length} meeting${meetings.length === 1 ? "" : "s"} · ${docs.length} doc${docs.length === 1 ? "" : "s"} · ${actions.filter((a) => !a.c.done).length} open</div>
+    <div class="proj-grid">
+      <div class="card"><h2>People</h2>
+        <div class="people-chips" id="proj-people">
+          ${people.map((p) => `
+            <span class="tag-chip">${esc(p.name)}${p.team ? ` <span style="opacity:.6">· ${esc(p.team)}</span>` : ""}${p.added_via === "meeting" ? ` <span style="opacity:.5" title="Added from a filed meeting">auto</span>` : ""}<button data-unperson="${p.id}" title="Remove from project">×</button></span>`).join("") || `<span class="t-meta">No one here yet.</span>`}
+        </div>
+        ${speakers.length ? `<div class="t-meta" style="margin-top:6px">Also heard: ${speakers.map((s) => esc(s.speaker)).join(", ")}</div>` : ""}
+        <div class="add-row">
+          <input type="text" id="add-person" list="people-list" placeholder="Add a person…" style="flex:1">
+          <datalist id="people-list"></datalist>
+          <input type="text" id="add-person-team" placeholder="Team (optional)" style="width:130px">
+          <button class="copybtn" id="add-person-btn" style="margin:0">Add</button>
+        </div>
+      </div>
+      <div class="card"><h2>Documents</h2>
+        <div id="proj-docs">
+          ${docs.map((d) => `
+            <div class="doc-row" data-doc="${d.id}" data-kind="${d.kind}">
+              <span>${d.kind === "note" ? "🗎" : "📎"}</span>
+              <div style="flex:1"><div class="doc-title">${esc(d.title)}</div></div>
+              <span class="t-meta">${fmtDate(d.updated_at)}</span>
+            </div>`).join("") || `<div class="t-meta">No documents yet — upload context or write one.</div>`}
+        </div>
+        <div class="add-row">
+          <button class="copybtn" id="doc-new" style="margin:0">+ New doc</button>
+          <button class="copybtn" id="doc-upload" style="margin:0">↑ Upload</button>
+          <input type="file" id="doc-file" accept=".pdf,.txt,.md" style="display:none">
+        </div>
+      </div>
+    </div>
     ${decisions.length ? `<div class="card"><h2>Where this stands</h2>${decisions.slice(0, 4).map((d) => `<div class="claim">✓ ${esc(d.body.text)} <span class="t-meta">· ${esc(d.meeting_title)}</span></div>`).join("")}</div>` : ""}
-    ${open.length ? `<div class="card"><h2>Open in this project</h2>${open.map((c) => `
-      <div class="claim"><b>${esc(c.body.owner ?? "?")}</b> — ${esc(c.body.task)}${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""} <span class="t-meta">· ${esc(c.meeting_title)}</span></div>`).join("")}</div>` : ""}
+    <div class="card"><h2>Action items</h2>
+      ${actions.length ? actions.map(({ c, manual }) => actionRow(c, manual)).join("") : `<div class="t-meta">Nothing yet — file a meeting or add one below.</div>`}
+      <div class="add-row" id="add-item-row">
+        <input type="text" name="task" id="item-task" placeholder="Add an action item…">
+        <select id="item-person"><option value="">Unassigned</option>${people.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
+        <input type="text" id="item-due" placeholder="Due (optional)" style="width:110px">
+        <select id="item-doc"><option value="">No doc</option><option value="new">＋ Create a doc for this</option>${docs.filter((d) => d.kind === "note").map((d) => `<option value="${d.id}">${esc(d.title)}</option>`).join("")}</select>
+        <button class="copybtn" id="item-add" style="margin:0">Add</button>
+      </div>
+    </div>
     <div class="card"><h2>Meetings in this box</h2>
       ${meetings.length ? meetings.map((m) => `
         <div class="m-row" data-mid="${m.id}">
           <div class="m-date">${fmtDate(m.started_at)}</div>
           <div><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
-        </div>`).join("") : `<div class="empty">Nothing filed here yet — open a meeting and add it to this project.</div>`}
+        </div>`).join("") : `<div class="empty">Nothing filed here yet — open a meeting and add it, or accept a suggestion on the meeting page.</div>`}
     </div>`;
   wireMeetingLinks();
+  wireProject(id, project);
+}
+
+/** All the project page's interactions. Re-renders the page after each write. */
+function wireProject(id, project) {
+  const refresh = () => renderProject(id);
+
+  // Editable description
+  $("#proj-desc").addEventListener("click", () => {
+    const cur = project.description ?? "";
+    const box = document.createElement("textarea");
+    box.rows = 3;
+    box.value = cur;
+    box.style.cssText = "width:100%;max-width:720px;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)";
+    $("#proj-desc").replaceWith(box);
+    box.focus();
+    box.addEventListener("blur", async () => {
+      await fetch("/api/project/update", { method: "POST", body: JSON.stringify({ id, description: box.value }) });
+      refresh();
+    });
+  });
+
+  // People
+  api("/api/people").then((all) => {
+    $("#people-list").innerHTML = all.map((p) => `<option value="${esc(p.name)}">`).join("");
+  });
+  const addPerson = async () => {
+    const name = $("#add-person").value.trim();
+    if (!name) return;
+    await fetch("/api/project/person", { method: "POST", body: JSON.stringify({ project_id: id, name, team: $("#add-person-team").value.trim() || undefined }) });
+    refresh();
+  };
+  $("#add-person-btn").addEventListener("click", addPerson);
+  $("#add-person").addEventListener("keydown", (e) => { if (e.key === "Enter") addPerson(); });
+  main.querySelectorAll("[data-unperson]").forEach((b) =>
+    b.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await fetch("/api/project/person", { method: "POST", body: JSON.stringify({ project_id: id, person_id: Number(b.dataset.unperson), remove: true }) });
+      refresh();
+    }));
+
+  // Documents
+  main.querySelectorAll(".doc-row[data-doc]").forEach((r) =>
+    r.addEventListener("click", () => {
+      if (r.dataset.kind === "note") { state.view = "doc"; state.docId = Number(r.dataset.doc); state.projectId = id; render(); }
+      else window.open(`/api/doc/file?id=${r.dataset.doc}`, "_blank");
+    }));
+  $("#doc-new").addEventListener("click", async () => {
+    const title = prompt("Doc title?", "");
+    if (!title?.trim()) return;
+    const doc = await fetch("/api/project/doc", { method: "POST", body: JSON.stringify({ project_id: id, title }) }).then((r) => r.json());
+    if (doc?.error || !doc?.id) return alert(doc?.error ?? "Could not create doc");
+    state.view = "doc"; state.docId = doc.id; state.projectId = id; render();
+  });
+  $("#doc-upload").addEventListener("click", () => $("#doc-file").click());
+  $("#doc-file").addEventListener("change", async () => {
+    const f = $("#doc-file").files[0];
+    if (!f) return;
+    if (f.size > 10 * 1024 * 1024) return showToast("That file is over 10MB — too big for now.");
+    const data_b64 = await new Promise((res) => {
+      const rd = new FileReader();
+      rd.onload = () => res(String(rd.result).split(",")[1]);
+      rd.readAsDataURL(f);
+    });
+    const out = await fetch("/api/project/doc/upload", {
+      method: "POST",
+      body: JSON.stringify({ project_id: id, filename: f.name, mime: f.type || "application/octet-stream", data_b64 }),
+    }).then((r) => r.json());
+    if (out?.error) return alert(out.error);
+    showToast(`"${f.name}" added to the project's context`);
+    refresh();
+  });
+
+  // Action items
+  main.querySelectorAll("[data-todo]").forEach((cb) =>
+    cb.addEventListener("change", () => {
+      fetch("/api/todo", { method: "POST", body: JSON.stringify({ id: Number(cb.dataset.todo), done: cb.checked }) });
+      cb.closest(".claim").classList.toggle("done", cb.checked);
+      loadSidebar();
+    }));
+  main.querySelectorAll("[data-del-item]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      await fetch("/api/project/item/delete", { method: "POST", body: JSON.stringify({ id: Number(b.dataset.delItem) }) });
+      refresh();
+    }));
+  main.querySelectorAll(".pill[data-doc]").forEach((p) =>
+    p.addEventListener("click", () => { state.view = "doc"; state.docId = Number(p.dataset.doc); state.projectId = id; render(); }));
+  const addItem = async () => {
+    const task = $("#item-task").value.trim();
+    if (!task) return;
+    let document_id = $("#item-doc").value ? Number($("#item-doc").value) : undefined;
+    // "Create a doc for this": the item's deliverable is a doc, born into the
+    // project's context right away, titled after the task.
+    if ($("#item-doc").value === "new") {
+      const doc = await fetch("/api/project/doc", { method: "POST", body: JSON.stringify({ project_id: id, title: task }) }).then((r) => r.json());
+      if (doc?.error || !doc?.id) return alert(doc?.error ?? "Could not create doc");
+      document_id = doc.id;
+    }
+    const out = await fetch("/api/project/item", {
+      method: "POST",
+      body: JSON.stringify({
+        project_id: id, task,
+        person_id: $("#item-person").value ? Number($("#item-person").value) : undefined,
+        due: $("#item-due").value.trim() || undefined,
+        document_id,
+      }),
+    }).then((r) => r.json());
+    if (out?.error) return alert(out.error);
+    refresh();
+  };
+  $("#item-add").addEventListener("click", addItem);
+  $("#item-task").addEventListener("keydown", (e) => { if (e.key === "Enter") addItem(); });
+}
+
+/** Project doc editor: same markdown editor as meeting notes, versioned saves. */
+async function renderDoc(id) {
+  const { doc, error } = await api(`/api/doc?id=${id}`);
+  if (error) { main.innerHTML = `<div class="empty">${esc(error)}</div>`; return; }
+  main.innerHTML = `
+    <div class="sub" style="margin-bottom:10px"><a href="#" id="doc-back" style="color:var(--thread);text-decoration:none">⟨ Back to project</a></div>
+    <input id="doc-title" value="${esc(doc.title)}">
+    <div id="doc-editor" contenteditable="true" data-ph="Write here — this doc is part of the project's context."></div>
+    <div class="t-meta" id="doc-status" style="margin-top:6px"></div>`;
+  $("#doc-back").addEventListener("click", (e) => { e.preventDefault(); state.view = "project"; state.projectId = doc.project_id; render(); });
+  const editor = $("#doc-editor");
+  editor.innerHTML = doc.content ? mdToDom(doc.content) : "<p><br></p>";
+  let saveTimer;
+  const save = async () => {
+    await fetch("/api/doc/save", { method: "POST", body: JSON.stringify({ id, markdown: domToMd(editor), title: $("#doc-title").value.trim() || undefined }) });
+    $("#doc-status").textContent = "Saved";
+    setTimeout(() => { $("#doc-status").textContent = ""; }, 1500);
+  };
+  const queueSave = () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 800); };
+  editor.addEventListener("input", queueSave);
+  $("#doc-title").addEventListener("input", queueSave);
 }
 
 function greeting() {
@@ -621,61 +1009,761 @@ async function renderMeetings() {
   wireMeetingLinks();
 }
 
-async function renderMeeting(id) {
-  const { meeting, utterances, claims, runs, backlinks } = await api(`/api/meeting?id=${encodeURIComponent(id)}`);
+// ── Markdown ⇄ DOM for the notes editor ────────────────────────────────
+function inlineMd(text) {
+  return esc(text)
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/\*([^*]+)\*/g, "<i>$1</i>");
+}
+
+function mdToDom(md) {
+  const lines = String(md ?? "").split("\n");
+  let html = "", depth = 0;
+  const setDepth = (d) => {
+    while (depth < d) { html += "<ul>"; depth++; }
+    while (depth > d) { html += "</ul>"; depth--; }
+  };
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, "");
+    const h = line.match(/^(#{1,3})\s+(.*)/);
+    const task = line.match(/^(\s*)- \[( |x)\]\s+(.*)/);
+    const bul = line.match(/^(\s*)-\s+(.*)/);
+    if (h) { setDepth(0); html += `<h${h[1].length}>${inlineMd(h[2])}</h${h[1].length}>`; }
+    else if (task) { setDepth(task[1].length >= 2 ? 2 : 1); html += `<li class="task"><input type="checkbox" ${task[2] === "x" ? "checked" : ""}>${inlineMd(task[3])}</li>`; }
+    else if (bul) { setDepth(bul[1].length >= 2 ? 2 : 1); html += `<li>${inlineMd(bul[2])}</li>`; }
+    else if (!line.trim()) setDepth(0);
+    else { setDepth(0); html += `<p>${inlineMd(line)}</p>`; }
+  }
+  setDepth(0);
+  return html;
+}
+
+function domToMd(root) {
+  const inline = (node) => {
+    let s = "";
+    node.childNodes.forEach((n) => {
+      if (n.nodeType === 3) s += n.textContent;
+      else if (n.nodeName === "B" || n.nodeName === "STRONG") s += `**${inline(n)}**`;
+      else if (n.nodeName === "I" || n.nodeName === "EM") s += `*${inline(n)}*`;
+      else if (n.nodeName === "BR") s += "\n";
+      else if (n.nodeName === "INPUT" || n.nodeName === "UL") { /* handled by list walker */ }
+      else s += inline(n);
+    });
+    return s;
+  };
+  const blocks = [];
+  const walkList = (ul, indent) => {
+    const items = [];
+    for (const li of ul.children) {
+      if (li.nodeName !== "LI") continue;
+      const box = li.querySelector(':scope > input[type="checkbox"]');
+      const prefix = box ? `- [${box.checked ? "x" : " "}] ` : "- ";
+      items.push(indent + prefix + inline(li).trim());
+      for (const sub of li.children) if (sub.nodeName === "UL") items.push(walkList(sub, indent + "  "));
+    }
+    return items.join("\n");
+  };
+  for (const el of root.childNodes) {
+    if (el.nodeType === 3) { if (el.textContent.trim()) blocks.push(el.textContent.trim()); continue; }
+    const tag = el.nodeName;
+    if (tag === "H1") blocks.push(`# ${inline(el).trim()}`);
+    else if (tag === "H2") blocks.push(`## ${inline(el).trim()}`);
+    else if (tag === "H3" || tag === "H4") blocks.push(`### ${inline(el).trim()}`);
+    else if (tag === "UL") blocks.push(walkList(el, ""));
+    else if (tag === "OL") blocks.push(walkList(el, ""));
+    else {
+      const text = inline(el).trim();
+      if (text) blocks.push(text);
+    }
+  }
+  return blocks.join("\n\n");
+}
+
+// ── Toast ───────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(message, actionLabel, action) {
+  document.getElementById("toast")?.remove();
+  clearTimeout(toastTimer);
+  const t = document.createElement("div");
+  t.id = "toast";
+  t.innerHTML = `<span>${esc(message)}</span>${actionLabel ? `<button>${esc(actionLabel)}</button>` : ""}`;
+  document.body.appendChild(t);
+  if (actionLabel) t.querySelector("button").addEventListener("click", () => { t.remove(); action?.(); });
+  toastTimer = setTimeout(() => t.remove(), 8000);
+}
+
+// ── The meeting workspace: notes main, chat bottom, transcript right ───
+const panelState = {
+  tab: "transcript",
+  open: localStorage.getItem("tl-panel") !== "closed",
+  width: Math.min(720, Math.max(280, Number(localStorage.getItem("tl-panel-w")) || 400)),
+};
+const chatHistory = {}; // meetingId → [{role, content}]
+
+/** Sync the global record button with recording state (start, stop, resume). */
+function setRecordingUI(on) {
+  recording = on;
+  recBtn.textContent = on ? "■ Stop & stitch" : "● Record";
+  recBtn.classList.toggle("recording", on);
+  recBtn.disabled = false;
+}
+
+/** Project tags on the meeting: add/remove, picked from the projects list.
+ *  Pending suggestions render as dashed chips the user accepts or dismisses. */
+function wireTags(meetingId, assigned, suggestions = []) {
+  const row = $("#tag-row");
+  if (!row) return;
+  let tags = [...assigned];
+  let pending = [...suggestions];
+
+  const assign = async (projectId, remove) => {
+    await fetch("/api/project/assign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_id: projectId, meeting_id: meetingId, remove: !!remove }),
+    });
+    loadSidebar();
+  };
+
+  const draw = () => {
+    row.innerHTML =
+      tags.map((p) => `
+        <span class="tag-chip">🧵 ${esc(p.name)}<button data-untag="${p.id}" title="Remove this thread">×</button></span>`).join("") +
+      pending.map((s) => `
+        <span class="tag-chip suggest" title="${esc(s.reason ?? "")}${s.confidence != null ? ` (${Math.round(s.confidence * 100)}%)` : ""}">
+          🧵 File in ${esc(s.name)}?
+          <button data-accept="${s.id}" title="Yes, file it">✓</button>
+          <button data-dismiss="${s.id}" title="No, not this project">✕</button>
+        </span>`).join("") +
+      `<button class="tag-add" id="tag-add">+ Add thread</button>`;
+    row.querySelectorAll("[data-untag]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        const pid = Number(b.dataset.untag);
+        tags = tags.filter((t) => t.id !== pid);
+        draw();
+        await assign(pid, true);
+      }));
+    const resolve = async (sid, action) => {
+      const s = pending.find((x) => x.id === sid);
+      pending = pending.filter((x) => x.id !== sid);
+      const out = await fetch("/api/suggestion/resolve", { method: "POST", body: JSON.stringify({ id: sid, action }) }).then((r) => r.json());
+      if (out?.projects) tags = out.projects;
+      draw();
+      loadSidebar();
+      if (action === "accept" && s) showToast(`Filed in ${s.name}`);
+    };
+    row.querySelectorAll("[data-accept]").forEach((b) =>
+      b.addEventListener("click", () => resolve(Number(b.dataset.accept), "accept")));
+    row.querySelectorAll("[data-dismiss]").forEach((b) =>
+      b.addEventListener("click", () => resolve(Number(b.dataset.dismiss), "dismiss")));
+    row.querySelector("#tag-add").addEventListener("click", openMenu);
+  };
+
+  async function openMenu() {
+    document.getElementById("tag-menu")?.remove();
+    const anchor = row.querySelector("#tag-add");
+    const r = anchor.getBoundingClientRect(); // measure BEFORE any await
+    const menu = document.createElement("div");
+    menu.id = "tag-menu";
+    menu.innerHTML = `<button disabled style="color:var(--ink-3);cursor:default">Loading…</button>`;
+    menu.style.left = `${r.left + window.scrollX}px`;
+    menu.style.top = `${r.bottom + window.scrollY + 4}px`;
+    document.body.appendChild(menu);
+    const close = (ev) => { if (!menu.contains(ev.target) && ev.target !== anchor) { menu.remove(); document.removeEventListener("mousedown", close); } };
+    document.addEventListener("mousedown", close);
+
+    const all = await api("/api/projects");
+    menu.innerHTML =
+      (all.length
+        ? all.map((p) => {
+            const on = tags.some((t) => t.id === p.id);
+            return `<button data-pid="${p.id}" data-on="${on ? 1 : 0}">${on ? "✓ " : ""}${esc(p.name)}</button>`;
+          }).join("")
+        : `<button disabled style="color:var(--ink-3);cursor:default">No threads yet</button>`) +
+      `<button data-new="1" style="border-top:1px solid var(--line);border-radius:0;margin-top:4px;padding-top:8px">＋ New thread…</button>`;
+
+    menu.querySelectorAll("[data-pid]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        menu.remove();
+        const pid = Number(b.dataset.pid);
+        const wasOn = b.dataset.on === "1";
+        if (wasOn) tags = tags.filter((t) => t.id !== pid);
+        else tags = [...tags, all.find((p) => p.id === pid)];
+        draw();
+        await assign(pid, wasOn);
+      }));
+    menu.querySelector("[data-new]").addEventListener("click", () => {
+      menu.remove();
+      projectModal(async (proj) => {
+        tags = [...tags, proj];
+        draw();
+        await assign(proj.id, false);
+      });
+    });
+  }
+
+  draw();
+}
+
+/** Panel collapse/reopen + drag-to-resize, controls living on the panel itself. */
+function wirePanelChrome(meetingId) {
+  const ws = main.querySelector(".workspace");
+  $("#panel-close")?.addEventListener("click", () => {
+    panelState.open = false;
+    localStorage.setItem("tl-panel", "closed");
+    renderMeeting(meetingId, recording && state.meetingId === meetingId ? { live: true } : {});
+  });
+  document.getElementById("panel-reopen")?.addEventListener("click", () => {
+    panelState.open = true;
+    localStorage.setItem("tl-panel", "open");
+    renderMeeting(meetingId, recording && state.meetingId === meetingId ? { live: true } : {});
+  });
+  const grip = $("#panel-grip");
+  if (!grip) return;
+  grip.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    grip.classList.add("dragging");
+    const startX = e.clientX, startW = panelState.width;
+    const move = (ev) => {
+      panelState.width = Math.min(720, Math.max(280, startW + (startX - ev.clientX)));
+      ws.style.setProperty("--panel-w", `${panelState.width}px`);
+    };
+    const up = () => {
+      grip.classList.remove("dragging");
+      localStorage.setItem("tl-panel-w", String(panelState.width));
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  });
+}
+
+async function renderMeeting(id, opts = {}) {
+  const live = !!opts.live;
+  const { meeting, utterances, claims, runs, backlinks, projects = [], suggestions = [], error } = await api(`/api/meeting?id=${encodeURIComponent(id)}`);
+  if (error) { main.innerHTML = `<div class="empty">${esc(error)}</div>`; return; }
   const byKind = (k) => claims.filter((c) => c.kind === k && c.gate === "passed");
   const blocked = claims.filter((c) => c.gate === "blocked");
-  const hl = state.highlight;
+
   main.innerHTML = `
-    <h1>${esc(meeting.title)}</h1>
-    <div class="sub">${fmtDate(meeting.started_at)} · ${Math.round(meeting.duration_s / 60)} min · mode: ${esc(meeting.mode)}
-      · <button class="copybtn" style="margin:0;padding:2px 12px" id="file-project">File in project…</button></div>
-    ${meeting.summary ? `<div class="card"><h2>Summary</h2><p>${esc(meeting.summary)}</p></div>` : ""}
-    <div class="card"><h2>Your notes · editable, saved locally</h2>
-      <textarea class="notes" id="my-notes" placeholder="Type anything — your words live alongside the generated notes.">${esc(meeting.my_notes ?? "")}</textarea>
+    <div class="ws-head">
+      <div>
+        <h1 style="margin:0">${esc(meeting.title)}</h1>
+        <div class="sub" style="margin:2px 0 0">${fmtDate(meeting.started_at)}${live ? ` · <span class="pill block">● recording</span>` : ` · ${Math.round(meeting.duration_s / 60)} min`}</div>
+        <div class="tag-row" id="tag-row"></div>
+      </div>
+      <span class="spacer"></span>
+      <button class="copybtn" id="enhance" style="margin:0">✦ Enhance notes</button>
+      <button class="copybtn" id="structure" style="margin:0" ${live ? "disabled title='available once the meeting is stitched'" : ""}>☰ Structure my notes</button>
+      <button class="copybtn" id="more" style="margin:0">⋯</button>
     </div>
-    ${followUpCard(meeting, claims)}
-    ${byKind("decision").length ? `<div class="card"><h2>Decisions</h2>${byKind("decision").map((c, i) => `
-      <div class="claim">✓ ${esc(c.body.text)}
-        <button class="copybtn" style="margin-left:8px;padding:2px 12px" data-share-decision="${i}">Share ↗</button>
-      </div>`).join("")}</div>` : ""}
-    ${byKind("action_item").length ? `<div class="card"><h2>Action items</h2>${byKind("action_item").map((c) => `
-      <div class="claim"><b>${esc(c.body.owner ?? "?")}</b> — ${esc(c.body.task)}${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""}</div>`).join("")}</div>` : ""}
-    ${byKind("risk").length ? `<div class="card"><h2>Risks</h2>${byKind("risk").map((c) => `
-      <div class="claim">${esc(c.body.category)} · <span class="t-meta">"${esc(c.body.quote)}"</span></div>`).join("")}</div>` : ""}
-    ${backlinks.length ? `<div class="card"><h2>Threaded to</h2>${backlinks.map((b) => `
-      <span class="backlink" data-mid="${b.id}">${esc(b.title)} <span style="opacity:.6">via ${esc(b.via)}</span></span>`).join("")}</div>` : ""}
-    <div class="card"><h2>Transcript</h2>
-      ${utterances.map((u) => `
-        <div class="utt ${hl && u.text.toLowerCase().includes(hl.toLowerCase().slice(0, 24)) ? "hl" : ""}">
-          <div class="ts">${fmtTs(u.offset_s)}</div>
-          <div class="who">${esc(u.speaker ?? u.speaker_role)}</div>
-          <div>${esc(u.text)}</div>
-        </div>`).join("")}
+    <div class="workspace ${panelState.open ? "" : "collapsed"}" style="--panel-w:${panelState.width}px">
+      <div class="ws-main">
+        <div id="people-chips" class="people-chips"></div>
+        <div id="notes-doc" contenteditable="true" data-ph="🧵 Start a thread…"></div>
+        <div id="chat-log"></div>
+        <div id="chat-bar">
+          ${live ? "" : `<button id="rec-inline" title="Keep recording into this meeting — new audio is added to the same transcript">● Record more</button>`}
+          <input id="chat-input" placeholder="Ask me about this meeting… (or: 'add a section on pricing')" ${live ? "disabled title='available once the meeting is stitched'" : ""}>
+          <button class="copybtn" id="chat-send" style="margin:0" ${live ? "disabled" : ""}>Ask</button>
+        </div>
+      </div>
+      <aside id="side-panel">
+        <div class="panel-grip" id="panel-grip" title="Drag to resize"></div>
+        <div class="panel-tabs">
+          <button class="panel-tab ${panelState.tab === "transcript" ? "active" : ""}" data-tab="transcript">Transcript</button>
+          <button class="panel-tab ${panelState.tab === "extracted" ? "active" : ""}" data-tab="extracted">Extracted</button>
+          <span class="spacer" style="flex:1"></span>
+          <button class="panel-tab" id="panel-close" title="Hide panel">⟩</button>
+        </div>
+        <div class="panel-body" id="panel-body"></div>
+      </aside>
     </div>
-    <div class="exit-line">Run exit: <span class="pill ${meeting.exit === "shipped" ? "pass" : "block"}">${esc(meeting.exit ?? "?")}</span>
-      ${claims.filter((c) => c.gate === "passed").length} claims passed ·
-      ${blocked.length} blocked by gates${blocked.length ? ` (${blocked.map((b) => esc(b.gate_reason)).join("; ")})` : ""}</div>`;
-  state.highlight = null;
-  wireMeetingLinks();
-  wireNotesAutosave(id);
-  $("#file-project")?.addEventListener("click", async () => {
-    const projects = await api("/api/projects");
-    if (!projects.length) { alert("No projects yet — create one with + in the sidebar first."); return; }
-    const pick = prompt("File this meeting in which project?\n" + projects.map((p, i) => `${i + 1}. ${p.name}`).join("\n"), "1");
-    const p = projects[Number(pick) - 1];
-    if (!p) return;
-    await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: p.id, meeting_id: id }) });
-    alert(`Filed in "${p.name}".`);
-    loadSidebar();
+    ${panelState.open ? "" : `<button id="panel-reopen">⟨ Transcript</button>`}`;
+
+  wireTags(id, projects, live ? [] : suggestions);
+  wirePanelChrome(id);
+  $("#rec-inline")?.addEventListener("click", async () => {
+    const r = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ meeting_id: id }) }).then((x) => x.json());
+    if (r.error) return alert(r.error);
+    setRecordingUI(true);
+    renderMeeting(id, { live: true });
   });
-  const decisions = byKind("decision");
-  const people = [...new Set(utterances.map((u) => u.speaker).filter(Boolean))];
-  main.querySelectorAll("[data-share-decision]").forEach((btn) =>
-    btn.addEventListener("click", () => {
-      const d = decisions[Number(btn.dataset.shareDecision)];
-      shareDecisionCard(d.body.text, meeting, people);
+
+  // Notes editor
+  const doc = $("#notes-doc");
+  doc.innerHTML = meeting.my_notes ? mdToDom(meeting.my_notes) : "<p><br></p>";
+  doc.classList.toggle("is-empty", !doc.textContent.trim());
+  wireNotesEditor(id, doc);
+
+  // Panel
+  const renderPanel = () => {
+    const body = $("#panel-body");
+    if (panelState.tab === "transcript") {
+      body.innerHTML = live
+        ? `<div id="live-status" class="t-meta"></div><div id="live-feed"><div class="empty">${SPOOL_SVG}listening…</div></div>`
+        : utterances.length
+          ? utterances.map((u) => `
+              <div class="utt" data-off="${u.offset_s}" data-idx="${u.idx}">
+                <div class="ts">${fmtTs(u.offset_s)}</div>
+                <div class="who">${esc(u.speaker ?? u.speaker_role)}</div>
+                <div class="txt" title="Click to fix the transcript">${esc(u.text)}</div>
+              </div>`).join("")
+          : `<div class="empty">${SPOOL_SVG}No transcript.</div>`;
+      if (live) wireLiveFeed();
+      else wireTranscriptEdits(id, body);
+    } else {
+      body.innerHTML = `
+        ${summaryCard(meeting)}
+        ${followUpCard(meeting, claims)}
+        ${byKind("decision").length ? `<div class="card"><h2>Decisions</h2>${byKind("decision").map((c, i) => `
+          <div class="claim">✓ ${esc(c.body.text)}
+            <button class="copybtn" style="margin-left:8px;padding:2px 12px" data-share-decision="${i}">Share ↗</button>
+          </div>`).join("")}</div>` : ""}
+        ${byKind("action_item").length ? `<div class="card"><h2>Action items</h2>${byKind("action_item").map((c) => `
+          <div class="claim"><b>${esc(c.body.owner ?? "?")}</b> — ${esc(c.body.task)}${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""}</div>`).join("")}</div>` : ""}
+        ${byKind("risk").length ? `<div class="card"><h2>Risks</h2>${byKind("risk").map((c) => `
+          <div class="claim">${esc(c.body.category)} · <span class="t-meta">"${esc(c.body.quote)}"</span></div>`).join("")}</div>` : ""}
+        ${backlinks.length ? `<div class="card"><h2>Threaded to</h2>${backlinks.map((b) => `
+          <span class="backlink" data-mid="${b.id}">${esc(b.title)} <span style="opacity:.6">via ${esc(b.via)}</span></span>`).join("")}</div>` : ""}
+        <div class="exit-line">Run exit: <span class="pill ${meeting.exit === "shipped" ? "pass" : "block"}">${esc(meeting.exit ?? "…")}</span>
+          ${claims.filter((c) => c.gate === "passed").length} claims passed ·
+          ${blocked.length} blocked${blocked.length ? ` (${blocked.map((b) => esc(b.gate_reason)).join("; ")})` : ""}</div>`;
+      wireMeetingLinks();
+      wireSummary(id);
+      const decisions = byKind("decision");
+      const people = [...new Set(utterances.map((u) => u.speaker).filter(Boolean))];
+      body.querySelectorAll("[data-share-decision]").forEach((btn) =>
+        btn.addEventListener("click", () => shareDecisionCard(decisions[Number(btn.dataset.shareDecision)].body.text, meeting, people)));
+    }
+  };
+  renderPanel();
+  main.querySelectorAll(".panel-tab").forEach((t) =>
+    t.addEventListener("click", () => {
+      panelState.tab = t.dataset.tab;
+      main.querySelectorAll(".panel-tab").forEach((x) => x.classList.toggle("active", x === t));
+      renderPanel();
     }));
+
+  // Enhance / Structure
+  $("#enhance").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true; btn.textContent = "✦ Enhancing…";
+    const before = domToMd(doc);
+    const out = await fetch("/api/notes/enhance", { method: "POST", body: JSON.stringify({ id, notes: before }) }).then((r) => r.json());
+    btn.disabled = false; btn.textContent = "✦ Enhance notes";
+    if (out.error) return alert(out.error);
+    applyNotesUpdate(doc, id, before, out.notes, "Notes enhanced");
+  });
+  $("#structure").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true; btn.textContent = "☰ Structuring…";
+    const before = domToMd(doc);
+    const out = await fetch("/api/notes/structure", { method: "POST", body: JSON.stringify({ id, notes: before }) }).then((r) => r.json());
+    btn.disabled = false; btn.textContent = "☰ Structure my notes";
+    if (out.error) return alert(out.error);
+    applyNotesUpdate(doc, id, before, out.notes, "Notes structured");
+    renderPeopleChips(id, out.people ?? []);
+  });
+
+  // Chat
+  wireChat(id, doc);
+
+  // Overflow menu (regenerate / file / advanced correct)
+  $("#more").addEventListener("click", async () => {
+    const pick = prompt("1. Regenerate extraction\n2. File in project…\n3. Advanced find & replace…", "1");
+    if (pick === "1") {
+      const out = await fetch("/api/meeting/regenerate", { method: "POST", body: JSON.stringify({ id }) }).then((r) => r.json());
+      if (out.error) return alert(out.error);
+      renderMeeting(id);
+    } else if (pick === "2") {
+      const projects = await api("/api/projects");
+      if (!projects.length) return alert("No projects yet — create one with + in the sidebar first.");
+      const p = projects[Number(prompt("File this meeting in which project?\n" + projects.map((x, i) => `${i + 1}. ${x.name}`).join("\n"), "1")) - 1];
+      if (!p) return;
+      await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: p.id, meeting_id: id }) });
+      loadSidebar();
+    } else if (pick === "3") {
+      const from = prompt("Find:", ""); if (!from?.trim()) return;
+      const to = prompt(`Replace "${from}" with:`, ""); if (!to?.trim()) return;
+      const { occurrences } = await fetch("/api/correction/preview", { method: "POST", body: JSON.stringify({ meeting_id: id, from_text: from, to_text: to }) }).then((r) => r.json());
+      if (!occurrences?.length) return alert("No occurrences found.");
+      correctionModal(id, from.trim(), to.trim(), occurrences);
+    }
+  });
+
+  wireCorrections(id);
+  state.highlight = null;
+}
+
+/** Replace the notes doc with an AI result — guarded against mid-flight typing. */
+function applyNotesUpdate(doc, meetingId, beforeMd, newMd, toastMsg) {
+  const currentMd = domToMd(doc);
+  if (currentMd !== beforeMd && !confirm("You edited the notes while AI was working. Replace with the AI version?")) return;
+  doc.innerHTML = mdToDom(newMd);
+  doc.dataset.lastSaved = newMd;
+  doc.classList.remove("flash"); void doc.offsetWidth; doc.classList.add("flash");
+  if (toastMsg) showToast(toastMsg);
+}
+
+/** Person-mapping suggestions from Structure → one-click corrections. */
+function renderPeopleChips(meetingId, people) {
+  const box = $("#people-chips");
+  if (!box) return;
+  const useful = people.filter((p) =>
+    p.inferred_name && p.heard_as &&
+    p.inferred_name !== p.heard_as &&
+    !["them", "you", "unidentified speaker"].includes(p.inferred_name.toLowerCase()) &&
+    !["them", "you"].includes(p.heard_as.toLowerCase()));
+  box.innerHTML = useful.map((p, i) => `
+    <button class="people-chip" data-i="${i}">“${esc(p.heard_as)}” is <b>${esc(p.inferred_name)}</b>${p.team ? ` · ${esc(p.team)}` : ""} — fix everywhere</button>`).join("");
+  box.querySelectorAll(".people-chip").forEach((chip) =>
+    chip.addEventListener("click", async () => {
+      const p = useful[Number(chip.dataset.i)];
+      const out = await fetch("/api/correction/auto", {
+        method: "POST",
+        body: JSON.stringify({ meeting_id: meetingId, from_text: p.heard_as, to_text: p.inferred_name }),
+      }).then((r) => r.json());
+      chip.remove();
+      if (out.error) return alert(out.error);
+      showToast(`Fixed ${out.applied} place${out.applied === 1 ? "" : "s"}`, "Undo", async () => {
+        await fetch("/api/correction/undo", { method: "POST", body: JSON.stringify({ event_id: out.eventId }) });
+        renderMeeting(meetingId);
+      });
+      renderMeeting(meetingId);
+    }));
+}
+
+/** Autosave + word-swap detection: fixing a name in your notes fixes it everywhere. */
+function wireNotesEditor(meetingId, doc) {
+  doc.dataset.lastSaved = domToMd(doc);
+  let t;
+  doc.addEventListener("input", () => {
+    doc.classList.toggle("is-empty", !doc.textContent.trim());
+    clearTimeout(t);
+    t = setTimeout(async () => {
+      const md = domToMd(doc);
+      const last = doc.dataset.lastSaved ?? "";
+      if (md === last) return;
+      doc.dataset.lastSaved = md;
+      await fetch("/api/notes", { method: "POST", body: JSON.stringify({ id: meetingId, notes: md }) });
+      const swap = detectWordSwapClient(last, md);
+      if (swap) {
+        const out = await fetch("/api/correction/auto", {
+          method: "POST",
+          body: JSON.stringify({ meeting_id: meetingId, from_text: swap.from, to_text: swap.to, exclude: { notes: true } }),
+        }).then((r) => r.json());
+        if (out.applied > 0)
+          showToast(`“${swap.from}” → “${swap.to}” · fixed ${out.applied} other place${out.applied === 1 ? "" : "s"}`, "Undo", async () => {
+            await fetch("/api/correction/undo", { method: "POST", body: JSON.stringify({ event_id: out.eventId }) });
+            renderMeeting(meetingId);
+          });
+      }
+    }, 700);
+  });
+  // Paste as plain text; checkboxes save on toggle; tidy markdown on blur.
+  doc.addEventListener("paste", (e) => {
+    e.preventDefault();
+    document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
+  });
+  doc.addEventListener("change", (e) => {
+    if (e.target?.type === "checkbox") doc.dispatchEvent(new Event("input"));
+  });
+  doc.addEventListener("blur", () => {
+    const md = domToMd(doc);
+    doc.innerHTML = mdToDom(md) || "<p><br></p>";
+    doc.classList.toggle("is-empty", !doc.textContent.trim());
+  });
+}
+
+/** Mirror of the server's detectWordSwap — one capitalized token run swapped. */
+function detectWordSwapClient(before, after) {
+  if (before === after || !before || !after) return null;
+  if (Math.abs(before.length - after.length) > 40) return null;
+  const a = before.split(/(\s+)/), b = after.split(/(\s+)/);
+  let start = 0;
+  while (start < a.length && start < b.length && a[start] === b[start]) start++;
+  let endA = a.length - 1, endB = b.length - 1;
+  while (endA >= start && endB >= start && a[endA] === b[endB]) { endA--; endB--; }
+  const from = a.slice(start, endA + 1).join("").trim();
+  const to = b.slice(start, endB + 1).join("").trim();
+  if (!from || !to || from === to) return null;
+  if (from.includes("\n") || to.includes("\n") || from.length > 40 || to.length > 40) return null;
+  const w = (s) => s.split(/\s+/).filter(Boolean);
+  if (w(from).length > 3 || w(to).length > 3) return null;
+  if (!/^[A-Z]/.test(from) || !/^[A-Z]/.test(to)) return null;
+  return { from, to };
+}
+
+/** Chat: grounded answers; asks that change the notes update the doc live. */
+function wireChat(meetingId, doc) {
+  const log = $("#chat-log"), input = $("#chat-input"), send = $("#chat-send");
+  if (!input || input.disabled) return;
+  const history = (chatHistory[meetingId] ??= []);
+  const bubble = (role, text) => {
+    const b = document.createElement("div");
+    b.className = `chat-b ${role}`;
+    b.innerHTML = esc(text).replace(/\[(\d+(?:\.\d+)?)s\]/g, (m, s) => `<button class="ts-chip" data-jump="${s}">${fmtTs(Number(s))}</button>`);
+    log.appendChild(b);
+    b.querySelectorAll("[data-jump]").forEach((c) => c.addEventListener("click", () => jumpToOffset(Number(c.dataset.jump))));
+    return b;
+  };
+  for (const h of history) bubble(h.role === "user" ? "user" : "ai", h.content);
+  const ask = async () => {
+    const message = input.value.trim();
+    if (!message) return;
+    input.value = "";
+    bubble("user", message);
+    history.push({ role: "user", content: message });
+    const thinking = bubble("ai thinking", "…");
+    const before = domToMd(doc);
+    const out = await fetch("/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ meeting_id: meetingId, message, history: history.slice(0, -1), notes: before }),
+    }).then((r) => r.json());
+    thinking.remove();
+    if (out.error) { bubble("ai", `⚠ ${out.error}`); return; }
+    bubble("ai", out.answer);
+    history.push({ role: "assistant", content: out.answer });
+    if (out.notes) applyNotesUpdate(doc, meetingId, before, out.notes, "Notes updated from chat");
+    log.scrollIntoView({ block: "end" });
+  };
+  send.addEventListener("click", ask);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+}
+
+/** Click a transcript line to fix it; a name swap propagates everywhere. */
+function wireTranscriptEdits(meetingId, body) {
+  body.querySelectorAll(".utt .txt").forEach((el) =>
+    el.addEventListener("click", () => {
+      if (el.isContentEditable) return;
+      const idx = Number(el.closest(".utt").dataset.idx);
+      const original = el.textContent;
+      el.contentEditable = "true";
+      el.focus();
+      const done = async (save) => {
+        el.contentEditable = "false";
+        const text = el.textContent.trim();
+        if (!save || text === original || !text) { el.textContent = original; return; }
+        const out = await fetch("/api/utterance/edit", {
+          method: "POST",
+          body: JSON.stringify({ meeting_id: meetingId, idx, text }),
+        }).then((r) => r.json());
+        if (out.error) { alert(out.error); el.textContent = original; return; }
+        if (out.correction?.applied > 0)
+          showToast(`“${out.correction.from}” → “${out.correction.to}” · fixed ${out.correction.applied} other place${out.correction.applied === 1 ? "" : "s"}`, "Undo", async () => {
+            await fetch("/api/correction/undo", { method: "POST", body: JSON.stringify({ event_id: out.correction.eventId }) });
+            renderMeeting(meetingId);
+          });
+      };
+      el.addEventListener("blur", () => done(true), { once: true });
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); el.blur(); }
+        if (e.key === "Escape") { done(false); }
+      });
+    }));
+}
+
+function jumpToOffset(off) {
+  let best = null, bestD = Infinity;
+  main.querySelectorAll(".utt[data-off]").forEach((u) => {
+    const d = Math.abs(Number(u.dataset.off) - off);
+    if (d < bestD) { bestD = d; best = u; }
+  });
+  if (best) {
+    best.scrollIntoView({ behavior: "smooth", block: "center" });
+    best.classList.add("hl");
+    setTimeout(() => best.classList.remove("hl"), 2500);
+  }
+}
+
+/** SSE live transcript into the side panel. */
+function wireLiveFeed() {
+  const feed = $("#live-feed"), statusBox = $("#live-status");
+  if (!feed) return;
+  const partials = {};
+  evtSource?.close();
+  evtSource = new EventSource("/api/record/events");
+  evtSource.onmessage = (ev) => {
+    const e = JSON.parse(ev.data);
+    if (e.type === "status") {
+      if (statusBox) statusBox.textContent = e.message;
+    } else if (e.type === "partial") {
+      if (feed.querySelector(".empty")) feed.innerHTML = "";
+      let el = partials[e.speaker];
+      if (!el) {
+        feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}"><div class="who">${e.speaker}</div><div class="live-partial"></div></div>`);
+        el = partials[e.speaker] = feed.lastElementChild;
+      }
+      el.querySelector(".live-partial").textContent = e.text;
+      el.scrollIntoView({ block: "end" });
+    } else if (e.type === "final") {
+      if (feed.querySelector(".empty")) feed.innerHTML = "";
+      const el = partials[e.speaker];
+      if (el) { delete partials[e.speaker]; el.remove(); }
+      feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}"><div class="ts">${fmtTs(e.offsetS)}</div><div class="who">${e.speaker}</div><div>${esc(e.text)}</div></div>`);
+      feed.lastElementChild.scrollIntoView({ block: "end" });
+    }
+  };
+}
+
+/** Structured summary document; falls back to the flat one-paragraph summary. */
+function summaryCard(meeting) {
+  const s = meeting.summary_json;
+  if (!s) return meeting.summary ? `<div class="card" id="summary-card"><h2>Summary</h2><p>${esc(meeting.summary)}</p></div>` : "";
+  const bullet = (b, path) => `
+    <li><span class="sum-bullet ${b.grounded === false ? "ungrounded" : ""} ${b.edited ? "edited" : ""}" data-path="${path}" title="Click to edit">${esc(b.text)}</span>${
+      typeof b.offset_s === "number" ? `<button class="ts-chip" data-jump="${b.offset_s}">${fmtTs(b.offset_s)}</button>` : ""
+    }${b.grounded === false ? `<span class="unverified">unverified</span>` : ""}</li>`;
+  const section = (sec, i) => `
+    <div class="sum-sec"><h3>${esc(sec.title)}</h3>
+      ${sec.bullets?.length ? `<ul>${sec.bullets.map((b, j) => bullet(b, `${i}.${j}`)).join("")}</ul>` : ""}
+      ${(sec.subsections ?? []).map((sub, k) => `
+        <h4>${esc(sub.title)}</h4>
+        <ul>${sub.bullets.map((b, j) => bullet(b, `${i}.${k}.${j}`)).join("")}</ul>`).join("")}
+    </div>`;
+  return `<div class="card" id="summary-card"><h2>Summary</h2>
+    <p><span class="sum-bullet" data-path="overview" title="Click to edit">${esc(s.overview)}</span></p>
+    ${s.sections.map(section).join("")}
+    <div class="t-meta" style="margin-top:12px">Select any wrong word to correct it everywhere · click a bullet to edit it</div>
+  </div>`;
+}
+
+/** Timestamp chips jump to the transcript; bullets edit in place. */
+function wireSummary(meetingId) {
+  main.querySelectorAll("[data-jump]").forEach((chip) =>
+    chip.addEventListener("click", () => {
+      const off = Number(chip.dataset.jump);
+      let best = null, bestD = Infinity;
+      main.querySelectorAll(".utt[data-off]").forEach((u) => {
+        const d = Math.abs(Number(u.dataset.off) - off);
+        if (d < bestD) { bestD = d; best = u; }
+      });
+      if (best) {
+        best.scrollIntoView({ behavior: "smooth", block: "center" });
+        best.classList.add("hl");
+        setTimeout(() => best.classList.remove("hl"), 2500);
+      }
+    }));
+  main.querySelectorAll(".sum-bullet[data-path]").forEach((el) =>
+    el.addEventListener("click", function onClick() {
+      if (el.isContentEditable) return;
+      const original = el.textContent;
+      el.contentEditable = "true";
+      el.focus();
+      const done = async (save) => {
+        el.contentEditable = "false";
+        const text = el.textContent.trim();
+        if (!save || text === original.trim() || !text) { el.textContent = original; return; }
+        const out = await fetch("/api/summary/edit", {
+          method: "POST",
+          body: JSON.stringify({ meeting_id: meetingId, path: el.dataset.path, text }),
+        }).then((r) => r.json());
+        if (out.error) { alert(out.error); el.textContent = original; return; }
+        el.classList.add("edited");
+      };
+      el.addEventListener("blur", () => done(true), { once: true });
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); el.blur(); }
+        if (e.key === "Escape") { el.removeEventListener("blur", done); done(false); }
+      });
+    }));
+}
+
+/** Select wrong text → "Correct →" → preview every occurrence → apply everywhere. */
+let correctionMeetingId = null;
+function wireCorrections(meetingId) {
+  document.getElementById("correct-fab")?.remove();
+  const alreadyWired = correctionMeetingId !== null;
+  correctionMeetingId = meetingId;
+  if (alreadyWired) return;
+  main.addEventListener("mouseup", () => {
+    setTimeout(() => {
+      document.getElementById("correct-fab")?.remove();
+      if (!state.meetingId) return;
+      const sel = window.getSelection();
+      const text = sel?.toString().trim();
+      if (!text || text.length < 2 || text.length > 40 || text.includes("\n")) return;
+      if (sel.anchorNode?.parentElement?.isContentEditable) return;
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      document.getElementById("fix-pop")?.remove();
+      const pop = document.createElement("div");
+      pop.id = "fix-pop";
+      pop.innerHTML = `<span>Fix “${esc(text.length > 18 ? text.slice(0, 18) + "…" : text)}” →</span><input placeholder="correct spelling">`;
+      pop.style.left = `${rect.left + window.scrollX}px`;
+      pop.style.top = `${rect.bottom + window.scrollY + 6}px`;
+      document.body.appendChild(pop);
+      const inp = pop.querySelector("input");
+      pop.addEventListener("mousedown", (e) => { if (e.target !== inp) e.preventDefault(); });
+      inp.focus();
+      inp.addEventListener("keydown", async (e) => {
+        if (e.key === "Escape") return pop.remove();
+        if (e.key !== "Enter") return;
+        const to = inp.value.trim();
+        pop.remove();
+        if (!to || to === text) return;
+        const out = await fetch("/api/correction/auto", {
+          method: "POST",
+          body: JSON.stringify({ meeting_id: correctionMeetingId, from_text: text, to_text: to }),
+        }).then((r) => r.json());
+        if (out.error) return alert(out.error);
+        if (!out.applied) return showToast("Nothing to fix — no occurrences found");
+        const mid = correctionMeetingId;
+        showToast(`“${text}” → “${to}” · fixed ${out.applied} place${out.applied === 1 ? "" : "s"}`, "Undo", async () => {
+          await fetch("/api/correction/undo", { method: "POST", body: JSON.stringify({ event_id: out.eventId }) });
+          renderMeeting(mid);
+        });
+        renderMeeting(mid);
+      });
+      document.addEventListener("mousedown", function away(e) {
+        if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener("mousedown", away); }
+      });
+    }, 0);
+  });
+}
+
+const OCC_GROUPS = { summary: "Summary", claim: "Decisions & action items", utterance: "Transcript", node: "Graph", meeting_field: "Meeting fields" };
+
+function correctionModal(meetingId, from, to, occurrences) {
+  document.getElementById("correct-modal")?.remove();
+  const groups = {};
+  occurrences.forEach((o, i) => { (groups[o.target] ??= []).push({ ...o, i }); });
+  const modal = document.createElement("div");
+  modal.id = "correct-modal";
+  modal.innerHTML = `<div class="box">
+    <h2>Correct “${esc(from)}” → “${esc(to)}”</h2>
+    <div class="t-meta">Found in ${occurrences.length} place${occurrences.length === 1 ? "" : "s"}. Uncheck anything that shouldn't change. Similar spellings are unchecked — check them if they're the same mistake.</div>
+    ${Object.entries(OCC_GROUPS).filter(([k]) => groups[k]).map(([k, label]) => `
+      <div class="grp">${label}</div>
+      ${groups[k].map((o) => `
+        <label class="occ"><input type="checkbox" data-ref="${esc(o.ref)}" ${o.match === "exact" ? "checked" : ""}>
+          <span>${esc(o.snippet)}${o.match === "fuzzy" ? ` <span class="pill">similar: “${esc(o.token)}”</span>` : ""}</span>
+        </label>`).join("")}`).join("")}
+    <div class="actions">
+      <label style="font-size:12.5px"><input type="checkbox" id="persist-corr" checked> Remember for future meetings</label>
+      <span style="flex:1"></span>
+      <button class="copybtn" id="corr-cancel">Cancel</button>
+      <button class="copybtn" id="corr-apply" style="background:var(--ink);color:var(--bg)">Apply</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+  modal.querySelector("#corr-cancel").addEventListener("click", () => modal.remove());
+  modal.querySelector("#corr-apply").addEventListener("click", async () => {
+    const refs = [...modal.querySelectorAll("input[data-ref]:checked")].map((c) => c.dataset.ref);
+    if (!refs.length) { modal.remove(); return; }
+    const out = await fetch("/api/correction/apply", {
+      method: "POST",
+      body: JSON.stringify({
+        meeting_id: meetingId, from_text: from, to_text: to, refs,
+        persist_global: modal.querySelector("#persist-corr").checked,
+      }),
+    }).then((r) => r.json());
+    modal.remove();
+    if (out.error) { alert(out.error); return; }
+    renderMeeting(meetingId);
+  });
 }
 
 /**
@@ -737,16 +1825,6 @@ function followUpCard(meeting, claims) {
     <div class="draft" id="draft-text">${esc(draft)}</div>
     <button class="copybtn" onclick="navigator.clipboard.writeText(document.getElementById('draft-text').textContent).then(()=>{this.textContent='Copied ✓';setTimeout(()=>this.textContent='Copy draft',1500)})">Copy draft</button>
   </div>`;
-}
-
-function wireNotesAutosave(meetingId) {
-  const ta = $("#my-notes");
-  if (!ta) return;
-  let t;
-  ta.addEventListener("input", () => {
-    clearTimeout(t);
-    t = setTimeout(() => fetch("/api/notes", { method: "POST", body: JSON.stringify({ id: meetingId, notes: ta.value }) }), 600);
-  });
 }
 
 function wireMeetingLinks() {
@@ -901,22 +1979,23 @@ const recBtn = $("#rec");
 let recording = false, evtSource = null;
 
 recBtn.addEventListener("click", async () => {
+  try {
   if (!recording) {
     const title = prompt("Meeting title?", "Untitled meeting");
     if (title === null) return;
-    const r = await fetch("/api/record/start", { method: "POST", body: JSON.stringify({ title }) }).then((x) => x.json());
+    const resp = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
+    if (!resp.ok) throw new Error(`server responded ${resp.status}`);
+    const r = await resp.json();
     if (r.error) return alert(r.error);
     recording = true;
     recBtn.textContent = "■ Stop & stitch";
     recBtn.classList.add("recording");
-    renderLive(title);
+    state.meetingId = r.meetingId;
+    renderMeeting(r.meetingId, { live: true });
   } else {
     recBtn.textContent = "… stitching";
     recBtn.disabled = true;
-    const liveNotes = $("#live-notes")?.value ?? "";
     const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
-    if (r.meetingId && liveNotes.trim())
-      await fetch("/api/notes", { method: "POST", body: JSON.stringify({ id: r.meetingId, notes: liveNotes }) });
     recording = false;
     recBtn.disabled = false;
     recBtn.textContent = "● Record";
@@ -928,38 +2007,15 @@ recBtn.addEventListener("click", async () => {
     }
     else { alert(r.reason ?? "Nothing was captured."); render(); }
   }
+  } catch (err) {
+    recording = false;
+    recBtn.disabled = false;
+    recBtn.textContent = "● Record";
+    recBtn.classList.remove("recording");
+    console.error("record click failed:", err);
+    alert(`Recording failed: ${err.message}\n\nMake sure you opened http://localhost:4640 (served by \`npm run dev\`), not the file directly or another preview server.`);
+  }
 });
-
-function renderLive(title) {
-  main.innerHTML = `<h1>${esc(title)}</h1><div class="sub">Recording — no bot in your call. Words land as they're said.</div>
-    <div class="card"><h2>Your notes · type while you talk</h2>
-      <textarea class="notes" id="live-notes" placeholder="Jot anything — it's saved with the meeting when you stop."></textarea></div>
-    <div class="card"><h2>Live transcript</h2><div id="live-feed"><div class="empty">${SPOOL_SVG}listening…</div></div></div>
-    <div class="card"><h2>Capture status</h2><div id="live-status"></div></div>`;
-  const feed = $("#live-feed"), statusBox = $("#live-status");
-  const partials = {};
-  evtSource = new EventSource("/api/record/events");
-  evtSource.onmessage = (ev) => {
-    const e = JSON.parse(ev.data);
-    if (e.type === "status") {
-      statusBox.insertAdjacentHTML("beforeend", `<div class="live-status">${esc(e.message)}</div>`);
-    } else if (e.type === "partial") {
-      if (feed.querySelector(".empty")) feed.innerHTML = "";
-      let el = partials[e.speaker];
-      if (!el) {
-        feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}" id="p-${e.speaker}"><div class="who">${e.speaker}</div><div class="live-partial"></div></div>`);
-        el = partials[e.speaker] = feed.lastElementChild;
-      }
-      el.querySelector(".live-partial").textContent = e.text;
-    } else if (e.type === "final") {
-      if (feed.querySelector(".empty")) feed.innerHTML = "";
-      const el = partials[e.speaker];
-      if (el) { delete partials[e.speaker]; el.remove(); }
-      feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}"><div class="ts">${fmtTs(e.offsetS)}</div><div class="who">${e.speaker}</div><div>${esc(e.text)}</div></div>`);
-      window.scrollTo(0, document.body.scrollHeight);
-    }
-  };
-}
 
 let searchTimer;
 $("#search").addEventListener("input", (e) => {
