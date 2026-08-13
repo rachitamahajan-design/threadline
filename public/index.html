@@ -532,12 +532,74 @@ function needleRunTo(checkbox) {
       { duration: 320, delay: DUR * 0.68, easing: "ease-in-out" },
     );
     fa.onfinish = () => {
-      // the stitch stays — only the needle has left. Thread softens to rest.
-      p.animate([{ opacity: 0.75 }, { opacity: 0.45 }], { duration: 900, fill: "forwards" });
       flyer.remove();
       if (rest) rest.style.opacity = "1";
+      // the loose travel thread pulls tight into a neat whip stitch on the task
+      settleStitch(rail, checkbox);
+      p.animate([{ opacity: 0.75 }, { opacity: 0 }], { duration: 700, easing: "ease-out", fill: "forwards" })
+        .onfinish = () => svg.remove();
       done();
     };
+  });
+}
+
+/**
+ * The resting stitch: raised rounded arcs that dive into the page and
+ * re-emerge — a whip stitch laid along the completed task, with a soft
+ * shadow and a highlight so the thread has body.
+ */
+function settleStitch(rail, checkbox) {
+  const item = checkbox.closest(".todo");
+  const title = item?.querySelector(".t-task");
+  if (!title) return;
+  const rb = rail.getBoundingClientRect(), tb = title.getBoundingClientRect();
+  const y = tb.top - rb.top + tb.height * 0.62;
+  const x0 = tb.left - rb.left - 4;
+  const width = Math.min(tb.width * 0.7, 170);
+  const arcW = 30, gap = 7;
+  const n = Math.max(3, Math.floor(width / (arcW + gap)));
+
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("class", "weave-svg");
+  svg.setAttribute("data-claim", checkbox.dataset.id ?? "");
+  svg.setAttribute("width", rail.clientWidth); svg.setAttribute("height", rail.scrollHeight);
+
+  const layers = [
+    { dy: 1.4, w: 3.4, stroke: "rgb(30 40 90 / 0.14)" },   // soft shadow beneath
+    { dy: 0, w: 2.5, stroke: "var(--thread)" },            // the cord
+    { dy: -0.7, w: 0.9, stroke: "rgb(255 255 255 / 0.75)" } // sheen along the top
+  ];
+  const arcs = [];
+  for (let i = 0; i < n; i++) {
+    const ax = x0 + i * (arcW + gap);
+    // each arc rises, rolls over, and dives back in — slight lean like real stitching
+    const d = `M ${ax} ${y + 1} c 5 -13, ${arcW - 7} -14, ${arcW} -1`;
+    const g = document.createElementNS(ns, "g");
+    for (const l of layers) {
+      const p = document.createElementNS(ns, "path");
+      p.setAttribute("d", d);
+      p.setAttribute("fill", "none");
+      p.setAttribute("stroke", l.stroke);
+      p.setAttribute("stroke-width", l.w);
+      p.setAttribute("stroke-linecap", "round");
+      if (l.dy) p.setAttribute("transform", `translate(0 ${l.dy})`);
+      g.appendChild(p);
+    }
+    svg.appendChild(g);
+    arcs.push(g);
+  }
+  rail.appendChild(svg);
+  // arcs tighten into place one after another
+  arcs.forEach((g, i) => {
+    g.style.opacity = "0";
+    g.animate(
+      [
+        { opacity: 0, transform: `translateY(3px)` },
+        { opacity: 1, transform: "translateY(0)" },
+      ],
+      { duration: 300, delay: i * 130, easing: "cubic-bezier(.3,.7,.4,1)", fill: "forwards" },
+    );
   });
 }
 
