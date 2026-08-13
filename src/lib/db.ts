@@ -112,26 +112,168 @@ export function openDb(dir = "data"): DatabaseSync {
       participants TEXT
     );
   `);
+  // ── The brain: canonical entities ──────────────────────────────────────
+  // `nodes`/`edges` above are a DERIVED PROJECTION of what follows. Canonical
+  // truth lives here, so the same topic said two ways is one thing with two
+  // aliases — which is what makes "which meetings discussed X" answerable.
+  // Every alias and every mention carries the reason it was attached, so a
+  // merge is auditable the same way a claim is.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS entities (
+      id TEXT PRIMARY KEY,            -- 'topic:anz-pricing' — stable forever
+      kind TEXT NOT NULL,             -- person | topic
+      label TEXT NOT NULL,            -- best-known surface form
+      created_at INTEGER NOT NULL,
+      merged_into TEXT REFERENCES entities(id),  -- tombstone, never deleted
+      pinned INTEGER NOT NULL DEFAULT 0          -- a human ruled; don't override
+    );
+
+    -- Every surface form ever seen, with the matcher that attached it.
+    CREATE TABLE IF NOT EXISTS entity_aliases (
+      entity_id TEXT NOT NULL REFERENCES entities(id),
+      norm TEXT NOT NULL,             -- normalize(alias) — the join key
+      alias TEXT NOT NULL,            -- raw form as extracted
+      matcher TEXT NOT NULL,          -- alias | slug | lexical | manual | seed
+      score REAL NOT NULL,
+      reason TEXT NOT NULL,           -- receipt for THIS alias, as a sentence
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (entity_id, norm)
+    );
+
+    -- One row per (entity, meeting) sighting. Same gate vocabulary as claims.
+    CREATE TABLE IF NOT EXISTS entity_mentions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_id TEXT NOT NULL REFERENCES entities(id),
+      meeting_id TEXT NOT NULL REFERENCES meetings(id),
+      claim_id INTEGER,
+      surface TEXT NOT NULL,
+      offset_s REAL,                  -- receipt: where in the call
+      quote TEXT,                     -- receipt: what was actually said
+      source TEXT NOT NULL,           -- coverage_gap | decision | action | ngram | speaker
+      matcher TEXT NOT NULL,
+      score REAL NOT NULL,
+      gate TEXT NOT NULL DEFAULT 'passed',
+      gate_reason TEXT,
+      UNIQUE (entity_id, meeting_id, surface)
+    );
+
+    -- Retrieval chunks: the unit of search. A window of adjacent utterances
+    -- (so a question and its answer land in one chunk), plus one chunk per
+    -- passed claim and one per meeting summary. start_offset_s is the
+    -- deep-link anchor the old meeting-level search never had.
+    CREATE TABLE IF NOT EXISTS chunks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      meeting_id TEXT NOT NULL REFERENCES meetings(id),
+      kind TEXT NOT NULL,             -- window | claim | summary
+      src_id INTEGER NOT NULL,        -- window: first utterance idx; claim: claims.id; summary: 0
+      start_offset_s REAL NOT NULL,
+      end_offset_s REAL NOT NULL,
+      speakers TEXT,
+      text TEXT NOT NULL,
+      UNIQUE (meeting_id, kind, src_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_chunks_meeting ON chunks(meeting_id, kind);
+
+    -- External-content FTS over chunks: porter stemming ("migrations" now
+    -- matches "migration"), prefix index for typeahead, and triggers keep it
+    -- in sync so the duplicate-rows-on-reprocess bug class cannot recur.
+    CREATE VIRTUAL TABLE IF NOT EXISTS chunk_fts USING fts5(
+      text, speakers,
+      content='chunks', content_rowid='id',
+      tokenize='porter unicode61 remove_diacritics 2',
+      prefix='2 3 4'
+    );
+    CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
+      INSERT INTO chunk_fts(rowid, text, speakers) VALUES (new.id, new.text, new.speakers);
+    END;
+    CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
+      INSERT INTO chunk_fts(chunk_fts, rowid, text, speakers) VALUES('delete', old.id, old.text, old.speakers);
+    END;
+
+    CREATE INDEX IF NOT EXISTS idx_alias_norm       ON entity_aliases(norm);
+    CREATE INDEX IF NOT EXISTS idx_mentions_entity  ON entity_mentions(entity_id, meeting_id);
+    CREATE INDEX IF NOT EXISTS idx_mentions_meeting ON entity_mentions(meeting_id, gate);
+    CREATE INDEX IF NOT EXISTS idx_entities_kind    ON entities(kind, merged_into);
+
+    -- No index existed on any table before this line. These are the columns the
+    -- cross-meeting queries actually filter and join on.
+    CREATE INDEX IF NOT EXISTS idx_edges_dst        ON edges(dst, kind);
+    CREATE INDEX IF NOT EXISTS idx_edges_meeting    ON edges(meeting_id);
+    CREATE INDEX IF NOT EXISTS idx_claims_meeting   ON claims(meeting_id, kind, gate);
+    CREATE INDEX IF NOT EXISTS idx_claims_todos     ON claims(kind, gate, done);
+    CREATE INDEX IF NOT EXISTS idx_utt_speaker      ON utterances(speaker);
+    CREATE INDEX IF NOT EXISTS idx_runs_meeting     ON runs(meeting_id, id DESC);
+  `);
+
   // Additive migration: user-editable notes alongside the generated ones.
   try {
     db.exec("ALTER TABLE meetings ADD COLUMN my_notes TEXT");
   } catch {
     /* column already exists */
   }
+
+  migrateEdgesPk(db);
   return db;
+}
+
+/**
+ * The edges PK was (src,dst,kind), which excludes meeting_id — so a second
+ * meeting's evidence for the same pair was silently dropped by ON CONFLICT.
+ * That makes per-meeting evidence unrepresentable, which the brain needs.
+ *
+ * meeting_id becomes NOT NULL DEFAULT '' deliberately: the backlink query in
+ * server/index.ts compares `e2.meeting_id != e1.meeting_id`, and in SQL
+ * `NULL != x` is NULL, not true — so nullable meeting_ids silently drop rows.
+ */
+function migrateEdgesPk(d: DatabaseSync) {
+  const done = d.prepare("SELECT value FROM meta WHERE key = 'edges_pk_v2'").get();
+  if (done) return;
+  d.exec(`
+    BEGIN;
+    CREATE TABLE IF NOT EXISTS edges_v2 (
+      src TEXT NOT NULL REFERENCES nodes(id),
+      dst TEXT NOT NULL REFERENCES nodes(id),
+      kind TEXT NOT NULL,
+      meeting_id TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY (src, dst, kind, meeting_id)
+    );
+    INSERT OR IGNORE INTO edges_v2 (src, dst, kind, meeting_id)
+      SELECT src, dst, kind, COALESCE(meeting_id, '') FROM edges;
+    DROP TABLE edges;
+    ALTER TABLE edges_v2 RENAME TO edges;
+    CREATE INDEX IF NOT EXISTS idx_edges_dst     ON edges(dst, kind);
+    CREATE INDEX IF NOT EXISTS idx_edges_meeting ON edges(meeting_id);
+    INSERT INTO meta (key, value) VALUES ('edges_pk_v2', '1');
+    COMMIT;
+  `);
 }
 
 export function slug(kind: string, label: string) {
   return `${kind}:${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 }
 
-export function upsertNode(d: DatabaseSync, kind: string, label: string): string {
-  const id = kind === "meeting" ? label : slug(kind, label);
-  d.prepare("INSERT INTO nodes (id, kind, label) VALUES (?, ?, ?) ON CONFLICT(id) DO NOTHING").run(
-    id,
-    kind,
-    label,
-  );
+/**
+ * `canonical` is what lets a node's label improve over time. Without it the
+ * first casing ever seen wins forever, so a canonical entity could never
+ * correct the label of a node seeded from a worse surface form.
+ */
+export function upsertNode(
+  d: DatabaseSync,
+  kind: string,
+  label: string,
+  opts: { id?: string; canonical?: boolean } = {},
+): string {
+  const id = opts.id ?? (kind === "meeting" ? label : slug(kind, label));
+  d.prepare(
+    opts.canonical
+      ? "INSERT INTO nodes (id, kind, label) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET label = excluded.label"
+      : "INSERT INTO nodes (id, kind, label) VALUES (?, ?, ?) ON CONFLICT(id) DO NOTHING",
+  ).run(id, kind, label);
   return id;
 }
 

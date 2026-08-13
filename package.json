@@ -7,6 +7,10 @@
   "type": "module",
   "scripts": {
     "demo": "tsx src/cli/demo.ts",
+    "rebuild-brain": "tsx src/cli/rebuild-brain.ts",
+    "eval-brain": "tsx src/cli/eval-brain.ts",
+    "export": "tsx src/cli/export.ts",
+    "import": "tsx src/cli/import.ts",
     "dev": "tsx src/server/index.ts",
     "typecheck": "tsc --noEmit",
     "build:capture": "swiftc -O capture/ThreadlineCapture.swift -o capture/threadline-capture"
