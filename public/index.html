@@ -504,6 +504,7 @@
     </div>
     <div class="side-section">
       <button class="side-link" data-view="graph">✳&nbsp; Brain</button>
+      <button class="side-link" data-view="needle">🪡&nbsp; Needle</button>
     </div>
   </aside>
   <main id="main"></main>
@@ -601,8 +602,134 @@ async function render() {
   if (state.view === "today") return renderToday();
   if (state.view === "meetings") return renderMeetings();
   if (state.view === "graph") return renderGraph();
+  if (state.view === "needle") return renderNeedle();
   if (state.view === "project") return renderProject(state.projectId);
   if (state.view === "doc") return renderDoc(state.docId);
+}
+
+// ── Needle: a conversation threaded through every meeting ────────────────
+async function renderNeedle() {
+  const convs = await api("/api/needle/conversations");
+  const active = state.needleId ?? convs[0]?.id ?? null;
+  state.needleId = active;
+  main.innerHTML = `<h1>Needle</h1>
+    <div class="sub">Pull one thread through every meeting — answers only from what was actually said.</div>
+    <div style="display:grid;grid-template-columns:220px 1fr;gap:22px;align-items:start">
+      <div class="card" style="padding:14px">
+        <button class="copybtn" id="needle-new" style="width:100%;margin-bottom:10px">+ New thread</button>
+        ${convs.map((c) => `
+          <div class="needle-thread" data-conv="${c.id}" style="display:flex;align-items:center;gap:4px">
+            <button class="side-link ${c.id === active ? "active" : ""}" data-open="${c.id}" data-title="${esc(c.title)}"
+              title="Double-click to rename" style="font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              ${esc(c.title.slice(0, 26))}<span style="opacity:.5"> · ${c.n_messages}</span></button>
+            <button class="thread-del" data-del="${c.id}" title="Delete thread"
+              style="border:0;background:none;color:var(--ink-3);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:6px;visibility:hidden">×</button>
+          </div>`).join("") || `<div class="t-meta">No threads yet.</div>`}
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;min-height:480px">
+        <div id="needle-feed" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-bottom:14px"></div>
+        <form id="needle-form" style="display:flex;gap:10px;border-top:1px solid var(--line);padding-top:14px">
+          <input id="needle-input" placeholder="${active ? "Ask across every meeting…" : "Start a new thread first"}" ${active ? "" : "disabled"}
+            style="flex:1;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit">
+          <button class="copybtn" ${active ? "" : "disabled"}>Sew ↵</button>
+        </form>
+      </div>
+    </div>`;
+  $("#needle-new").addEventListener("click", async () => {
+    const { id } = await fetch("/api/needle/new", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then((r) => r.json());
+    state.needleId = id; renderNeedle();
+  });
+  main.querySelectorAll(".needle-thread").forEach((row) => {
+    row.addEventListener("mouseenter", () => { row.querySelector(".thread-del").style.visibility = "visible"; });
+    row.addEventListener("mouseleave", () => { row.querySelector(".thread-del").style.visibility = "hidden"; });
+  });
+  main.querySelectorAll("[data-open]").forEach((el) => {
+    // Single click re-renders the list, which would destroy this element
+    // before a double-click's second click lands — so: clicking the active
+    // thread is a no-op, and switching waits a beat for a possible dblclick.
+    let clickTimer = null;
+    el.addEventListener("click", () => {
+      const id = Number(el.dataset.open);
+      if (id === state.needleId) return; // already open — leave DOM alone for dblclick
+      clearTimeout(clickTimer);
+      clickTimer = setTimeout(() => { state.needleId = id; renderNeedle(); }, 260);
+    });
+    // Double-click: rename inline. Enter saves, Esc cancels.
+    el.addEventListener("dblclick", () => {
+      clearTimeout(clickTimer); // cancel the pending thread-switch
+      const id = Number(el.dataset.open);
+      const input = document.createElement("input");
+      input.value = el.dataset.title;
+      input.style.cssText = "width:100%;font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--thread);border-radius:8px;background:var(--surface);color:var(--ink)";
+      el.replaceWith(input);
+      input.focus(); input.select();
+      const commit = async () => {
+        const title = input.value.trim();
+        if (title && title !== el.dataset.title)
+          await fetch("/api/needle/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, title }) });
+        renderNeedle();
+      };
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") renderNeedle(); });
+      input.addEventListener("blur", commit);
+    });
+  });
+  main.querySelectorAll("[data-del]").forEach((el) =>
+    el.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = Number(el.dataset.del);
+      if (!confirm("Delete this thread and its messages?")) return;
+      await fetch("/api/needle/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      if (state.needleId === id) state.needleId = null;
+      renderNeedle();
+    }));
+  if (active) await needleLoad(active);
+  $("#needle-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = $("#needle-input"), text = input.value.trim();
+    if (!text || !state.needleId) return;
+    input.value = "";
+    needleBubble("user", text, null);
+    needleBubble("assistant", "…", { thinking: true });
+    const r = await fetch("/api/needle/send", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation_id: state.needleId, text }) }).then((x) => x.json());
+    const feed = $("#needle-feed");
+    feed.lastElementChild?.remove(); // the thinking bubble
+    needleBubble("assistant", r.content, r.payload);
+  });
+}
+
+async function needleLoad(id) {
+  const msgs = await api(`/api/needle/messages?id=${id}`);
+  const feed = $("#needle-feed");
+  feed.innerHTML = "";
+  for (const m of msgs) needleBubble(m.role, m.content, m.payload);
+}
+
+function needleBubble(role, content, payload) {
+  const feed = $("#needle-feed");
+  if (!feed) return;
+  const user = role === "user";
+  const points = payload?.points ?? [];
+  const chips = points.map((p) =>
+    `<span class="backlink" data-mid="${p.meeting_id}" data-off="${p.offset_s}" title="${esc(p.quote)}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span>`).join(" ");
+  const enumerated = payload?.mode === "enumerated"
+    ? points.map((p) => `<div class="claim" style="padding:4px 0">☐ ${esc(p.text)} <span class="backlink" data-mid="${p.meeting_id}" data-off="${p.offset_s}">${esc(p.meeting_title)}</span></div>`).join("")
+    : "";
+  const sugg = payload?.suggestions?.length
+    ? `<div class="t-meta" style="margin-top:6px">Threads I do have: ${payload.suggestions.map((s) => esc(s)).join(" · ")}</div>` : "";
+  feed.insertAdjacentHTML("beforeend", `
+    <div style="max-width:78%;align-self:${user ? "flex-end" : "flex-start"};
+                background:${user ? "var(--thread-soft)" : "var(--bg)"};
+                border:1px solid var(--line);border-radius:12px;padding:10px 14px">
+      <div style="font-size:14px;line-height:1.55">${payload?.thinking ? '<span class="t-meta">stitching…</span>' : esc(content)}</div>
+      ${enumerated}${!enumerated && chips ? `<div style="margin-top:8px">${chips}</div>` : ""}${sugg}
+      ${payload?.blocked ? `<div class="t-meta" style="margin-top:4px">${payload.blocked} ungrounded sentence(s) dropped</div>` : ""}
+    </div>`);
+  feed.querySelectorAll("[data-mid]").forEach((el) => {
+    if (el.dataset.wired) return; el.dataset.wired = "1";
+    el.addEventListener("click", () => { state.meetingId = el.dataset.mid; if (el.dataset.off) state.deepLink = Number(el.dataset.off); render(); window.scrollTo(0, 0); });
+  });
+  feed.scrollTop = feed.scrollHeight;
 }
 
 async function renderProject(id) {
@@ -2387,8 +2514,23 @@ async function runAsk(q) {
         <span class="backlink" data-mid="${p.meeting_id}" data-off="${p.offset_s}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span></div>`).join("")
       : `<div class="t-meta">Couldn't ground an answer — the receipts below are what matched.</div>`}
     ${r.blocked.length ? `<div class="t-meta" style="margin-top:8px">${r.blocked.length} sentence(s) dropped — no receipt in the retrieved snippets</div>` : ""}
+    ${r.summary || r.answer.length ? `<div style="margin-top:10px"><button class="copybtn" id="askcard-continue">Continue in Needle 🪡</button></div>` : ""}
   </div>`;
   wireMeetingLinks();
+  $("#askcard-continue")?.addEventListener("click", async () => {
+    const seed = {
+      question: q,
+      content: r.summary || (r.answer[0]?.text ?? ""),
+      payload: { mode: r.mode, exit: r.exit,
+        points: r.answer.map((p) => ({ text: p.text, quote: p.quote, meeting_id: p.meeting_id, meeting_title: p.meeting_title, offset_s: p.offset_s })),
+        chunk_ids: r.receipts.map((s) => s.chunk_id) },
+    };
+    const { id } = await fetch("/api/needle/new", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seed }) }).then((x) => x.json());
+    $("#search").value = "";
+    state.needleId = id; state.view = "needle"; state.meetingId = null;
+    render();
+  });
 }
 
 // ── Command palette: Spotlight for your meetings ─────────────────────────
@@ -2472,7 +2614,24 @@ palInput.addEventListener("keydown", async (e) => {
         <span class="backlink" data-pmid="${p.meeting_id}" data-poff="${p.offset_s}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span></div>`).join("")
       : `<div class="pal-hint">Nothing in your meetings supports an answer to that — refusing rather than guessing.</div>`}
     ${r.blocked.length ? `<div class="pal-hint">${r.blocked.length} sentence(s) dropped — no receipt in the notes</div>` : ""}
+    ${r.summary || r.answer.length ? `<div style="padding:6px 10px 4px"><button class="copybtn" id="pal-continue">Continue in Needle 🪡</button></div>` : ""}
   </div>`;
+  $("#pal-continue")?.addEventListener("click", async () => {
+    // Seed a thread with this exchange AND its retrieved chunks, so the first
+    // follow-up already has an evidence corpus to ground against.
+    const seed = {
+      question: q,
+      content: r.summary || (r.answer[0]?.text ?? ""),
+      payload: { mode: r.mode, exit: r.exit,
+        points: r.answer.map((p) => ({ text: p.text, quote: p.quote, meeting_id: p.meeting_id, meeting_title: p.meeting_title, offset_s: p.offset_s })),
+        chunk_ids: r.receipts.map((s) => s.chunk_id) },
+    };
+    const { id } = await fetch("/api/needle/new", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seed }) }).then((x) => x.json());
+    palClose();
+    state.needleId = id; state.view = "needle"; state.meetingId = null;
+    render();
+  });
   palBody.querySelectorAll("[data-pmid]").forEach((el) =>
     el.addEventListener("click", () => palGoto(el.dataset.pmid, el.dataset.poff)));
 });
