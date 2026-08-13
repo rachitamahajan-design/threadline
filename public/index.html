@@ -31,6 +31,10 @@
       --shadow: 0 1px 2px rgb(0 0 0 / 0.35);
     }
   }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) #side { background: color-mix(in srgb, #000 22%, #1b1a17); }
+    :root:not([data-theme="light"]) .side-link:hover { background: color-mix(in srgb, #000 35%, #1b1a17); }
+  }
   * { box-sizing: border-box; margin: 0; }
   body {
     background: var(--bg); color: var(--ink);
@@ -74,7 +78,9 @@
   #side {
     padding: 22px 14px; position: sticky; top: 61px; height: calc(100vh - 61px); overflow-y: auto;
     border-right: 1px solid var(--line);
+    background: color-mix(in srgb, #ded7cb 26%, var(--bg));
   }
+  .side-link:hover { background: color-mix(in srgb, #ded7cb 45%, var(--bg)); }
   .side-section { margin-bottom: 26px; }
   .side-head {
     font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-3);
@@ -125,7 +131,11 @@
   }
   .todo.done .receipt::before { background: var(--thread); }
   .stitch-connector { display: block; margin: -10px 0 -10px 56px; }
-  #needle-runner { position: absolute; left: 0; z-index: 3; pointer-events: none; transition: top 0.38s cubic-bezier(.5,0,.3,1); }
+  #rail-needle {
+    position: absolute; left: -10px; top: -4px; z-index: 3; pointer-events: none;
+    transition: top 0.42s cubic-bezier(.55,0,.25,1);
+    filter: drop-shadow(0 1px 1px rgb(40 40 60 / 0.18));
+  }
   .open-stitch { display: none; width: 18px; height: 1.5px; margin-left: 10px; vertical-align: 4px; border-radius: 2px;
     background: color-mix(in srgb, var(--thread) 50%, transparent); }
   .m-row:hover .open-stitch { display: inline-block; }
@@ -362,7 +372,7 @@ async function renderToday() {
       </div>
     </div>
     <svg class="stitch-connector" width="150" height="52" viewBox="0 0 150 52" aria-hidden="true">
-      <path id="conn-path" d="M10 2 C 26 34, 80 22, 118 48" fill="none" stroke="var(--thread)" stroke-width="2" stroke-dasharray="7 6" stroke-linecap="round" opacity="0.5"/>
+      <path id="conn-path" d="M10 2 C 26 34, 80 22, 118 48" fill="none" stroke="var(--thread)" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/>
       <g id="conn-needle" opacity="0">
         <path d="M-7 3 L 5 -3" stroke="#9aa1ad" stroke-width="2.6" stroke-linecap="round"/>
         <animateMotion id="conn-anim" dur="1.1s" begin="indefinite" fill="freeze" rotate="auto">
@@ -372,6 +382,17 @@ async function renderToday() {
     </svg>
     <div class="card"><h2>Loose ends · pulled from your meetings</h2>
       <div class="loose-rail" id="loose-rail">
+      <div id="rail-needle" aria-hidden="true">
+        <svg width="34" height="14" viewBox="0 0 34 14" fill="none">
+          <defs>
+            <linearGradient id="rn-g" x1="4" y1="7" x2="32" y2="7" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#9aa1ad"/><stop offset="0.5" stop-color="#e9ebee"/><stop offset="1" stop-color="#8d939e"/>
+            </linearGradient>
+          </defs>
+          <path d="M3.5 7 L 29 5.2 C 31.5 5.05, 32.5 6.1, 32.6 7 C 32.5 7.9, 31.5 8.95, 29 8.8 Z" fill="url(#rn-g)"/>
+          <ellipse cx="29.5" cy="7" rx="1" ry="1.7" fill="var(--surface)" stroke="#8d939e" stroke-width="0.5"/>
+        </svg>
+      </div>
       ${todos.length ? todos.map((t) => `
         <div class="todo ${t.done ? "done" : ""}">
           <input type="checkbox" ${t.done ? "checked" : ""} data-id="${t.id}">
@@ -414,27 +435,39 @@ async function renderToday() {
   wireMeetingLinks();
 }
 
-/** Slide a tiny silver needle down the loose-ends rail to the checked item. */
+/**
+ * The needle rests at the top of the thread. Completing a task sends it down
+ * the rail, then straight through the task's checkbox — its eyelet — and out.
+ */
 function needleRunTo(checkbox) {
   return new Promise((done) => {
     const rail = document.getElementById("loose-rail");
+    const needle = document.getElementById("rail-needle");
     const item = checkbox.closest(".todo");
-    if (!rail || !item) return done();
-    const needle = document.createElement("div");
-    needle.id = "needle-runner";
-    needle.innerHTML = `<svg width="16" height="10" viewBox="0 0 16 10"><path d="M1 8.5 L 13.5 2" stroke="#9aa1ad" stroke-width="2.4" stroke-linecap="round"/><circle cx="13.8" cy="1.9" r="1.3" fill="none" stroke="#9aa1ad" stroke-width="0.9"/></svg>`;
-    needle.style.top = "6px";
-    rail.appendChild(needle);
-    requestAnimationFrame(() => {
-      needle.style.top = item.offsetTop + 16 + "px";
-      setTimeout(() => {
-        item.animate(
-          [{ transform: "translateX(0)" }, { transform: "translateX(4px)" }, { transform: "translateX(0)" }],
-          { duration: 140, easing: "ease-out" },
-        );
-        setTimeout(() => { needle.remove(); done(); }, 160);
-      }, 390);
-    });
+    if (!rail || !needle || !item) return done();
+    // phase 1: travel down the thread to the task's row
+    needle.style.top = item.offsetTop + checkbox.offsetTop + 1 + "px";
+    setTimeout(() => {
+      // phase 2: pierce through the checkbox and out the other side
+      const through = checkbox.offsetLeft + 34;
+      const anim = needle.animate(
+        [
+          { transform: "translateX(0)", opacity: 1 },
+          { transform: `translateX(${through * 0.55}px)`, opacity: 1, offset: 0.55 },
+          { transform: `translateX(${through}px)`, opacity: 0 },
+        ],
+        { duration: 340, easing: "cubic-bezier(.5,0,.4,1)" },
+      );
+      checkbox.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }],
+        { duration: 220, delay: 120, easing: "ease-out" },
+      );
+      item.animate(
+        [{ transform: "translateX(0)" }, { transform: "translateX(3px)" }, { transform: "translateX(0)" }],
+        { duration: 160, delay: 160, easing: "ease-out" },
+      );
+      anim.onfinish = () => done();
+    }, 430);
   });
 }
 
