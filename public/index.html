@@ -4389,35 +4389,6 @@ async function openCompanion(title, manual) {
   pipWin.addEventListener("pagehide", () => { pipWin = null; });
 }
 
-/** live partial: updates the pill's sense of "now" inside the feed */
-function companionLine(speaker, text) {
-  const doc = pipWin?.document;
-  if (!doc) return;
-  const feed = doc.getElementById("feed");
-  let p = doc.getElementById("pp");
-  if (!p) {
-    p = doc.createElement("div");
-    p.id = "pp"; p.className = "u partial";
-    feed.appendChild(p);
-  }
-  p.innerHTML = `<b>${esc(speaker)}</b>${esc(text)}`;
-  feed.scrollTop = 1e9;
-}
-
-/** a finished line joins the transcript feed */
-function companionFinal(speaker, text) {
-  const doc = pipWin?.document;
-  if (!doc) return;
-  const feed = doc.getElementById("feed");
-  doc.getElementById("pp")?.remove();
-  const d = doc.createElement("div");
-  d.className = "u";
-  d.innerHTML = `<b>${esc(speaker)}</b>${esc(text)}`;
-  feed.appendChild(d);
-  while (feed.children.length > 60) feed.firstChild.remove();
-  feed.scrollTop = 1e9;
-}
-
 // ── Meeting-start notifications ─────────────────────────────────────────
 async function checkUpcomingNotifications() {
   if (Notification.permission !== "granted" || recording) return;
@@ -4459,39 +4430,6 @@ setInterval(async () => {
     render();
   }
 }, 4000);
-
-function renderLive(title) {
-  main.innerHTML = `<h1>${esc(title)}</h1><div class="sub">Recording — no bot in your call. Words land as they're said.</div>
-    <div class="card"><h2>Your notes · type while you talk</h2>
-      <textarea class="notes" id="live-notes" placeholder="Jot anything — it's saved with the meeting when you stop."></textarea></div>
-    <div class="card"><h2>Live transcript</h2><div id="live-feed"><div class="empty">${SPOOL_SVG}listening…</div></div></div>
-    <div class="card"><h2>Capture status</h2><div id="live-status"></div></div>`;
-  const feed = $("#live-feed"), statusBox = $("#live-status");
-  const partials = {};
-  evtSource = new EventSource("/api/record/events");
-  evtSource.onmessage = (ev) => {
-    const e = JSON.parse(ev.data);
-    if (e.type === "status") {
-      statusBox.insertAdjacentHTML("beforeend", `<div class="live-status">${esc(e.message)}</div>`);
-    } else if (e.type === "partial") {
-      if (feed.querySelector(".empty")) feed.innerHTML = "";
-      let el = partials[e.speaker];
-      if (!el) {
-        feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}" id="p-${e.speaker}"><div class="who">${e.speaker}</div><div class="live-partial"></div></div>`);
-        el = partials[e.speaker] = feed.lastElementChild;
-      }
-      el.querySelector(".live-partial").textContent = e.text;
-      companionLine(e.speaker, e.text);
-    } else if (e.type === "final") {
-      if (feed.querySelector(".empty")) feed.innerHTML = "";
-      const el = partials[e.speaker];
-      if (el) { delete partials[e.speaker]; el.remove(); }
-      feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}"><div class="ts">${fmtTs(e.offsetS)}</div><div class="who">${e.speaker}</div><div>${esc(e.text)}</div></div>`);
-      companionFinal(e.speaker, e.text);
-      window.scrollTo(0, document.body.scrollHeight);
-    }
-  };
-}
 
 // ── Hotkey guide (⌨ in the header): both record-from-anywhere methods ────
 $("#hotkey-help").addEventListener("click", async () => {

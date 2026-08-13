@@ -9,18 +9,6 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
-export type MeetingRow = {
-  id: string;
-  title: string;
-  mode: string;
-  started_at: number;
-  duration_s: number;
-  exit: string | null;
-  headline: string | null;
-  summary: string | null;
-  summary_json: string | null;
-};
-
 let db: DatabaseSync | null = null;
 
 export function openDb(dir = "data"): DatabaseSync {

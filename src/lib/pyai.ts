@@ -48,10 +48,6 @@ export function streamUrl(opts: { sampleRate?: number; endpointingMs?: number } 
   return `${WS_BASE}/audio/transcriptions/stream?${q}`;
 }
 
-/** Browsers can't set headers on a WebSocket, so the key rides as a subprotocol. */
-export function streamProtocols(apiKey: string) {
-  return [`pyai-key.${apiKey}`];
-}
 
 function headers(apiKey: string) {
   return { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
@@ -112,13 +108,6 @@ export type RecapCall = {
   error?: string | null;
 };
 
-/** Org-wide switch. Recaps sit in `pending` forever until this is on. */
-export async function enableRecap(apiKey: string) {
-  return call(apiKey, "/recap/config", {
-    method: "PUT",
-    body: JSON.stringify({ enabled: true }),
-  });
-}
 
 export async function triggerRecap(
   apiKey: string,

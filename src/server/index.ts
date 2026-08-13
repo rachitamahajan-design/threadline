@@ -277,27 +277,6 @@ const api: Record<string, Handler> = {
     return "error" in r ? r : { action: "started", recording: true, ...r };
   },
 
-  /** Mid-meeting notes: extract from the transcript so far, keep recording. */
-  async "POST /api/record/notes"() {
-    if (!live) return { error: "not recording" };
-    const utts = live.snapshot();
-    if (utts.length < 1) return { error: "Not enough speech yet — give it a minute." };
-    const cid = `${live.meetingId}-sofar-${Date.now()}`;
-    const durationS = Math.max(...utts.map((u) => u.offset_s + u.duration_s));
-    try {
-      const { triggerRecap, awaitRecap } = await import("../lib/pyai.js");
-      await triggerRecap(apiKey, cid, utts, durationS);
-      const r = await awaitRecap(apiKey, cid, 30_000);
-      if (r.status !== "complete" || !r.record) throw new Error(r.error ?? "recap incomplete");
-      return { record: r.record, lines: utts.length };
-    } catch (e) {
-      const { hasOpenAI, openaiExtract } = await import("../lib/openai.js");
-      if (hasOpenAI()) {
-        try { return { record: await openaiExtract(utts), lines: utts.length, engine: "fallback" }; } catch {}
-      }
-      return { error: `Notes engine unavailable: ${e instanceof Error ? e.message : e}` };
-    }
-  },
 
   /** Mid-recording metadata: mode and topic, applied at stop. */
   "POST /api/record/meta"(p, body) {
@@ -557,11 +536,6 @@ const api: Record<string, Handler> = {
       .all();
   },
 
-  "POST /api/person"(p, body) {
-    const { name, team, notes } = (body ?? {}) as { name?: string; team?: string; notes?: string };
-    if (!name?.trim()) return { error: "missing name" };
-    return upsertPerson(name.trim(), team, notes);
-  },
 
   "POST /api/project/person"(p, body) {
     const { project_id, person_id, name, team, remove } = (body ?? {}) as {
@@ -910,14 +884,7 @@ const api: Record<string, Handler> = {
     });
   },
 
-  "GET /api/corrections"() {
-    return db.prepare(`SELECT * FROM corrections ORDER BY created_at DESC`).all();
-  },
 
-  /** Live transcript so far — lets Enhance run mid-recording. */
-  "GET /api/record/transcript"() {
-    return { utterances: live?.transcript ?? [], recording: !!live, meetingId: live?.meetingId ?? null };
-  },
 
   /** Ask-me chat: grounded answers; may rewrite the notes when asked. */
   async "POST /api/chat"(p, body) {
@@ -997,13 +964,7 @@ const api: Record<string, Handler> = {
     return { ok: true, correction };
   },
 
-  "POST /api/correction/delete"(p, body) {
-    const { id } = (body ?? {}) as { id?: number };
-    if (!id) return { error: "missing id" };
-    db.prepare(`DELETE FROM corrections WHERE id = ?`).run(id);
-    return { ok: true };
-  },
-
+  
   // ── Grounded notes & handoffs ──────────────────────────────────────────
   // The outline auto-generates; handoffs never do. Everything below returns
   // segment ids so the UI can point at the transcript line behind each claim.
