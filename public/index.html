@@ -194,6 +194,16 @@
   }
   #graph-tip b { display: block; font-weight: 650; font-size: 13px; letter-spacing: -0.01em; }
   #graph-tip span { color: var(--ink-3); font-size: 11.5px; }
+  #graph-ctl {
+    position: absolute; right: 14px; bottom: 14px; z-index: 2;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  #graph-ctl button {
+    width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink-2); font-size: 15px; font-weight: 600;
+    cursor: pointer; box-shadow: var(--shadow); line-height: 1;
+  }
+  #graph-ctl button:hover { border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); color: var(--thread); }
   #graph-panel {
     position: absolute; right: 0; top: 0; bottom: 0; width: 372px; z-index: 2;
     background: var(--surface); border-left: 1px solid var(--line);
@@ -2208,6 +2218,11 @@ async function renderGraph() {
     <div class="card" id="graph-wrap">
       <canvas id="graph"></canvas>
       <div id="graph-tip"></div>
+      <div id="graph-ctl">
+        <button id="gz-in" title="Zoom in">+</button>
+        <button id="gz-out" title="Zoom out">−</button>
+        <button id="gz-spin" title="Pause / play rotation">⏸</button>
+      </div>
       <aside id="graph-panel"></aside>
     </div>
     <div class="legend">
@@ -2383,7 +2398,7 @@ async function renderGraph() {
 
   (function loop() {
     if (stopped || !document.body.contains(canvas)) { stopped = true; return; }
-    if (autoSpin && !dragging && !selected) angA += 0.0016;
+    if (autoSpin && !dragging) angA += 0.0016;
     draw();
     requestAnimationFrame(loop);
   })();
@@ -2427,13 +2442,20 @@ async function renderGraph() {
   });
   canvas.addEventListener("mouseleave", () => { hover = null; tip.style.opacity = "0"; dragging = false; });
   window.addEventListener("mouseup", () => { dragging = false; });
+  const spinBtn = $("#gz-spin");
+  const setSpin = (on) => { autoSpin = on; spinBtn.textContent = on ? "⏸" : "▶"; };
   canvas.addEventListener("click", async (ev) => {
     if (moved > 6) return; // that was a rotate, not a click
     const r = canvas.getBoundingClientRect();
     const n = hitAt(ev.clientX - r.left, ev.clientY - r.top);
-    if (n?.kind === "meeting") { selected = n.id; await openPanel(n.id); }
-    else { selected = null; panel.classList.remove("open"); }
+    if (n?.kind === "meeting") { selected = n.id; await openPanel(n.id); return; }
+    if (n) return; // person/topic: hover already tells the story
+    if (selected) { selected = null; panel.classList.remove("open"); return; }
+    setSpin(!autoSpin); // empty cloth: pause / resume the slow turn
   });
+  $("#gz-in").addEventListener("click", () => { zoom = Math.min(2, zoom * 1.18); });
+  $("#gz-out").addEventListener("click", () => { zoom = Math.max(0.55, zoom * 0.85); });
+  spinBtn.addEventListener("click", () => setSpin(!autoSpin));
   canvas.addEventListener("wheel", (ev) => {
     ev.preventDefault();
     zoom = Math.max(0.55, Math.min(2, zoom * (ev.deltaY > 0 ? 0.94 : 1.06)));
