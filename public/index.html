@@ -572,18 +572,10 @@ function settleStitch(rail, checkbox) {
     { dy: 0, w: 2.4, stroke: "var(--thread)" },             // the cord
     { dy: -0.6, w: 0.8, stroke: "rgb(255 255 255 / 0.75)" } // sheen along the top
   ];
-  // whip stitches wrapped around the eyelet rim, going over the top
-  const angles = [-155, -115, -75, -35];
   const arcs = [];
-  for (const deg of angles) {
-    const th = (deg * Math.PI) / 180;
-    const u = [Math.cos(th), Math.sin(th)];          // radial (outward)
-    const t = [-Math.sin(th), Math.cos(th)];         // tangent
-    const px = (ru, rt) => `${cx + u[0] * ru + t[0] * rt} ${cy + u[1] * ru + t[1] * rt}`;
-    // from just outside the rim, arching over it, diving inside the hole
-    const d = `M ${px(r + 6, -4.5)} Q ${px(r + 10.5, 0)} ${px(r - 4.5, 4)}`;
+  const addPath = (d, ls) => {
     const g = document.createElementNS(ns, "g");
-    for (const l of layers) {
+    for (const l of ls) {
       const p = document.createElementNS(ns, "path");
       p.setAttribute("d", d);
       p.setAttribute("fill", "none");
@@ -595,6 +587,26 @@ function settleStitch(rail, checkbox) {
     }
     svg.appendChild(g);
     arcs.push(g);
+    return g;
+  };
+  // ONE stitch over the rim, upper-left, diving into the hole
+  {
+    const th = (-125 * Math.PI) / 180;
+    const u = [Math.cos(th), Math.sin(th)];
+    const t = [-Math.sin(th), Math.cos(th)];
+    const px = (ru, rt) => `${cx + u[0] * ru + t[0] * rt} ${cy + u[1] * ru + t[1] * rt}`;
+    addPath(`M ${px(r + 7, -5)} Q ${px(r + 11, 0)} ${px(r - 4.5, 4.5)}`, layers);
+  }
+  // and its loose thread end, draped beside the eyelet
+  {
+    const sx = cx - r - 3, sy = cy - r + 2;
+    const d = `M ${sx + 4} ${sy - 2}
+      C ${sx - 8} ${sy + 4}, ${sx + 2} ${sy + 14}, ${sx - 6} ${sy + 20}
+      S ${sx - 16} ${sy + 26}, ${sx - 10} ${sy + 31}`;
+    addPath(d, [
+      { dy: 1, w: 2.6, stroke: "rgb(30 40 90 / 0.10)" },
+      { dy: 0, w: 1.8, stroke: "var(--thread)" },
+    ]).style.opacity = "0.8";
   }
   rail.appendChild(svg);
   // arcs tighten into place one after another
