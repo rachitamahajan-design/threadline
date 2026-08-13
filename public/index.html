@@ -156,6 +156,29 @@
   .legend .l-t::before { width: 7px; height: 7px; border-radius: 50%; background: var(--silver-deep); }
 
   .empty { color: var(--ink-3); text-align: center; padding: 44px 0; }
+  /* two-column Today */
+  .cols { display: grid; grid-template-columns: 1fr 264px; gap: 40px; align-items: start; }
+  @media (max-width: 800px) { .cols { grid-template-columns: 1fr; } }
+  .rail h2, .section h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3);
+    margin: 26px 0 12px; font-weight: 600;
+  }
+  .rail h2:first-child, .section > h2:first-child { margin-top: 0; }
+  .attn { padding: 12px 0; cursor: pointer; }
+  .attn + .attn { border-top: 1px solid var(--line); }
+  .attn h3 { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  .attn:hover h3 { color: var(--thread); }
+  .rail-item { padding: 8px 0; font-size: 13.5px; color: var(--ink-2); }
+  .rail-item b { display: block; font-size: 14px; }
+  .memo { border-left: 2px solid var(--thread); padding: 2px 0 2px 14px; margin: 8px 0; }
+  .memo .q { font-style: italic; color: var(--ink-2); }
+  /* meeting page as one document */
+  .doc { max-width: 680px; }
+  .doc h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); font-weight: 600; margin: 30px 0 10px; }
+  .doc .flow { border-left: 2px solid var(--thread-weak); padding-left: 18px; }
+  .timer { font-variant-numeric: tabular-nums; color: var(--block); font-weight: 600; }
+  details.debug { margin-top: 20px; }
+  details.debug summary { color: var(--ink-3); font-size: 12px; cursor: pointer; }
   .exit-line { font-size: 13px; color: var(--ink-2); margin-top: 12px; }
   b { color: var(--ink); font-weight: 600; }
   textarea.notes {
@@ -246,24 +269,59 @@ async function renderToday() {
       <div class="stat"><b>${stats?.open_actions ?? 0}</b><span>loose ends</span></div>
       <div class="stat"><b>${stats?.decisions ?? 0}</b><span>decisions</span></div>
     </div>
-    <div class="card"><h2>Loose ends</h2>
-      ${todos.length ? `<div class="threaded">` + todos.map((t) => `
-        <div class="todo ${t.done ? "done" : ""}">
-          <input type="checkbox" ${t.done ? "checked" : ""} data-id="${t.id}">
-          <div style="flex:1">
-            <div class="t-task">${esc(t.body.task)}</div>
-            <div class="t-meta">${t.body.owner ? esc(t.body.owner) : "unassigned"}${t.body.due ? ` · due ${esc(t.body.due)}` : ""}</div>
-            <div class="receipt" data-mid="${t.meeting_id}" data-q="${esc(t.body.task)}">"${esc(t.quote ?? t.body.task)}" — ${esc(t.meeting_title)}</div>
-          </div>
-        </div>`).join("") + `</div>` : `<div class="empty">Nothing yet. Run <code>npm run demo</code> or hit ● Record.</div>`}
-    </div>
-    <div class="card"><h2>Recent meetings</h2>${meetings.map(meetingRow).join("")}</div>`;
+    <div class="cols">
+      <div class="section">
+        <h2>What needs your attention</h2>
+        ${open.length ? `<div class="threaded">` + open.slice(0, 5).map((t) => `
+          <div class="attn" data-mid="${t.meeting_id}" data-q="${esc(t.body.task)}">
+            <h3>${esc(t.body.task)}</h3>
+            <div class="t-meta">${esc(t.meeting_title)} · ${fmtDate(t.started_at)}</div>
+            <div class="t-meta">${t.body.owner ? `Assigned to ${esc(t.body.owner)}` : "Unassigned"}${t.body.due ? ` · due ${esc(t.body.due)}` : ""}</div>
+          </div>`).join("") + `</div>` : `<div class="empty">All clear. Run <code>npm run demo</code> or hit ● Record.</div>`}
+
+        <h2>Loose ends</h2>
+        ${todos.length ? todos.map((t) => `
+          <div class="todo ${t.done ? "done" : ""}">
+            <input type="checkbox" ${t.done ? "checked" : ""} data-id="${t.id}">
+            <div style="flex:1">
+              <div class="t-task">${esc(t.body.task)}</div>
+              <div class="receipt" data-mid="${t.meeting_id}" data-q="${esc(t.body.task)}">"${esc(t.quote ?? t.body.task)}" — ${esc(t.meeting_title)}</div>
+            </div>
+          </div>`).join("") : ""}
+
+        <h2>Recent meetings</h2>
+        ${meetings.map(meetingRow).join("")}
+      </div>
+      <div class="rail">${railHtml(todos, meetings)}</div>
+    </div>`;
   main.querySelectorAll(".todo input").forEach((cb) =>
     cb.addEventListener("change", async () => {
       await fetch("/api/todo", { method: "POST", body: JSON.stringify({ id: Number(cb.dataset.id), done: cb.checked }) });
       render();
     }));
   wireMeetingLinks();
+}
+
+/** Right rail: pre-meeting memory for the person you owe/are owed the most. */
+function railHtml(todos, meetings) {
+  const open = todos.filter((t) => !t.done && t.body.owner);
+  const byPerson = {};
+  for (const t of open) (byPerson[t.body.owner] ??= []).push(t);
+  const top = Object.entries(byPerson).sort((a, b) => b[1].length - a[1].length)[0];
+  let memory = "";
+  if (top) {
+    const [person, items] = top;
+    const lastMeeting = meetings.find((m) => (m.participants ?? "").includes(person));
+    memory = `
+      <h2>Before you next talk to ${esc(person)}</h2>
+      ${lastMeeting ? `<div class="rail-item">Last spoke — <b>${esc(lastMeeting.title)}</b>${fmtDate(lastMeeting.started_at)}</div>` : ""}
+      <div class="rail-item">Still open:</div>
+      ${items.slice(0, 3).map((t) => `<div class="memo"><b style="font-size:13.5px">${esc(t.body.task)}</b>${t.body.due ? `<span class="t-meta"> due ${esc(t.body.due)}</span>` : ""}</div>`).join("")}
+      ${items[0]?.quote ? `<div class="memo q">"${esc(items[0].quote)}"</div>` : ""}`;
+  }
+  return `${memory}
+    <h2>Pick up where you left off</h2>
+    ${meetings.slice(0, 3).map((m) => `<div class="rail-item" style="cursor:pointer" data-mid="${m.id}"><b>${esc(m.title)}</b>${fmtDate(m.started_at)}${m.n_actions ? ` · ${m.n_actions} open` : ""}</div>`).join("")}`;
 }
 
 function meetingRow(m) {
@@ -295,40 +353,44 @@ async function renderMeeting(id) {
   const byKind = (k) => claims.filter((c) => c.kind === k && c.gate === "passed");
   const blocked = claims.filter((c) => c.gate === "blocked");
   const hl = state.highlight;
+  const people = [...new Set(utterances.map((u) => u.speaker).filter(Boolean))];
   main.innerHTML = `
+    <div class="doc">
     <h1>${esc(meeting.title)}</h1>
-    <div class="sub">${fmtDate(meeting.started_at)} · ${Math.round(meeting.duration_s / 60)} min · ${esc(meeting.mode)}</div>
-    ${meeting.summary ? `<div class="card"><h2>Summary</h2><p>${esc(meeting.summary)}</p></div>` : ""}
-    <div class="card"><h2>Your notes</h2>
-      <textarea class="notes" id="my-notes" placeholder="Type anything — your words live alongside the generated notes.">${esc(meeting.my_notes ?? "")}</textarea>
-    </div>
-    ${followUpCard(meeting, claims)}
-    ${byKind("decision").length ? `<div class="card threadmark"><h2>Decisions</h2>${byKind("decision").map((c, i) => `
+    <div class="sub">${fmtDate(meeting.started_at)} · ${Math.max(1, Math.round(meeting.duration_s / 60))} min${people.length ? ` · ${people.map(esc).join(" · ")}` : ""}</div>
+    ${meeting.summary ? `<h2>Summary</h2><p>${esc(meeting.summary)}</p>` : ""}
+    <div class="flow">
+    ${byKind("decision").length ? `<h2>Decisions</h2>${byKind("decision").map((c, i) => `
       <div class="claim">${esc(c.body.text)}
         <button class="copybtn" style="margin:0 0 0 8px;padding:1px 10px" data-share-decision="${i}">Share</button>
-      </div>`).join("")}</div>` : ""}
-    ${byKind("action_item").length ? `<div class="card threadmark"><h2>Action items</h2>${byKind("action_item").map((c) => `
-      <div class="claim"><b>${esc(c.body.owner ?? "?")}</b> — ${esc(c.body.task)}${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""}</div>`).join("")}</div>` : ""}
-    ${byKind("risk").length ? `<div class="card threadmark"><h2>Risks</h2>${byKind("risk").map((c) => `
-      <div class="claim">${esc(c.body.category)} · <span class="t-meta">"${esc(c.body.quote)}"</span></div>`).join("")}</div>` : ""}
-    ${backlinks.length ? `<div class="card"><h2>Connected meetings</h2>${backlinks.map((b) => `
-      <span class="backlink" data-mid="${b.id}">${esc(b.title)} <span style="opacity:.6">· ${esc(b.via)}</span></span>`).join("")}</div>` : ""}
-    <div class="card"><h2>Transcript</h2>
+      </div>`).join("")}` : ""}
+    ${byKind("action_item").length ? `<h2>Action items</h2>${byKind("action_item").map((c) => `
+      <div class="claim"><b>${esc(c.body.owner ?? "?")}</b> — ${esc(c.body.task)}${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""}</div>`).join("")}` : ""}
+    ${byKind("risk").length ? `<h2>Risks</h2>${byKind("risk").map((c) => `
+      <div class="claim">${esc(c.body.category)} · <span class="t-meta">"${esc(c.body.quote)}"</span></div>`).join("")}` : ""}
+    </div>
+    <h2>My notes</h2>
+    <textarea class="notes" id="my-notes" placeholder="Type anything — your words live alongside the generated notes.">${esc(meeting.my_notes ?? "")}</textarea>
+    ${followUpCard(meeting, claims)}
+    ${backlinks.length ? `<h2>Related</h2>${backlinks.map((b) => `
+      <span class="backlink" data-mid="${b.id}">${esc(b.title)} <span style="opacity:.6">· ${esc(b.via)}</span></span>`).join("")}` : ""}
+    <h2>Transcript</h2>
       ${utterances.map((u) => `
         <div class="utt ${hl && u.text.toLowerCase().includes(hl.toLowerCase().slice(0, 24)) ? "hl" : ""}">
           <div class="ts">${fmtTs(u.offset_s)}</div>
           <div class="who">${esc(u.speaker ?? u.speaker_role)}</div>
           <div>${esc(u.text)}</div>
         </div>`).join("")}
-    </div>
-    <div class="exit-line">Run exit: <span class="pill ${meeting.exit === "shipped" ? "pass" : "block"}">${esc(meeting.exit ?? "?")}</span>
+    <details class="debug"><summary>Diagnostics</summary>
+      <div class="exit-line">Run exit: ${esc(meeting.exit ?? "?")} ·
       ${claims.filter((c) => c.gate === "passed").length} claims passed ·
-      ${blocked.length} blocked by gates${blocked.length ? ` (${blocked.map((b) => esc(b.gate_reason)).join("; ")})` : ""}</div>`;
+      ${blocked.length} blocked by gates${blocked.length ? ` (${blocked.map((b) => esc(b.gate_reason)).join("; ")})` : ""}</div>
+    </details>
+    </div>`;
   state.highlight = null;
   wireMeetingLinks();
   wireNotesAutosave(id);
   const decisions = byKind("decision");
-  const people = [...new Set(utterances.map((u) => u.speaker).filter(Boolean))];
   main.querySelectorAll("[data-share-decision]").forEach((btn) =>
     btn.addEventListener("click", () => {
       const d = decisions[Number(btn.dataset.shareDecision)];
@@ -350,10 +412,9 @@ function followUpCard(meeting, claims) {
     `Full notes attached. Shout if I missed anything.`,
   ];
   const draft = lines.join("\n");
-  return `<div class="card"><h2>Follow-up draft · built only from what was said</h2>
+  return `<h2>Follow-up draft</h2>
     <div class="draft" id="draft-text">${esc(draft)}</div>
-    <button class="copybtn" onclick="navigator.clipboard.writeText(document.getElementById('draft-text').textContent).then(()=>{this.textContent='Copied ✓';setTimeout(()=>this.textContent='Copy draft',1500)})">Copy draft</button>
-  </div>`;
+    <button class="copybtn" onclick="navigator.clipboard.writeText(document.getElementById('draft-text').textContent).then(()=>{this.textContent='Copied ✓';setTimeout(()=>this.textContent='Copy draft',1500)})">Copy draft</button>`;
 }
 
 /** A decision becomes a clean 1200x630 share card. Rendered locally. */
@@ -582,11 +643,19 @@ recBtn.addEventListener("click", async () => {
 });
 
 function renderLive(title) {
-  main.innerHTML = `<h1>${NEEDLE}${esc(title)}</h1><div class="sub">Recording — no bot in your call. Words land as they're said.</div>
-    <div class="card"><h2>Your notes</h2>
-      <textarea class="notes" id="live-notes" placeholder="Type while you talk — saved with the meeting."></textarea></div>
-    <div class="card"><h2>Live transcript</h2><div id="live-feed"><div class="empty">listening…</div></div></div>
-    <div class="card"><h2>Capture status</h2><div id="live-status"></div></div>`;
+  main.innerHTML = `<div class="doc"><h1>${NEEDLE}${esc(title)}</h1>
+    <div class="sub"><span class="timer" id="rec-timer">00:00</span> · Recording — no bot in your call</div>
+    <h2>My notes</h2>
+    <textarea class="notes" id="live-notes" style="min-height:200px" placeholder="Type while you talk — Threadline is quietly capturing everything."></textarea>
+    <h2>Live transcript</h2><div id="live-feed"><div class="empty">listening…</div></div>
+    <details class="debug"><summary>Capture diagnostics</summary><div id="live-status"></div></details></div>`;
+  const t0 = Date.now();
+  const timerEl = $("#rec-timer");
+  const timerIv = setInterval(() => {
+    if (!document.body.contains(timerEl)) return clearInterval(timerIv);
+    const s = Math.floor((Date.now() - t0) / 1000);
+    timerEl.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  }, 1000);
   const feed = $("#live-feed"), statusBox = $("#live-status");
   const partials = {};
   evtSource = new EventSource("/api/record/events");
