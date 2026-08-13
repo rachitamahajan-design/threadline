@@ -25,9 +25,14 @@ func toggle() {
     }.resume()
 }
 
-guard AXIsProcessTrusted() || NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: { _ in }) != nil else {
-    status("no accessibility permission — grant it in System Settings → Privacy & Security → Accessibility")
-    exit(1)
+// addGlobalMonitorForEvents "succeeds" even without permission — it just
+// never receives events — so the only honest check is AXIsProcessTrusted.
+// Ask with the system prompt so granting is one click, then say plainly
+// whether we can actually hear the keyboard.
+let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+let trusted = AXIsProcessTrustedWithOptions([promptKey: true] as CFDictionary)
+if !trusted {
+    status("NO ACCESSIBILITY PERMISSION — double-Fn will not work. Grant it to the app that runs `npm run dev` in System Settings → Privacy & Security → Accessibility, then restart the server.")
 }
 
 NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { e in
@@ -44,7 +49,7 @@ NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { e in
     }
 }
 
-status("listening for double-Fn")
+status(trusted ? "listening for double-Fn" : "started WITHOUT permission — taps will not be heard until Accessibility is granted and the server restarts")
 // Parent closes stdin to stop us.
 DispatchQueue.global().async {
     _ = try? FileHandle.standardInput.readToEnd()
