@@ -101,7 +101,21 @@
     border-left: 3px solid var(--thread); padding: 3px 10px; border-radius: 3px;
     background: color-mix(in srgb, var(--thread) 9%, transparent);
   }
-  .receipt::before { content: "🪡 "; }
+  .stats { display: flex; gap: 34px; margin: 0 0 26px; }
+  .stat b { display: block; font-size: 24px; font-weight: 800; color: var(--ink); }
+  .stat span { font-size: 13px; color: var(--ink-3); font-weight: 700; }
+  textarea.notes {
+    width: 100%; min-height: 130px; resize: vertical; font: inherit; color: var(--ink);
+    background: color-mix(in srgb, var(--thread) 4%, transparent);
+    border: 2px dashed var(--line); border-radius: 10px; padding: 12px 14px; outline: none;
+  }
+  textarea.notes:focus { border-color: var(--thread); }
+  .draft { white-space: pre-wrap; font-size: 14.5px; background: color-mix(in srgb, var(--thread) 5%, transparent); border-radius: 10px; padding: 14px 16px; }
+  .copybtn {
+    border: 2px solid var(--ink); background: var(--surface); font: inherit; font-weight: 700; font-size: 13px;
+    padding: 4px 14px; border-radius: 99px; cursor: pointer; margin-top: 10px; box-shadow: 2px 2px 0 var(--ink);
+  }
+  .copybtn:active { translate: 2px 2px; box-shadow: none; }
   .receipt:hover { background: color-mix(in srgb, var(--thread) 18%, transparent); }
 
   .pill {
@@ -196,12 +210,24 @@ async function render() {
   if (state.view === "graph") return renderGraph();
 }
 
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
+
 async function renderToday() {
-  const { todos, meetings } = await api("/api/today");
+  const { todos, meetings, stats } = await api("/api/today");
   const open = todos.filter((t) => !t.done);
+  const mins = Math.round((stats?.seconds ?? 0) / 60);
   main.innerHTML = `
-    <h1>${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</h1>
-    <div class="sub">${open.length} loose end${open.length === 1 ? "" : "s"} to tie off — every one stitched to the moment it was said.</div>
+    <h1>${greeting()}, Rachita</h1>
+    <div class="sub">${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
+    <div class="stats">
+      <div class="stat"><b>${stats?.meetings ?? 0}</b><span>meetings captured</span></div>
+      <div class="stat"><b>${mins < 60 ? mins + "m" : Math.floor(mins / 60) + "h " + (mins % 60) + "m"}</b><span>listened</span></div>
+      <div class="stat"><b>${stats?.open_actions ?? 0}</b><span>loose ends</span></div>
+      <div class="stat"><b>${stats?.decisions ?? 0}</b><span>decisions</span></div>
+    </div>
     <div class="card"><h2>Loose ends · pulled from your meetings</h2>
       ${todos.length ? todos.map((t) => `
         <div class="todo ${t.done ? "done" : ""}">
@@ -213,15 +239,7 @@ async function renderToday() {
           </div>
         </div>`).join("") : `<div class="empty">${SPOOL_SVG}No loose ends yet. Run <code>npm run demo</code> or hit ● Record.</div>`}
     </div>
-    <div class="card"><h2>Recent meetings</h2>
-      ${meetings.map((m) => `
-        <div class="m-row" data-mid="${m.id}">
-          <div class="m-date">${fmtDate(m.started_at)}</div>
-          <div><div class="m-title">${esc(m.title)}</div>
-          <div class="t-meta">${esc(m.headline ?? "")}</div></div>
-          <span class="pill ${m.exit === "shipped" ? "pass" : ""}" style="margin-left:auto">${esc(m.exit ?? "…")}</span>
-        </div>`).join("")}
-    </div>`;
+    <div class="card"><h2>Recent meetings</h2>${meetings.map(meetingRow).join("")}</div>`;
   main.querySelectorAll(".todo input").forEach((cb) =>
     cb.addEventListener("change", async () => {
       await fetch("/api/todo", { method: "POST", body: JSON.stringify({ id: Number(cb.dataset.id), done: cb.checked }) });
@@ -230,15 +248,27 @@ async function renderToday() {
   wireMeetingLinks();
 }
 
+function meetingRow(m) {
+  const bits = [];
+  if (m.n_decisions) bits.push(`${m.n_decisions} decision${m.n_decisions === 1 ? "" : "s"}`);
+  if (m.n_actions) bits.push(`${m.n_actions} action${m.n_actions === 1 ? "" : "s"}`);
+  const people = (m.participants ?? "").split(",").filter(Boolean).join(" · ");
+  return `
+    <div class="m-row" data-mid="${m.id}">
+      <div class="m-date">${fmtDate(m.started_at)}</div>
+      <div>
+        <div class="m-title">${esc(m.title)}</div>
+        <div class="t-meta">${esc(m.headline ?? "")}</div>
+        <div class="t-meta">${bits.length ? `<b>${bits.join(" · ")}</b>` : ""}${bits.length && people ? " — " : ""}${esc(people)}</div>
+      </div>
+      <span class="pill ${m.exit === "shipped" ? "pass" : ""}" style="margin-left:auto">${esc(m.exit ?? "…")}</span>
+    </div>`;
+}
+
 async function renderMeetings() {
   const ms = await api("/api/meetings");
   main.innerHTML = `<h1>Meetings</h1><div class="sub">Every stitch stays on this laptop.</div>
-    <div class="card">${ms.length ? ms.map((m) => `
-      <div class="m-row" data-mid="${m.id}">
-        <div class="m-date">${fmtDate(m.started_at)}</div>
-        <div><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
-        <span class="pill" style="margin-left:auto">${esc(m.mode)}</span>
-      </div>`).join("") : `<div class="empty">${SPOOL_SVG}Nothing here yet.</div>`}</div>`;
+    <div class="card">${ms.length ? ms.map(meetingRow).join("") : `<div class="empty">${SPOOL_SVG}Nothing here yet.</div>`}</div>`;
   wireMeetingLinks();
 }
 
@@ -251,6 +281,10 @@ async function renderMeeting(id) {
     <h1>${esc(meeting.title)}</h1>
     <div class="sub">${fmtDate(meeting.started_at)} · ${Math.round(meeting.duration_s / 60)} min · mode: ${esc(meeting.mode)}</div>
     ${meeting.summary ? `<div class="card"><h2>Summary</h2><p>${esc(meeting.summary)}</p></div>` : ""}
+    <div class="card"><h2>Your notes · editable, saved locally</h2>
+      <textarea class="notes" id="my-notes" placeholder="Type anything — your words live alongside the generated notes.">${esc(meeting.my_notes ?? "")}</textarea>
+    </div>
+    ${followUpCard(meeting, claims)}
     ${byKind("decision").length ? `<div class="card"><h2>Decisions</h2>${byKind("decision").map((c) => `<div class="claim">✓ ${esc(c.body.text)}</div>`).join("")}</div>` : ""}
     ${byKind("action_item").length ? `<div class="card"><h2>Action items</h2>${byKind("action_item").map((c) => `
       <div class="claim"><b>${esc(c.body.owner ?? "?")}</b> — ${esc(c.body.task)}${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""}</div>`).join("")}</div>` : ""}
@@ -271,6 +305,37 @@ async function renderMeeting(id) {
       ${blocked.length} blocked by gates${blocked.length ? ` (${blocked.map((b) => esc(b.gate_reason)).join("; ")})` : ""}</div>`;
   state.highlight = null;
   wireMeetingLinks();
+  wireNotesAutosave(id);
+}
+
+function followUpCard(meeting, claims) {
+  const actions = claims.filter((c) => c.kind === "action_item" && c.gate === "passed");
+  const decisions = claims.filter((c) => c.kind === "decision" && c.gate === "passed");
+  if (!actions.length && !decisions.length) return "";
+  const lines = [
+    `Hi all,`,
+    ``,
+    `Quick recap of "${meeting.title}":`,
+    ``,
+    ...(decisions.length ? ["What we decided:", ...decisions.map((d) => `• ${d.body.text}`), ""] : []),
+    ...(actions.length ? ["Next steps:", ...actions.map((a) => `• ${a.body.owner ?? "TBD"}: ${a.body.task}${a.body.due ? ` (${a.body.due})` : ""}`), ""] : []),
+    `Full notes attached. Shout if I missed anything.`,
+  ];
+  const draft = lines.join("\n");
+  return `<div class="card"><h2>Follow-up draft · built only from what was said</h2>
+    <div class="draft" id="draft-text">${esc(draft)}</div>
+    <button class="copybtn" onclick="navigator.clipboard.writeText(document.getElementById('draft-text').textContent).then(()=>{this.textContent='Copied ✓';setTimeout(()=>this.textContent='Copy draft',1500)})">Copy draft</button>
+  </div>`;
+}
+
+function wireNotesAutosave(meetingId) {
+  const ta = $("#my-notes");
+  if (!ta) return;
+  let t;
+  ta.addEventListener("input", () => {
+    clearTimeout(t);
+    t = setTimeout(() => fetch("/api/notes", { method: "POST", body: JSON.stringify({ id: meetingId, notes: ta.value }) }), 600);
+  });
 }
 
 function wireMeetingLinks() {
@@ -410,7 +475,10 @@ recBtn.addEventListener("click", async () => {
   } else {
     recBtn.textContent = "… stitching";
     recBtn.disabled = true;
+    const liveNotes = $("#live-notes")?.value ?? "";
     const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
+    if (r.meetingId && liveNotes.trim())
+      await fetch("/api/notes", { method: "POST", body: JSON.stringify({ id: r.meetingId, notes: liveNotes }) });
     recording = false;
     recBtn.disabled = false;
     recBtn.textContent = "● Record";
@@ -423,6 +491,8 @@ recBtn.addEventListener("click", async () => {
 
 function renderLive(title) {
   main.innerHTML = `<h1>${esc(title)}</h1><div class="sub">Recording — no bot in your call. Words land as they're said.</div>
+    <div class="card"><h2>Your notes · type while you talk</h2>
+      <textarea class="notes" id="live-notes" placeholder="Jot anything — it's saved with the meeting when you stop."></textarea></div>
     <div class="card"><h2>Live transcript</h2><div id="live-feed"><div class="empty">${SPOOL_SVG}listening…</div></div></div>
     <div class="card"><h2>Capture status</h2><div id="live-status"></div></div>`;
   const feed = $("#live-feed"), statusBox = $("#live-status");

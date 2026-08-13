@@ -31,6 +31,13 @@ const recentEvents: LiveEvent[] = [];
 
 type Handler = (params: URLSearchParams, body: unknown) => unknown | Promise<unknown>;
 
+const MEETING_LIST_SQL = `
+  SELECT m.id, m.title, m.mode, m.started_at, m.duration_s, m.exit, m.headline,
+    (SELECT COUNT(*) FROM claims c WHERE c.meeting_id = m.id AND c.kind='decision' AND c.gate='passed') AS n_decisions,
+    (SELECT COUNT(*) FROM claims c WHERE c.meeting_id = m.id AND c.kind='action_item' AND c.gate='passed') AS n_actions,
+    (SELECT GROUP_CONCAT(DISTINCT speaker) FROM utterances u WHERE u.meeting_id = m.id AND speaker IS NOT NULL) AS participants
+  FROM meetings m ORDER BY m.started_at DESC`;
+
 const api: Record<string, Handler> = {
   "GET /api/today"() {
     const todos = (db
@@ -42,14 +49,20 @@ const api: Record<string, Handler> = {
       )
       .all() as { id: number; body: string; quote: string | null; offset_s: number | null; done: number; meeting_title: string; meeting_id: string; started_at: number }[])
       .map((r) => ({ ...r, body: JSON.parse(r.body) }));
-    const meetings = db
-      .prepare(`SELECT id, title, mode, started_at, duration_s, exit, headline FROM meetings ORDER BY started_at DESC LIMIT 10`)
-      .all();
-    return { todos, meetings };
+    const meetings = db.prepare(`${MEETING_LIST_SQL} LIMIT 10`).all();
+    const stats = db
+      .prepare(
+        `SELECT (SELECT COUNT(*) FROM meetings) AS meetings,
+                (SELECT COALESCE(SUM(duration_s),0) FROM meetings) AS seconds,
+                (SELECT COUNT(*) FROM claims WHERE kind='action_item' AND gate='passed' AND done=0) AS open_actions,
+                (SELECT COUNT(*) FROM claims WHERE kind='decision' AND gate='passed') AS decisions`,
+      )
+      .get();
+    return { todos, meetings, stats };
   },
 
   "GET /api/meetings"() {
-    return db.prepare(`SELECT id, title, mode, started_at, duration_s, exit, headline FROM meetings ORDER BY started_at DESC`).all();
+    return db.prepare(MEETING_LIST_SQL).all();
   },
 
   "GET /api/meeting"(p) {
@@ -125,6 +138,13 @@ const api: Record<string, Handler> = {
 
   "GET /api/record/state"() {
     return { recording: !!live, meetingId: live?.meetingId ?? null, title: live?.title ?? null };
+  },
+
+  "POST /api/notes"(p, body) {
+    const { id, notes } = (body ?? {}) as { id?: string; notes?: string };
+    if (!id) return { error: "missing id" };
+    db.prepare(`UPDATE meetings SET my_notes = ? WHERE id = ?`).run(notes ?? "", id);
+    return { ok: true };
   },
 
   "POST /api/todo"(p, body) {

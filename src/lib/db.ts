@@ -84,6 +84,7 @@ export function openDb(dir = "data"): DatabaseSync {
     );
 
     -- Failure invariant: every pipeline run leaves a record, success or not.
+    -- (schema migrations happen below, after CREATEs)
     CREATE TABLE IF NOT EXISTS runs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       meeting_id TEXT NOT NULL,
@@ -93,6 +94,12 @@ export function openDb(dir = "data"): DatabaseSync {
       units_spent REAL NOT NULL DEFAULT 0
     );
   `);
+  // Additive migration: user-editable notes alongside the generated ones.
+  try {
+    db.exec("ALTER TABLE meetings ADD COLUMN my_notes TEXT");
+  } catch {
+    /* column already exists */
+  }
   return db;
 }
 
