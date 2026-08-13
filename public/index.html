@@ -2723,9 +2723,9 @@ $("#pip-btn").addEventListener("click", () => openCompanion(recTitle || "Recordi
 recBtn.addEventListener("click", async () => {
   try {
   if (!recording) {
-    const title = prompt("Meeting title?", "Untitled meeting");
-    if (title === null) return;
-    await startRecording(title);
+    // No pre-record dialog: naming happens at stop, prefilled from the
+    // conversation itself. Starting is one click / one hotkey.
+    await startRecording();
   } else await stopRecording();
   } catch (err) {
     recording = false;
@@ -2766,7 +2766,7 @@ async function stopRecording() {
   evtSource?.close();
   try { pipWin?.close(); } catch (e) {}
   pipWin = null;
-  if (r.meetingId && r.exit !== "failed") {
+  if (r.meetingId && r.exit !== "failed" && r.exit !== "discarded") {
     sessionStorage.setItem("tl-thread-anim", "1"); // Home plays the needle run: meeting → loose ends
     state.meetingId = r.meetingId; render();
   }
@@ -2982,6 +2982,53 @@ function renderLive(title) {
     }
   };
 }
+
+// ── Post-stop naming (works for button, double-Fn hotkey, or another tab) ──
+// The stopped SSE event fires AFTER processing, so the content-derived
+// auto-name already exists and becomes the prefill.
+function namedAlready(mid) {
+  const k = `tl-named-${mid}`;
+  if (localStorage.getItem(k)) return true;
+  localStorage.setItem(k, "1");
+  return false;
+}
+async function showNamingModal(meetingId) {
+  if (namedAlready(meetingId)) return; // SSE replays old events to new tabs
+  const { meeting } = await api(`/api/meeting?id=${meetingId}`);
+  if (!meeting || meeting.error) return;
+  document.getElementById("name-modal")?.remove();
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="tl-modal" id="name-modal"><div class="box">
+      <h2>Name this meeting</h2>
+      <div class="t-meta" style="margin-bottom:10px">Named from the conversation — keep it or type your own.</div>
+      <input id="name-input" value="${esc(meeting.title)}" style="width:100%;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink)">
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button class="copybtn" id="name-keep">Keep</button>
+        <button class="copybtn" id="name-save" style="background:var(--thread);color:#fff;border-color:transparent">Save</button>
+      </div>
+    </div></div>`);
+  const modal = $("#name-modal"), input = $("#name-input");
+  input.focus(); input.select();
+  const close = () => modal.remove();
+  const save = async () => {
+    const title = input.value.trim();
+    if (title && title !== meeting.title)
+      await fetch("/api/meeting/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: meetingId, title }) });
+    close();
+    if (state.meetingId === meetingId) render();
+  };
+  $("#name-save").addEventListener("click", save);
+  $("#name-keep").addEventListener("click", close);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); if (e.key === "Escape") close(); });
+  modal.addEventListener("mousedown", (e) => { if (e.target === modal) close(); });
+}
+(function watchForStops() {
+  const src = new EventSource("/api/record/events");
+  src.onmessage = (ev) => {
+    let e; try { e = JSON.parse(ev.data); } catch { return; }
+    if (e.type === "stopped" && e.exit !== "failed" && e.exit !== "discarded") showNamingModal(e.meetingId);
+  };
+})();
 
 let searchTimer;
 let askSeq = 0; // superseded asks must not overwrite newer ones

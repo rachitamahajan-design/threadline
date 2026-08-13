@@ -30,6 +30,18 @@ npm install
 npm run demo                # processes 3 sample meetings, zero setup
 ```
 
+## Record from anywhere (global hotkey)
+
+Double-tap the **Fn** key from any app to start recording; double-tap again to
+stop. The hotkey daemon starts with the server (`npm run dev`) — no setup.
+Meetings you never name are titled automatically from their own content, and a
+prompt lets you rename on the spot when you stop. Recordings under 15 seconds
+are discarded as accidental taps.
+
+Prerequisite: whatever app owns the `npm run dev` process needs Screen Recording
+and Microphone permission (System Settings → Privacy & Security), fully
+restarted after granting.
+
 ## Local-first, actually
 
 Audio goes to exactly one place: the speech API you configured. Everything

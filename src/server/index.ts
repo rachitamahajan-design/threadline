@@ -19,6 +19,7 @@ import type { Utterance } from "../lib/pyai.js";
 import { googleConfigured, googleConnected, authUrl, exchangeCode, upcomingEvents } from "./google.js";
 import { ask } from "../pipeline/ask.js";
 import { converse } from "../pipeline/needle.js";
+import { indexMeeting } from "../pipeline/chunker.js";
 
 // tiny .env loader
 for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"); } catch { return []; } })()) {
@@ -49,6 +50,39 @@ const sseClients = new Set<(e: LiveEvent) => void>();
 const recentEvents: LiveEvent[] = [];
 
 type Handler = (params: URLSearchParams, body: unknown) => unknown | Promise<unknown>;
+
+function startRecording(opts: { title?: string; mode?: string; meeting_id?: string }) {
+  if (live) return { error: "already recording" };
+  recentEvents.length = 0;
+  // Resume: keep recording into an existing meeting — new audio lands after
+  // what's already there, and stop re-stitches the whole transcript.
+  if (opts.meeting_id) {
+    const m = db.prepare(`SELECT id, title, mode FROM meetings WHERE id = ?`).get(opts.meeting_id) as
+      | { id: string; title: string; mode: string }
+      | undefined;
+    if (!m) return { error: "meeting not found" };
+    const last = db
+      .prepare(`SELECT COALESCE(MAX(offset_s + duration_s), 0) AS t FROM utterances WHERE meeting_id = ?`)
+      .get(opts.meeting_id) as { t: number };
+    live = new LiveSession(db, apiKey, m.title, m.mode, { meetingId: m.id, offsetBase: last.t + 2 });
+  } else {
+    live = new LiveSession(db, apiKey, opts.title?.trim() || `Meeting ${new Date().toLocaleString()}`, opts.mode ?? "discovery");
+  }
+  live.onEvent((e) => {
+    recentEvents.push(e);
+    if (recentEvents.length > 200) recentEvents.shift();
+    for (const send of sseClients) send(e);
+  });
+  live.start();
+  return { ok: true, meetingId: live.meetingId };
+}
+
+async function stopRecording() {
+  if (!live) return { error: "not recording" };
+  const s = live;
+  live = null;
+  return await s.stop();
+}
 
 const MEETING_LIST_SQL = `
   SELECT m.id, m.title, m.mode, m.started_at, m.duration_s, m.exit, m.headline,
@@ -182,56 +216,30 @@ const api: Record<string, Handler> = {
   },
 
   "POST /api/record/start"(p, body) {
-    if (live) return { error: "already recording" };
     const { title, mode, meeting_id } = (body ?? {}) as { title?: string; mode?: string; meeting_id?: string };
-    recentEvents.length = 0;
-    // Resume: keep recording into an existing meeting — new audio lands after
-    // what's already there, and stop re-stitches the whole transcript.
-    if (meeting_id) {
-      const m = db.prepare(`SELECT id, title, mode FROM meetings WHERE id = ?`).get(meeting_id) as
-        | { id: string; title: string; mode: string }
-        | undefined;
-      if (!m) return { error: "meeting not found" };
-      const last = db
-        .prepare(`SELECT COALESCE(MAX(offset_s + duration_s), 0) AS t FROM utterances WHERE meeting_id = ?`)
-        .get(meeting_id) as { t: number };
-      live = new LiveSession(db, apiKey, m.title, m.mode, { meetingId: m.id, offsetBase: last.t + 2 });
-    } else {
-      live = new LiveSession(db, apiKey, title?.trim() || `Meeting ${new Date().toLocaleString()}`, mode ?? "discovery");
-    }
-    live.onEvent((e) => {
-      recentEvents.push(e);
-      if (recentEvents.length > 200) recentEvents.shift();
-      for (const send of sseClients) send(e);
-    });
-    live.start();
-    return { ok: true, meetingId: live.meetingId };
+    return startRecording({ title, mode, meeting_id });
   },
 
   async "POST /api/record/stop"() {
-    if (!live) return { error: "not recording" };
-    const s = live;
-    live = null;
-    return await s.stop();
+    return await stopRecording();
   },
 
-  /** Global-hotkey entry: one endpoint that starts or stops. */
-  async "POST /api/record/toggle"() {
+  // One route, every hotkey: starts when idle, stops when recording. Both the
+  // double-Fn native daemon and the macOS Shortcuts script curl this, so the
+  // response carries both vocabularies ({action} and {recording}). Meetings
+  // started here get a default title and are renamed from their own content
+  // after processing (autoTitle in extract.ts).
+  async "POST /api/record/toggle"(p, body) {
     if (live) {
-      const s = live;
-      live = null;
-      return { action: "stopped", ...(await s.stop()) };
+      const r = await stopRecording();
+      const title = (db.prepare("SELECT title FROM meetings WHERE id = ?").get((r as { meetingId: string }).meetingId) as
+        | { title: string }
+        | undefined)?.title;
+      return { action: "stopped", recording: false, ...r, title: title ?? null };
     }
-    const title = `Quick capture ${new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
-    recentEvents.length = 0;
-    live = new LiveSession(db, apiKey, title, "discovery");
-    live.onEvent((e) => {
-      recentEvents.push(e);
-      if (recentEvents.length > 200) recentEvents.shift();
-      for (const send of sseClients) send(e);
-    });
-    live.start();
-    return { action: "started", meetingId: live.meetingId, title };
+    const { title, mode } = (body ?? {}) as { title?: string; mode?: string };
+    const r = startRecording({ title, mode });
+    return "error" in r ? r : { action: "started", recording: true, ...r };
   },
 
   /** Mid-meeting notes: extract from the transcript so far, keep recording. */
@@ -725,6 +733,17 @@ const api: Record<string, Handler> = {
     const { conversation_id, text } = (body ?? {}) as { conversation_id?: number; text?: string };
     if (!conversation_id || !text?.trim()) return { error: "missing conversation_id or text" };
     return await converse(db, conversation_id, text.trim());
+  },
+
+  "POST /api/meeting/rename"(p, body) {
+    const { id, title } = (body ?? {}) as { id?: string; title?: string };
+    if (!id || !title?.trim()) return { error: "missing id or title" };
+    db.prepare("UPDATE meetings SET title = ? WHERE id = ?").run(title.trim().slice(0, 120), id);
+    // Both indexes must learn the new name: legacy `search` (reindexMeeting)
+    // and the chunk index that /api/search actually queries (indexMeeting).
+    reindexMeeting(db, id);
+    indexMeeting(db, id);
+    return { ok: true };
   },
 
   "POST /api/needle/rename"(p, body) {

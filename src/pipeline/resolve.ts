@@ -219,8 +219,12 @@ export function storeResolutions(
   }
 
   // Blocked mentions still get an entity of their own — nothing vanishes, the
-  // row just records who it nearly merged with and why it didn't.
+  // row just records who it nearly merged with and why it didn't. EXCEPT
+  // speaker placeholders ("You"/"Them"): every live meeting produces them, the
+  // rejection is categorical rather than evidential, and the ghost entities
+  // pollute the graph. The step record already counts them.
   for (const { item: r, reason } of blocked) {
+    if (reason.includes("speaker placeholder")) continue;
     const id = slug(r.kind, r.surface);
     insEntity.run(id, r.kind, r.surface, now);
     insMention.run(id, meetingId, r.surface, r.offset_s ?? null, r.quote ?? null, r.source, r.matcher, r.score, "blocked", reason);
