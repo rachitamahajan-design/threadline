@@ -7,177 +7,197 @@
 <style>
   :root {
     color-scheme: light;
-    --bg: #f3efe7;            /* warm cream paper */
-    --surface: #fdfcf8;
-    --ink: #1d1b16;           /* cartoon outline ink */
-    --ink-2: #57534a;
-    --ink-3: #8f8a7d;
-    --thread: #e8752e;        /* the orange thread */
-    --thread-soft: #f7d9c4;
-    --node-meeting: #2a78d6; --node-person: #eb6834; --node-topic: #1baf7a;
-    --pass: #17694a; --block: #cf3f3e;
-    --line: #d9d3c5;
+    --bg: #fafbfc; --surface: #ffffff;
+    --ink: #1a1d24; --ink-2: #565b66; --ink-3: #9297a1;
+    --thread: #5b7cfa;                 /* the one blue thread */
+    --thread-weak: #dbe2fe;
+    --silver: #c7ccd6; --silver-deep: #9aa1ad;
+    --line: #e7e9ee;
+    --pass: #2e7d5b; --block: #c94f4e;
+    --shadow: 0 1px 2px rgb(20 24 40 / 0.05), 0 4px 16px rgb(20 24 40 / 0.05);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --bg: #201e19; --surface: #2a2721;
-      --ink: #f4f1e8; --ink-2: #c6c1b2; --ink-3: #8f8a7d;
-      --thread: #f08644; --thread-soft: #4a3826;
-      --node-meeting: #3987e5; --node-person: #d95926; --node-topic: #199e70;
-      --pass: #3fa87b; --block: #e66767;
-      --line: #454034;
+      --bg: #14161b; --surface: #1c1f26;
+      --ink: #eceef2; --ink-2: #a6abb6; --ink-3: #6c717c;
+      --thread: #7b96ff; --thread-weak: #2c3554;
+      --silver: #4a5059; --silver-deep: #71777f;
+      --line: #2a2e37;
+      --pass: #4caf87; --block: #e06c6b;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
     }
   }
   * { box-sizing: border-box; margin: 0; }
   body {
     background: var(--bg); color: var(--ink);
-    font: 15.5px/1.55 ui-rounded, "SF Pro Rounded", "Nunito", -apple-system, system-ui, sans-serif;
+    font: 15px/1.55 -apple-system, "SF Pro Text", Inter, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
-    background-image: radial-gradient(var(--line) 0.8px, transparent 0.8px);
-    background-size: 26px 26px;
   }
   header {
-    display: flex; align-items: center; gap: 18px;
-    padding: 12px 26px; position: sticky; top: 0; z-index: 5;
-    background: var(--bg); border-bottom: 2px solid var(--ink);
+    display: flex; align-items: center; gap: 20px;
+    padding: 13px 28px; position: sticky; top: 0; z-index: 5;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
   }
-  .logo { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 19px; letter-spacing: -0.02em; }
-  .logo svg { display: block; }
-  nav { display: flex; gap: 6px; }
+  .logo { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+  nav { display: flex; gap: 2px; }
   nav button {
-    border: 2px solid transparent; background: none; color: var(--ink-2); font: inherit; font-weight: 700;
-    padding: 6px 14px; border-radius: 99px; cursor: pointer;
+    border: 0; background: none; color: var(--ink-2); font: inherit; font-weight: 500;
+    padding: 6px 13px; border-radius: 8px; cursor: pointer; position: relative;
   }
   nav button:hover { color: var(--ink); }
-  nav button.active {
-    background: var(--surface); color: var(--ink); border-color: var(--ink);
-    box-shadow: 2.5px 2.5px 0 var(--ink);
+  nav button.active { color: var(--ink); font-weight: 600; }
+  nav button.active::after {
+    content: ""; position: absolute; left: 13px; right: 13px; bottom: 0;
+    height: 2px; border-radius: 2px; background: var(--thread);
   }
   #search {
-    margin-left: auto; width: 290px; padding: 8px 14px;
-    border: 2px solid var(--ink); border-radius: 99px;
+    margin-left: auto; width: 300px; padding: 7px 13px;
+    border: 1px solid var(--line); border-radius: 9px;
     background: var(--surface); color: var(--ink); font: inherit;
   }
+  #search:focus { outline: none; border-color: var(--thread); box-shadow: 0 0 0 3px var(--thread-weak); }
   #search::placeholder { color: var(--ink-3); }
   #rec {
-    border: 2px solid var(--ink); font: inherit; font-weight: 800; cursor: pointer;
-    padding: 7px 16px; border-radius: 99px; color: #fff; background: var(--thread);
-    box-shadow: 2.5px 2.5px 0 var(--ink);
+    border: 0; font: inherit; font-weight: 600; cursor: pointer;
+    padding: 8px 16px; border-radius: 9px; color: #fff; background: var(--thread);
+    box-shadow: var(--shadow);
   }
-  #rec:active { translate: 2px 2px; box-shadow: none; }
-  #rec.recording { animation: pulse 1.4s ease-in-out infinite; background: var(--block); }
-  @keyframes pulse { 50% { opacity: 0.7; } }
+  #rec:hover { filter: brightness(1.06); }
+  #rec.recording { background: var(--block); animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.75; } }
 
-  main { max-width: 960px; margin: 0 auto; padding: 30px 26px 60px; }
-  h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 4px; }
+  main { max-width: 920px; margin: 0 auto; padding: 34px 28px 70px; }
+  h1 { font-size: 27px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
   .sub { color: var(--ink-2); margin-bottom: 26px; }
   .card {
-    background: var(--surface); border: 2px solid var(--ink);
-    border-radius: 16px; padding: 20px 22px; margin-bottom: 20px;
-    box-shadow: 4px 4px 0 var(--ink);
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 13px; padding: 20px 24px; margin-bottom: 18px; box-shadow: var(--shadow);
   }
   .card h2 {
-    font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3);
-    margin-bottom: 14px; font-weight: 800;
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3);
+    margin-bottom: 14px; font-weight: 600;
   }
-  /* stitched divider — the thread motif */
-  .todo, .m-row, .claim { border-top: 2px dashed var(--line); }
-  .todo:first-of-type, .m-row:first-of-type, .claim:first-of-type { border-top: 0; }
+  .stats { display: flex; gap: 38px; margin: 2px 0 28px; }
+  .stat b { display: block; font-size: 23px; font-weight: 700; }
+  .stat span { font-size: 13px; color: var(--ink-3); }
 
-  .todo { display: flex; gap: 12px; padding: 12px 0; align-items: flex-start; }
-  .todo input {
-    appearance: none; width: 20px; height: 20px; margin-top: 2px; cursor: pointer; flex: none;
-    border: 2px solid var(--ink); border-radius: 6px; background: var(--surface);
-    display: grid; place-content: center;
+  /* ── the thread: a continuous line stitching listed items together ── */
+  .threaded { position: relative; padding-left: 22px; }
+  .threaded::before {
+    content: ""; position: absolute; left: 5px; top: 14px; bottom: 14px;
+    width: 2px; border-radius: 2px; background: var(--thread);
+    opacity: 0.55;
   }
-  .todo input:checked { background: var(--thread); }
-  .todo input:checked::before { content: "✕"; color: #fff; font-weight: 900; font-size: 12px; }
-  .todo.done .t-task { text-decoration: line-through wavy var(--thread); color: var(--ink-3); }
-  .t-task { font-weight: 700; }
-  .t-meta { color: var(--ink-2); font-size: 13.5px; }
+  .threaded > * { position: relative; }
+  .threaded > *::before {
+    content: ""; position: absolute; left: -21px; top: 18px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--thread);
+  }
+
+  .todo { display: flex; gap: 12px; padding: 11px 0; align-items: flex-start; }
+  .todo + .todo { border-top: 1px solid var(--line); }
+  .todo input { margin-top: 4px; width: 16px; height: 16px; accent-color: var(--thread); cursor: pointer; }
+  .todo.done .t-task { text-decoration: line-through; color: var(--ink-3); }
+  .todo.done::before { border-color: var(--silver); }
+  .t-task { font-weight: 600; }
+  /* an unfinished item's thread stops short */
+  .t-task::after {
+    content: ""; display: block; height: 2px; border-radius: 2px; margin-top: 5px;
+    width: 34px; background: var(--thread); opacity: 0.7;
+  }
+  .todo.done .t-task::after { width: 100%; background: var(--silver); opacity: 0.5; }
+  .t-meta { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
   .receipt {
-    font-size: 13.5px; color: var(--ink-2); margin-top: 5px; cursor: pointer;
-    border-left: 3px solid var(--thread); padding: 3px 10px; border-radius: 3px;
-    background: color-mix(in srgb, var(--thread) 9%, transparent);
+    font-size: 13px; color: var(--ink-2); margin-top: 6px; cursor: pointer;
+    border-left: 2px solid var(--thread); padding: 2px 10px;
+    background: color-mix(in srgb, var(--thread) 5%, transparent);
+    border-radius: 0 6px 6px 0;
   }
-  .stats { display: flex; gap: 34px; margin: 0 0 26px; }
-  .stat b { display: block; font-size: 24px; font-weight: 800; color: var(--ink); }
-  .stat span { font-size: 13px; color: var(--ink-3); font-weight: 700; }
-  textarea.notes {
-    width: 100%; min-height: 130px; resize: vertical; font: inherit; color: var(--ink);
-    background: color-mix(in srgb, var(--thread) 4%, transparent);
-    border: 2px dashed var(--line); border-radius: 10px; padding: 12px 14px; outline: none;
-  }
-  textarea.notes:focus { border-color: var(--thread); }
-  .draft { white-space: pre-wrap; font-size: 14.5px; background: color-mix(in srgb, var(--thread) 5%, transparent); border-radius: 10px; padding: 14px 16px; }
-  .copybtn {
-    border: 2px solid var(--ink); background: var(--surface); font: inherit; font-weight: 700; font-size: 13px;
-    padding: 4px 14px; border-radius: 99px; cursor: pointer; margin-top: 10px; box-shadow: 2px 2px 0 var(--ink);
-  }
-  .copybtn:active { translate: 2px 2px; box-shadow: none; }
-  .receipt:hover { background: color-mix(in srgb, var(--thread) 18%, transparent); }
+  .receipt:hover { background: color-mix(in srgb, var(--thread) 11%, transparent); }
 
   .pill {
-    display: inline-block; font-size: 12.5px; font-weight: 700; padding: 2px 11px; border-radius: 99px;
-    border: 2px solid var(--ink); color: var(--ink); background: var(--surface);
+    display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 99px;
+    border: 1px solid var(--line); color: var(--ink-2); background: var(--surface);
   }
-  .pill.pass { background: var(--pass); color: #fff; }
-  .pill.block { background: var(--block); color: #fff; }
+  .pill.pass { color: var(--pass); border-color: color-mix(in srgb, var(--pass) 35%, transparent); }
+  .pill.block { color: var(--block); border-color: color-mix(in srgb, var(--block) 35%, transparent); }
 
   .m-row { display: flex; gap: 14px; padding: 13px 0; cursor: pointer; align-items: baseline; }
-  .m-row:hover .m-title { color: var(--thread); text-decoration: underline wavy var(--thread) 1.5px; }
-  .m-title { font-weight: 800; }
-  .m-date { color: var(--ink-3); font-size: 13px; min-width: 88px; font-weight: 700; }
+  .m-row + .m-row { border-top: 1px solid var(--line); }
+  .m-row:hover .m-title { color: var(--thread); }
+  .m-title { font-weight: 600; }
+  .m-date { color: var(--ink-3); font-size: 13px; min-width: 86px; }
 
   .utt { display: flex; gap: 12px; padding: 7px 0; }
-  .utt.hl { background: color-mix(in srgb, var(--thread) 14%, transparent); border-radius: 10px; padding: 7px 10px; margin: 0 -10px; }
-  .utt .who { min-width: 76px; font-weight: 800; font-size: 13px; color: var(--ink-2); padding-top: 2px; }
+  .utt.hl { background: color-mix(in srgb, var(--thread) 9%, transparent); border-radius: 8px; padding: 7px 10px; margin: 0 -10px; }
+  .utt .who { min-width: 72px; font-weight: 600; font-size: 13px; color: var(--ink-2); padding-top: 2px; }
   .utt .ts { color: var(--ink-3); font-size: 12px; min-width: 40px; text-align: right; padding-top: 3px; font-variant-numeric: tabular-nums; }
-  .claim { padding: 10px 0; }
+  .claim { padding: 9px 0; }
+  .claim + .claim { border-top: 1px solid var(--line); }
+  /* faint thread running through the margin of extracted content */
+  .card.threadmark { border-left: 3px solid var(--thread-weak); }
   .backlink {
-    display: inline-block; margin: 3px 8px 3px 0; padding: 5px 13px; border-radius: 99px;
-    border: 2px solid var(--ink); background: var(--thread-soft); color: var(--ink);
-    cursor: pointer; font-size: 13.5px; font-weight: 700; box-shadow: 2px 2px 0 var(--ink);
+    display: inline-block; margin: 3px 8px 3px 0; padding: 4px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--thread);
+    cursor: pointer; font-size: 13px; font-weight: 500;
   }
-  .backlink:active { translate: 2px 2px; box-shadow: none; }
+  .backlink:hover { border-color: var(--thread); }
 
-  #graph-wrap { position: relative; height: 560px; overflow: hidden; border-radius: 14px; padding: 0; }
+  #graph-wrap { position: relative; height: 560px; overflow: hidden; padding: 0; }
   #graph { width: 100%; height: 100%; display: block; cursor: grab; }
-  .legend { display: flex; gap: 20px; align-items: center; padding: 12px 6px 0; font-size: 13.5px; font-weight: 700; color: var(--ink-2); }
-  .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 7px; border: 2px solid var(--ink); vertical-align: -1px; }
-  .legend .l-m::before { background: var(--node-meeting); border-radius: 50%; }
-  .legend .l-p::before { background: var(--node-person); border-radius: 3px; }
-  .legend .l-t::before { background: var(--node-topic); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); border: 0; width: 14px; height: 14px; }
+  .legend { display: flex; gap: 18px; align-items: center; padding: 12px 4px 0; font-size: 13px; color: var(--ink-2); }
+  .legend span::before { content: ""; display: inline-block; margin-right: 7px; vertical-align: -1px; }
+  .legend .l-m::before { width: 11px; height: 11px; border-radius: 50%; background: var(--thread); }
+  .legend .l-p::before { width: 11px; height: 11px; border-radius: 50%; background: var(--surface); border: 2px solid var(--silver-deep); }
+  .legend .l-t::before { width: 7px; height: 7px; border-radius: 50%; background: var(--silver-deep); }
 
-  .empty { color: var(--ink-3); text-align: center; padding: 36px 0; }
-  .empty svg { display: block; margin: 0 auto 12px; }
-  .exit-line { font-size: 13.5px; color: var(--ink-2); margin-top: 12px; }
-  b { color: var(--thread); }
+  .empty { color: var(--ink-3); text-align: center; padding: 44px 0; }
+  .exit-line { font-size: 13px; color: var(--ink-2); margin-top: 12px; }
+  b { color: var(--ink); font-weight: 600; }
+  textarea.notes {
+    width: 100%; min-height: 120px; resize: vertical; font: inherit; color: var(--ink);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; outline: none;
+  }
+  textarea.notes:focus { border-color: var(--thread); box-shadow: 0 0 0 3px var(--thread-weak); }
+  .draft { white-space: pre-wrap; font-size: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .copybtn {
+    border: 1px solid var(--line); background: var(--surface); font: inherit; font-weight: 500; font-size: 13px;
+    padding: 5px 14px; border-radius: 8px; cursor: pointer; margin-top: 10px; color: var(--ink-2);
+  }
+  .copybtn:hover { border-color: var(--thread); color: var(--thread); }
   .live-partial { color: var(--ink-3); font-style: italic; }
   .live-you .who { color: var(--thread); }
   .live-status { font-size: 12px; color: var(--ink-3); padding: 2px 0; font-family: ui-monospace, monospace; }
+  .live-marker { display: inline-block; vertical-align: -3px; margin-right: 6px; }
 </style>
 </head>
 <body>
 <header>
   <div class="logo">
-    <!-- needle & thread mark -->
-    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
-      <path d="M3 26 C 8 30, 12 22, 16 24 S 24 30, 28 24" stroke="var(--thread)" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="0.1 5.2"/>
-      <path d="M8 23 L 26 5" stroke="var(--ink)" stroke-width="3.4" stroke-linecap="round"/>
-      <path d="M8 23 L 26 5" stroke="var(--surface)" stroke-width="1.2" stroke-linecap="round"/>
-      <ellipse cx="24.6" cy="6.4" rx="2.9" ry="4.6" transform="rotate(45 24.6 6.4)" stroke="var(--ink)" stroke-width="2.4"/>
-      <path d="M3 26 C 6 28.5, 8.5 25.5, 8 23.4" stroke="var(--thread)" stroke-width="2.6" stroke-linecap="round"/>
+    <!-- silver needle, blue thread -->
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="needle" x1="6" y1="24" x2="24" y2="6" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#8d939e"/><stop offset="0.5" stop-color="#e6e9ee"/><stop offset="1" stop-color="#9aa1ad"/>
+        </linearGradient>
+      </defs>
+      <path d="M2 24 C 7 27, 10 21, 14 23 S 22 27, 27 22" stroke="var(--thread)" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+      <path d="M6.5 22.5 L 23 5.5" stroke="url(#needle)" stroke-width="2.8" stroke-linecap="round"/>
+      <ellipse cx="21.6" cy="7" rx="1.7" ry="3" transform="rotate(45 21.6 7)" stroke="url(#needle)" stroke-width="1.6" fill="none"/>
+      <path d="M2 24 C 4 25.5, 6 24.5, 6.5 22.7" stroke="var(--thread)" stroke-width="1.8" stroke-linecap="round" fill="none"/>
     </svg>
     Threadline
   </div>
   <nav>
     <button data-view="today" class="active">Today</button>
     <button data-view="meetings">Meetings</button>
-    <button data-view="graph">Threads</button>
+    <button data-view="graph">Brain</button>
   </nav>
-  <input id="search" placeholder="Pull a thread… search every meeting">
+  <input id="search" placeholder="Search everything you've discussed">
   <button id="rec">● Record</button>
 </header>
 <main id="main"></main>
@@ -191,12 +211,10 @@ const fmtTs = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStar
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const api = (p) => fetch(p).then((r) => r.json());
 
-const SPOOL_SVG = `<svg width="72" height="72" viewBox="0 0 72 72" fill="none">
-  <rect x="22" y="14" width="28" height="44" rx="5" stroke="currentColor" stroke-width="3"/>
-  <rect x="17" y="8" width="38" height="10" rx="5" stroke="currentColor" stroke-width="3"/>
-  <rect x="17" y="54" width="38" height="10" rx="5" stroke="currentColor" stroke-width="3"/>
-  <path d="M24 24h24M24 31h24M24 38h24M24 45h24" stroke="currentColor" stroke-width="2.4"/>
-  <path d="M50 40 C 62 42, 58 56, 68 58" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="0.1 5.4"/>
+// silver needle "you are here" marker (used at the live/current point only)
+const NEEDLE = `<svg class="live-marker" width="17" height="17" viewBox="0 0 30 30" fill="none">
+  <path d="M6.5 22.5 L 23 5.5" stroke="#9aa1ad" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="21.6" cy="7" rx="1.7" ry="3" transform="rotate(45 21.6 7)" stroke="#9aa1ad" stroke-width="1.6" fill="none"/>
 </svg>`;
 
 document.querySelectorAll("nav button").forEach((b) =>
@@ -223,21 +241,21 @@ async function renderToday() {
     <h1>${greeting()}, Rachita</h1>
     <div class="sub">${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
     <div class="stats">
-      <div class="stat"><b>${stats?.meetings ?? 0}</b><span>meetings captured</span></div>
-      <div class="stat"><b>${mins < 60 ? mins + "m" : Math.floor(mins / 60) + "h " + (mins % 60) + "m"}</b><span>listened</span></div>
+      <div class="stat"><b>${stats?.meetings ?? 0}</b><span>meetings</span></div>
+      <div class="stat"><b>${mins < 60 ? mins + "m" : Math.floor(mins / 60) + "h " + (mins % 60) + "m"}</b><span>captured</span></div>
       <div class="stat"><b>${stats?.open_actions ?? 0}</b><span>loose ends</span></div>
       <div class="stat"><b>${stats?.decisions ?? 0}</b><span>decisions</span></div>
     </div>
-    <div class="card"><h2>Loose ends · pulled from your meetings</h2>
-      ${todos.length ? todos.map((t) => `
+    <div class="card"><h2>Loose ends</h2>
+      ${todos.length ? `<div class="threaded">` + todos.map((t) => `
         <div class="todo ${t.done ? "done" : ""}">
           <input type="checkbox" ${t.done ? "checked" : ""} data-id="${t.id}">
-          <div>
+          <div style="flex:1">
             <div class="t-task">${esc(t.body.task)}</div>
             <div class="t-meta">${t.body.owner ? esc(t.body.owner) : "unassigned"}${t.body.due ? ` · due ${esc(t.body.due)}` : ""}</div>
             <div class="receipt" data-mid="${t.meeting_id}" data-q="${esc(t.body.task)}">"${esc(t.quote ?? t.body.task)}" — ${esc(t.meeting_title)}</div>
           </div>
-        </div>`).join("") : `<div class="empty">${SPOOL_SVG}No loose ends yet. Run <code>npm run demo</code> or hit ● Record.</div>`}
+        </div>`).join("") + `</div>` : `<div class="empty">Nothing yet. Run <code>npm run demo</code> or hit ● Record.</div>`}
     </div>
     <div class="card"><h2>Recent meetings</h2>${meetings.map(meetingRow).join("")}</div>`;
   main.querySelectorAll(".todo input").forEach((cb) =>
@@ -261,14 +279,14 @@ function meetingRow(m) {
         <div class="t-meta">${esc(m.headline ?? "")}</div>
         <div class="t-meta">${bits.length ? `<b>${bits.join(" · ")}</b>` : ""}${bits.length && people ? " — " : ""}${esc(people)}</div>
       </div>
-      <span class="pill ${m.exit === "shipped" ? "pass" : ""}" style="margin-left:auto">${esc(m.exit ?? "…")}</span>
+      <span class="t-meta" style="margin-left:auto">${m.duration_s ? Math.max(1, Math.round(m.duration_s / 60)) + " min" : ""}</span>
     </div>`;
 }
 
 async function renderMeetings() {
   const ms = await api("/api/meetings");
-  main.innerHTML = `<h1>Meetings</h1><div class="sub">Every stitch stays on this laptop.</div>
-    <div class="card">${ms.length ? ms.map(meetingRow).join("") : `<div class="empty">${SPOOL_SVG}Nothing here yet.</div>`}</div>`;
+  main.innerHTML = `<h1>Meetings</h1><div class="sub">Everything stays on this laptop.</div>
+    <div class="card">${ms.length ? ms.map(meetingRow).join("") : `<div class="empty">Nothing here yet.</div>`}</div>`;
   wireMeetingLinks();
 }
 
@@ -279,22 +297,22 @@ async function renderMeeting(id) {
   const hl = state.highlight;
   main.innerHTML = `
     <h1>${esc(meeting.title)}</h1>
-    <div class="sub">${fmtDate(meeting.started_at)} · ${Math.round(meeting.duration_s / 60)} min · mode: ${esc(meeting.mode)}</div>
+    <div class="sub">${fmtDate(meeting.started_at)} · ${Math.round(meeting.duration_s / 60)} min · ${esc(meeting.mode)}</div>
     ${meeting.summary ? `<div class="card"><h2>Summary</h2><p>${esc(meeting.summary)}</p></div>` : ""}
-    <div class="card"><h2>Your notes · editable, saved locally</h2>
+    <div class="card"><h2>Your notes</h2>
       <textarea class="notes" id="my-notes" placeholder="Type anything — your words live alongside the generated notes.">${esc(meeting.my_notes ?? "")}</textarea>
     </div>
     ${followUpCard(meeting, claims)}
-    ${byKind("decision").length ? `<div class="card"><h2>Decisions</h2>${byKind("decision").map((c, i) => `
-      <div class="claim">✓ ${esc(c.body.text)}
-        <button class="copybtn" style="margin-left:8px;padding:2px 12px" data-share-decision="${i}">Share ↗</button>
+    ${byKind("decision").length ? `<div class="card threadmark"><h2>Decisions</h2>${byKind("decision").map((c, i) => `
+      <div class="claim">${esc(c.body.text)}
+        <button class="copybtn" style="margin:0 0 0 8px;padding:1px 10px" data-share-decision="${i}">Share</button>
       </div>`).join("")}</div>` : ""}
-    ${byKind("action_item").length ? `<div class="card"><h2>Action items</h2>${byKind("action_item").map((c) => `
+    ${byKind("action_item").length ? `<div class="card threadmark"><h2>Action items</h2>${byKind("action_item").map((c) => `
       <div class="claim"><b>${esc(c.body.owner ?? "?")}</b> — ${esc(c.body.task)}${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""}</div>`).join("")}</div>` : ""}
-    ${byKind("risk").length ? `<div class="card"><h2>Risks</h2>${byKind("risk").map((c) => `
+    ${byKind("risk").length ? `<div class="card threadmark"><h2>Risks</h2>${byKind("risk").map((c) => `
       <div class="claim">${esc(c.body.category)} · <span class="t-meta">"${esc(c.body.quote)}"</span></div>`).join("")}</div>` : ""}
-    ${backlinks.length ? `<div class="card"><h2>Threaded to</h2>${backlinks.map((b) => `
-      <span class="backlink" data-mid="${b.id}">${esc(b.title)} <span style="opacity:.6">via ${esc(b.via)}</span></span>`).join("")}</div>` : ""}
+    ${backlinks.length ? `<div class="card"><h2>Connected meetings</h2>${backlinks.map((b) => `
+      <span class="backlink" data-mid="${b.id}">${esc(b.title)} <span style="opacity:.6">· ${esc(b.via)}</span></span>`).join("")}</div>` : ""}
     <div class="card"><h2>Transcript</h2>
       ${utterances.map((u) => `
         <div class="utt ${hl && u.text.toLowerCase().includes(hl.toLowerCase().slice(0, 24)) ? "hl" : ""}">
@@ -318,47 +336,6 @@ async function renderMeeting(id) {
     }));
 }
 
-/**
- * Growth loop: a decision becomes a beautiful 1200x630 PNG card.
- * Rendered locally on canvas — nothing leaves the laptop.
- */
-function shareDecisionCard(text, meeting, people) {
-  const W = 1200, H = 630, c = document.createElement("canvas");
-  c.width = W; c.height = H;
-  const x = c.getContext("2d");
-  // card base
-  x.fillStyle = "#f3efe7"; x.fillRect(0, 0, W, H);
-  x.strokeStyle = "#1d1b16"; x.lineWidth = 6; x.strokeRect(14, 14, W - 28, H - 28);
-  // stitched top thread
-  x.strokeStyle = "#e8752e"; x.lineWidth = 5; x.setLineDash([16, 14]); x.lineCap = "round";
-  x.beginPath(); x.moveTo(60, 92); x.quadraticCurveTo(W / 2, 130, W - 60, 92); x.stroke();
-  x.setLineDash([]);
-  x.fillStyle = "#8f8a7d"; x.font = "700 26px ui-rounded, system-ui";
-  x.fillText("DECISION", 70, 68);
-  // decision text, wrapped
-  x.fillStyle = "#1d1b16"; x.font = "800 52px ui-rounded, system-ui";
-  const words = text.split(" ");
-  let line = "", y = 210;
-  for (const w of words) {
-    if (x.measureText(line + " " + w).width > W - 160) { x.fillText(line, 70, y); y += 66; line = w; }
-    else line = line ? line + " " + w : w;
-  }
-  x.fillText(line, 70, y);
-  // meta
-  x.fillStyle = "#57534a"; x.font = "600 30px ui-rounded, system-ui";
-  x.fillText(`${meeting.title} · ${fmtDate(meeting.started_at)}`, 70, H - 150);
-  if (people.length) x.fillText(people.join(" · "), 70, H - 105);
-  // attribution
-  x.strokeStyle = "#e8752e"; x.lineWidth = 4; x.setLineDash([10, 9]);
-  x.beginPath(); x.moveTo(70, H - 62); x.lineTo(240, H - 62); x.stroke(); x.setLineDash([]);
-  x.fillStyle = "#8f8a7d"; x.font = "700 26px ui-rounded, system-ui";
-  x.fillText("stitched by Threadline", 256, H - 53);
-  const a = document.createElement("a");
-  a.download = "threadline-decision.png";
-  a.href = c.toDataURL("image/png");
-  a.click();
-}
-
 function followUpCard(meeting, claims) {
   const actions = claims.filter((c) => c.kind === "action_item" && c.gate === "passed");
   const decisions = claims.filter((c) => c.kind === "decision" && c.gate === "passed");
@@ -377,6 +354,39 @@ function followUpCard(meeting, claims) {
     <div class="draft" id="draft-text">${esc(draft)}</div>
     <button class="copybtn" onclick="navigator.clipboard.writeText(document.getElementById('draft-text').textContent).then(()=>{this.textContent='Copied ✓';setTimeout(()=>this.textContent='Copy draft',1500)})">Copy draft</button>
   </div>`;
+}
+
+/** A decision becomes a clean 1200x630 share card. Rendered locally. */
+function shareDecisionCard(text, meeting, people) {
+  const W = 1200, H = 630, c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const x = c.getContext("2d");
+  x.fillStyle = "#ffffff"; x.fillRect(0, 0, W, H);
+  x.strokeStyle = "#e7e9ee"; x.lineWidth = 2; x.strokeRect(1, 1, W - 2, H - 2);
+  // one blue thread across the top
+  x.strokeStyle = "#5b7cfa"; x.lineWidth = 3; x.lineCap = "round";
+  x.beginPath(); x.moveTo(70, 96); x.bezierCurveTo(W * 0.35, 118, W * 0.65, 78, W - 70, 100); x.stroke();
+  x.fillStyle = "#9297a1"; x.font = "600 24px -apple-system, system-ui";
+  x.fillText("DECISION", 70, 64);
+  x.fillStyle = "#1a1d24"; x.font = "700 50px -apple-system, system-ui";
+  const words = text.split(" ");
+  let line = "", y = 210;
+  for (const w of words) {
+    if (x.measureText(line + " " + w).width > W - 160) { x.fillText(line, 70, y); y += 64; line = w; }
+    else line = line ? line + " " + w : w;
+  }
+  x.fillText(line, 70, y);
+  x.fillStyle = "#565b66"; x.font = "500 28px -apple-system, system-ui";
+  x.fillText(`${meeting.title} · ${fmtDate(meeting.started_at)}`, 70, H - 140);
+  if (people.length) x.fillText(people.join(" · "), 70, H - 100);
+  x.strokeStyle = "#5b7cfa"; x.lineWidth = 2.5;
+  x.beginPath(); x.moveTo(70, H - 58); x.lineTo(200, H - 58); x.stroke();
+  x.fillStyle = "#9297a1"; x.font = "600 23px -apple-system, system-ui";
+  x.fillText("🪡 Threadline", 214, H - 50);
+  const a = document.createElement("a");
+  a.download = "threadline-decision.png";
+  a.href = c.toDataURL("image/png");
+  a.click();
 }
 
 function wireNotesAutosave(meetingId) {
@@ -401,11 +411,11 @@ function wireMeetingLinks() {
 
 async function renderGraph() {
   const { nodes, edges } = await api("/api/graph");
-  main.innerHTML = `<h1>Threads</h1>
-    <div class="sub">${nodes.length} knots · ${edges.length} threads. Drag to explore; click a meeting to open it.</div>
+  main.innerHTML = `<h1>Brain</h1>
+    <div class="sub">${nodes.length} points · ${edges.length} threads. Drag to explore; click a meeting to open it.</div>
     <div class="card" id="graph-wrap"><canvas id="graph"></canvas></div>
     <div class="legend"><span class="l-m">Meeting</span><span class="l-p">Person</span><span class="l-t">Topic</span>
-      <button class="copybtn" style="margin-left:auto" id="export-graph">Share this brain ↗</button></div>`;
+      <button class="copybtn" style="margin:0 0 0 auto" id="export-graph">Export image</button></div>`;
   const canvas = $("#graph"), wrap = $("#graph-wrap");
   const dpr = window.devicePixelRatio || 1;
   const W = wrap.clientWidth, H = wrap.clientHeight;
@@ -413,18 +423,19 @@ async function renderGraph() {
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
   const css = getComputedStyle(document.documentElement);
-  const COLOR = { meeting: css.getPropertyValue("--node-meeting"), person: css.getPropertyValue("--node-person"), topic: css.getPropertyValue("--node-topic") };
-  const INK = css.getPropertyValue("--ink"), INK3 = css.getPropertyValue("--ink-3"), THREAD = css.getPropertyValue("--thread"), SURFACE = css.getPropertyValue("--surface");
+  const THREAD = css.getPropertyValue("--thread").trim();
+  const INK = css.getPropertyValue("--ink").trim(), INK3 = css.getPropertyValue("--ink-3").trim();
+  const SILVER = css.getPropertyValue("--silver-deep").trim(), SURFACE = css.getPropertyValue("--surface").trim();
 
   const ns = nodes.map((n, i) => ({
     ...n, label: n.meeting_title ?? n.label,
     x: W / 2 + 180 * Math.cos((i / nodes.length) * 2 * Math.PI),
     y: H / 2 + 180 * Math.sin((i / nodes.length) * 2 * Math.PI),
-    vx: 0, vy: 0, r: n.kind === "meeting" ? 22 : n.kind === "person" ? 13 : 9,
+    vx: 0, vy: 0, r: n.kind === "meeting" ? 17 : n.kind === "person" ? 11 : 6,
   }));
   const byId = Object.fromEntries(ns.map((n) => [n.id, n]));
   const es = edges.filter((e) => byId[e.src] && byId[e.dst]);
-  let drag = null;
+  let drag = null, focus = null;
 
   function tick() {
     for (const a of ns) {
@@ -452,46 +463,51 @@ async function renderGraph() {
     }
   }
 
+  const connected = (n) => {
+    if (!focus) return true;
+    if (n === focus) return true;
+    return es.some((e) => (byId[e.src] === focus && byId[e.dst] === n) || (byId[e.dst] === focus && byId[e.src] === n));
+  };
+
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    // threads: stitched dashed lines with a gentle sag, like real thread
-    ctx.strokeStyle = THREAD; ctx.lineWidth = 2; ctx.setLineDash([7, 6]); ctx.lineCap = "round";
+    // blue thread connections, gentle sag
+    ctx.lineWidth = 1.6; ctx.lineCap = "round";
     for (const e of es) {
       const a = byId[e.src], b = byId[e.dst];
-      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + Math.min(34, Math.hypot(b.x - a.x, b.y - a.y) * 0.12);
+      const dim = focus && !(a === focus || b === focus);
+      ctx.strokeStyle = THREAD;
+      ctx.globalAlpha = dim ? 0.10 : 0.55;
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + Math.min(30, Math.hypot(b.x - a.x, b.y - a.y) * 0.10);
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx, my, b.x, b.y); ctx.stroke();
     }
-    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
     for (const n of ns) {
-      ctx.fillStyle = COLOR[n.kind] ?? INK3;
-      ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
+      const dim = !connected(n);
+      ctx.globalAlpha = dim ? 0.18 : 1;
       ctx.beginPath();
-      if (n.kind === "person") {
-        const s = n.r;
-        ctx.roundRect(n.x - s, n.y - s, s * 2, s * 2, 5);
-      } else if (n.kind === "topic") {
-        ctx.moveTo(n.x, n.y - n.r); ctx.lineTo(n.x + n.r, n.y); ctx.lineTo(n.x, n.y + n.r); ctx.lineTo(n.x - n.r, n.y); ctx.closePath();
-      } else {
-        ctx.arc(n.x, n.y, n.r, 0, 2 * Math.PI);
-      }
-      ctx.fill(); ctx.stroke();
-      if (n.kind === "meeting" || n.kind === "person") {
-        ctx.fillStyle = INK; ctx.font = "800 12px ui-rounded, system-ui"; ctx.textAlign = "center";
+      ctx.arc(n.x, n.y, n.r, 0, 2 * Math.PI);
+      if (n.kind === "meeting") { ctx.fillStyle = THREAD; ctx.fill(); }
+      else if (n.kind === "person") { ctx.fillStyle = SURFACE; ctx.fill(); ctx.strokeStyle = SILVER; ctx.lineWidth = 2; ctx.stroke(); }
+      else { ctx.fillStyle = SILVER; ctx.fill(); }
+      if ((n.kind === "meeting" || n.kind === "person") && !dim) {
+        ctx.fillStyle = INK; ctx.font = "600 12px -apple-system, system-ui"; ctx.textAlign = "center";
         const label = n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label;
-        ctx.fillText(label, n.x, n.y + n.r + 16);
+        ctx.fillText(label, n.x, n.y + n.r + 15);
       }
     }
+    ctx.globalAlpha = 1;
   }
 
   let frames = 0;
   (function loop() { tick(); draw(); if (++frames < 600 || drag) requestAnimationFrame(loop); else drawLabelsFinal(); })();
   function drawLabelsFinal() {
     draw();
-    ctx.fillStyle = INK3; ctx.font = "700 11px ui-rounded, system-ui"; ctx.textAlign = "center";
-    for (const n of ns) if (n.kind === "topic") ctx.fillText(n.label.length > 18 ? n.label.slice(0, 17) + "…" : n.label, n.x, n.y + n.r + 13);
+    ctx.fillStyle = INK3; ctx.font = "500 11px -apple-system, system-ui"; ctx.textAlign = "center";
+    for (const n of ns) if (n.kind === "topic" && connected(n)) ctx.fillText(n.label.length > 18 ? n.label.slice(0, 17) + "…" : n.label, n.x, n.y + n.r + 13);
   }
 
-  const hit = (mx, my) => ns.find((n) => Math.hypot(n.x - mx, n.y - my) <= n.r + 4);
+  const hit = (mx, my) => ns.find((n) => Math.hypot(n.x - mx, n.y - my) <= n.r + 5);
   canvas.addEventListener("mousedown", (ev) => {
     const r = canvas.getBoundingClientRect();
     drag = hit(ev.clientX - r.left, ev.clientY - r.top) ?? null;
@@ -503,25 +519,29 @@ async function renderGraph() {
     else canvas.style.cursor = hit(ev.clientX - r.left, ev.clientY - r.top) ? "pointer" : "grab";
   });
   window.addEventListener("mouseup", () => { drag = null; });
+  let downAt = 0;
+  canvas.addEventListener("mousedown", () => { downAt = Date.now(); });
   canvas.addEventListener("click", (ev) => {
     const r = canvas.getBoundingClientRect();
     const n = hit(ev.clientX - r.left, ev.clientY - r.top);
-    if (n?.kind === "meeting") { state.meetingId = n.id; render(); }
+    if (Date.now() - downAt > 250) return; // was a drag
+    if (n?.kind === "meeting" && focus === n) { state.meetingId = n.id; render(); return; }
+    focus = n ?? null; // click focuses; unrelated fades. click again to open.
+    drawLabelsFinal();
   });
 
-  // Growth loop: export the brain as a presentation-ready image.
   $("#export-graph").addEventListener("click", () => {
-    const pad = 90, W2 = W + 40, H2 = H + pad + 70;
+    const pad = 84, W2 = W + 40, H2 = H + pad + 60;
     const out = document.createElement("canvas");
     out.width = W2 * dpr; out.height = H2 * dpr;
     const o = out.getContext("2d");
     o.scale(dpr, dpr);
-    o.fillStyle = "#f3efe7"; o.fillRect(0, 0, W2, H2);
-    o.strokeStyle = "#1d1b16"; o.lineWidth = 4; o.strokeRect(8, 8, W2 - 16, H2 - 16);
-    o.fillStyle = "#1d1b16"; o.font = "800 30px ui-rounded, system-ui";
-    o.fillText("My meeting brain", 30, 52);
-    o.fillStyle = "#8f8a7d"; o.font = "700 16px ui-rounded, system-ui";
-    o.fillText(`${ns.filter((n) => n.kind === "meeting").length} meetings · ${ns.filter((n) => n.kind === "person").length} people · ${ns.filter((n) => n.kind === "topic").length} topics — stitched by Threadline`, 30, 76);
+    o.fillStyle = "#ffffff"; o.fillRect(0, 0, W2, H2);
+    o.strokeStyle = "#e7e9ee"; o.lineWidth = 2; o.strokeRect(1, 1, W2 - 2, H2 - 2);
+    o.fillStyle = "#1a1d24"; o.font = "700 28px -apple-system, system-ui";
+    o.fillText("My meeting brain", 30, 48);
+    o.fillStyle = "#9297a1"; o.font = "500 15px -apple-system, system-ui";
+    o.fillText(`${ns.filter((n) => n.kind === "meeting").length} meetings · ${ns.filter((n) => n.kind === "person").length} people · ${ns.filter((n) => n.kind === "topic").length} topics · 🪡 Threadline`, 30, 72);
     o.drawImage(canvas, 0, 0, canvas.width, canvas.height, 20, pad, W, H);
     const a = document.createElement("a");
     a.download = "threadline-brain.png";
@@ -529,14 +549,6 @@ async function renderGraph() {
     a.click();
   });
 }
-
-// Growth loop: long excerpts copied from notes carry a quiet attribution.
-document.addEventListener("copy", (e) => {
-  const sel = document.getSelection()?.toString() ?? "";
-  if (sel.length < 140 || !e.clipboardData) return;
-  e.clipboardData.setData("text/plain", `${sel}\n\n— stitched by Threadline`);
-  e.preventDefault();
-});
 
 // ── Live recording ──────────────────────────────────────────────────────
 const recBtn = $("#rec");
@@ -549,11 +561,11 @@ recBtn.addEventListener("click", async () => {
     const r = await fetch("/api/record/start", { method: "POST", body: JSON.stringify({ title }) }).then((x) => x.json());
     if (r.error) return alert(r.error);
     recording = true;
-    recBtn.textContent = "■ Stop & stitch";
+    recBtn.textContent = "■ Stop";
     recBtn.classList.add("recording");
     renderLive(title);
   } else {
-    recBtn.textContent = "… stitching";
+    recBtn.textContent = "… processing";
     recBtn.disabled = true;
     const liveNotes = $("#live-notes")?.value ?? "";
     const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
@@ -570,10 +582,10 @@ recBtn.addEventListener("click", async () => {
 });
 
 function renderLive(title) {
-  main.innerHTML = `<h1>${esc(title)}</h1><div class="sub">Recording — no bot in your call. Words land as they're said.</div>
-    <div class="card"><h2>Your notes · type while you talk</h2>
-      <textarea class="notes" id="live-notes" placeholder="Jot anything — it's saved with the meeting when you stop."></textarea></div>
-    <div class="card"><h2>Live transcript</h2><div id="live-feed"><div class="empty">${SPOOL_SVG}listening…</div></div></div>
+  main.innerHTML = `<h1>${NEEDLE}${esc(title)}</h1><div class="sub">Recording — no bot in your call. Words land as they're said.</div>
+    <div class="card"><h2>Your notes</h2>
+      <textarea class="notes" id="live-notes" placeholder="Type while you talk — saved with the meeting."></textarea></div>
+    <div class="card"><h2>Live transcript</h2><div id="live-feed"><div class="empty">listening…</div></div></div>
     <div class="card"><h2>Capture status</h2><div id="live-status"></div></div>`;
   const feed = $("#live-feed"), statusBox = $("#live-status");
   const partials = {};
@@ -607,12 +619,12 @@ $("#search").addEventListener("input", (e) => {
   if (!q) return render();
   searchTimer = setTimeout(async () => {
     const hits = await api(`/api/search?q=${encodeURIComponent(q)}`);
-    main.innerHTML = `<h1>“${esc(q)}”</h1><div class="sub">${hits.length} meeting${hits.length === 1 ? "" : "s"} on this thread</div>
-      <div class="card">${hits.length ? hits.map((h) => `
+    main.innerHTML = `<h1>“${esc(q)}”</h1><div class="sub">${hits.length} meeting${hits.length === 1 ? "" : "s"} matched</div>
+      <div class="card">${hits.length ? `<div class="threaded">` + hits.map((h) => `
         <div class="m-row" data-mid="${h.id}">
           <div class="m-date">${fmtDate(h.started_at)}</div>
           <div><div class="m-title">${esc(h.title)}</div><div class="t-meta">${h.hit}</div></div>
-        </div>`).join("") : `<div class="empty">${SPOOL_SVG}No thread found — it searches every word of every meeting.</div>`}</div>`;
+        </div>`).join("") + `</div>` : `<div class="empty">No matches — it searches every word of every meeting.</div>`}</div>`;
     wireMeetingLinks();
   }, 250);
 });
