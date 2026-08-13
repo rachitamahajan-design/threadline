@@ -1,0 +1,92 @@
+{
+  "id": "meeting_17",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Enterprise Customer Advisory Call",
+  "started_at": "2026-08-08T09:30:00+05:30",
+  "duration_minutes": 49,
+  "participants": [
+    {
+      "name": "Nisha Kapoor",
+      "role": "VP Customer Success"
+    },
+    {
+      "name": "Arjun Malhotra",
+      "role": "VP Product"
+    },
+    {
+      "name": "Farhan Ali",
+      "role": "Solutions Engineering Lead"
+    },
+    {
+      "name": "Maya Fernandes",
+      "role": "Product Marketing Lead"
+    }
+  ],
+  "topics": [
+    "Enterprise",
+    "Admin controls",
+    "AI trust",
+    "Implementation"
+  ],
+  "summary": "Discussion covered Enterprise, Admin controls, AI trust, Implementation. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Prioritize granular admin roles after audit-log export",
+    "Keep source citations visible for AI recommendations"
+  ],
+  "action_items": [
+    {
+      "owner": "Arjun Malhotra",
+      "task": "Prioritize granular admin roles after audit-log export",
+      "due": "2026-08-15"
+    },
+    {
+      "owner": "Farhan Ali",
+      "task": "Keep source citations visible for AI recommendations",
+      "due": "2026-08-16"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Nisha Kapoor",
+      "text": "Let's focus today's discussion on Enterprise, Admin controls, AI trust."
+    },
+    {
+      "offset_seconds": 105,
+      "speaker": "Arjun Malhotra",
+      "text": "The product problem is not lack of ideas. It is choosing the smallest set that creates repeat value."
+    },
+    {
+      "offset_seconds": 254,
+      "speaker": "Farhan Ali",
+      "text": "If we join earlier, we can remove implementation risk before the deal reaches procurement."
+    },
+    {
+      "offset_seconds": 394,
+      "speaker": "Maya Fernandes",
+      "text": "The story gets much clearer when the output itself is something users want to share."
+    },
+    {
+      "offset_seconds": 538,
+      "speaker": "Nisha Kapoor",
+      "text": "My recommendation is that we prioritize granular admin roles after audit-log export."
+    },
+    {
+      "offset_seconds": 658,
+      "speaker": "Arjun Malhotra",
+      "text": "My recommendation is that we keep source citations visible for AI recommendations."
+    },
+    {
+      "offset_seconds": 804,
+      "speaker": "Nisha Kapoor",
+      "text": "Okay, we are aligned on keep source citations visible for ai recommendations. Let's capture owners and move."
+    }
+  ]
+}

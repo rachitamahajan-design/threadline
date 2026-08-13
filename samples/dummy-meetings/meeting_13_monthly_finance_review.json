@@ -1,0 +1,92 @@
+{
+  "id": "meeting_13",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Monthly Finance Review",
+  "started_at": "2026-08-03T16:30:00+05:30",
+  "duration_minutes": 40,
+  "participants": [
+    {
+      "name": "Kabir Shah",
+      "role": "VP Finance"
+    },
+    {
+      "name": "Aditi Rao",
+      "role": "CEO"
+    },
+    {
+      "name": "Rohan Mehta",
+      "role": "CTO"
+    },
+    {
+      "name": "Meera Iyer",
+      "role": "VP Sales"
+    }
+  ],
+  "topics": [
+    "Finance",
+    "Gross margin",
+    "AI cost",
+    "Collections"
+  ],
+  "summary": "Discussion covered Finance, Gross margin, AI cost, Collections. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Set per-feature AI cost budgets before broader beta rollout",
+    "Escalate enterprise invoices over 45 days overdue"
+  ],
+  "action_items": [
+    {
+      "owner": "Aditi Rao",
+      "task": "Set per-feature AI cost budgets before broader beta rollout",
+      "due": "2026-08-10"
+    },
+    {
+      "owner": "Rohan Mehta",
+      "task": "Escalate enterprise invoices over 45 days overdue",
+      "due": "2026-08-11"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Kabir Shah",
+      "text": "Let's focus today's discussion on Finance, Gross margin, AI cost."
+    },
+    {
+      "offset_seconds": 120,
+      "speaker": "Aditi Rao",
+      "text": "I want us to be explicit about the trade-off and the outcome we are optimizing for."
+    },
+    {
+      "offset_seconds": 232,
+      "speaker": "Rohan Mehta",
+      "text": "From the platform side, we can support this, but we should define the technical boundary clearly."
+    },
+    {
+      "offset_seconds": 334,
+      "speaker": "Meera Iyer",
+      "text": "The market signal is consistent across the larger deals, especially in the US enterprise segment."
+    },
+    {
+      "offset_seconds": 438,
+      "speaker": "Kabir Shah",
+      "text": "My recommendation is that we set per-feature AI cost budgets before broader beta rollout."
+    },
+    {
+      "offset_seconds": 566,
+      "speaker": "Aditi Rao",
+      "text": "My recommendation is that we escalate enterprise invoices over 45 days overdue."
+    },
+    {
+      "offset_seconds": 666,
+      "speaker": "Kabir Shah",
+      "text": "Okay, we are aligned on escalate enterprise invoices over 45 days overdue. Let's capture owners and move."
+    }
+  ]
+}

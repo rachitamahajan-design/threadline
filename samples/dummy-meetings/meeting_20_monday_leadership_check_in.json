@@ -1,0 +1,130 @@
+{
+  "id": "meeting_20",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Monday Leadership Check-in",
+  "started_at": "2026-08-13T11:00:00+05:30",
+  "duration_minutes": 50,
+  "participants": [
+    {
+      "name": "Aditi Rao",
+      "role": "CEO"
+    },
+    {
+      "name": "Rohan Mehta",
+      "role": "CTO"
+    },
+    {
+      "name": "Arjun Malhotra",
+      "role": "VP Product"
+    },
+    {
+      "name": "Meera Iyer",
+      "role": "VP Sales"
+    },
+    {
+      "name": "Nisha Kapoor",
+      "role": "VP Customer Success"
+    },
+    {
+      "name": "Kabir Shah",
+      "role": "VP Finance"
+    },
+    {
+      "name": "Tara Menon",
+      "role": "VP Marketing"
+    }
+  ],
+  "topics": [
+    "Pricing v3",
+    "AI Copilot",
+    "Enterprise forecast",
+    "Security"
+  ],
+  "summary": "Discussion covered Pricing v3, AI Copilot, Enterprise forecast, Security. The team reached 3 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Launch Pricing v3 in September after migration testing",
+    "Start AI Copilot beta with 25 customers next week",
+    "Make security review acceleration a cross-functional revenue priority"
+  ],
+  "action_items": [
+    {
+      "owner": "Rohan Mehta",
+      "task": "Launch Pricing v3 in September after migration testing",
+      "due": "2026-08-20"
+    },
+    {
+      "owner": "Arjun Malhotra",
+      "task": "Start AI Copilot beta with 25 customers next week",
+      "due": "2026-08-21"
+    },
+    {
+      "owner": "Meera Iyer",
+      "task": "Make security review acceleration a cross-functional revenue priority",
+      "due": "2026-08-22"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Aditi Rao",
+      "text": "Let's focus today's discussion on Pricing v3, AI Copilot, Enterprise forecast."
+    },
+    {
+      "offset_seconds": 147,
+      "speaker": "Rohan Mehta",
+      "text": "From the platform side, we can support this, but we should define the technical boundary clearly."
+    },
+    {
+      "offset_seconds": 246,
+      "speaker": "Arjun Malhotra",
+      "text": "The product problem is not lack of ideas. It is choosing the smallest set that creates repeat value."
+    },
+    {
+      "offset_seconds": 351,
+      "speaker": "Meera Iyer",
+      "text": "The market signal is consistent across the larger deals, especially in the US enterprise segment."
+    },
+    {
+      "offset_seconds": 477,
+      "speaker": "Nisha Kapoor",
+      "text": "The customer pattern matters more than the loudest individual request. We should act on repeat behavior."
+    },
+    {
+      "offset_seconds": 592,
+      "speaker": "Kabir Shah",
+      "text": "I am comfortable with the investment if we can see the unit economics and the downside case."
+    },
+    {
+      "offset_seconds": 691,
+      "speaker": "Tara Menon",
+      "text": "The message will work better if we can show proof rather than another list of features."
+    },
+    {
+      "offset_seconds": 794,
+      "speaker": "Aditi Rao",
+      "text": "My recommendation is that we launch Pricing v3 in September after migration testing."
+    },
+    {
+      "offset_seconds": 887,
+      "speaker": "Rohan Mehta",
+      "text": "My recommendation is that we start AI Copilot beta with 25 customers next week."
+    },
+    {
+      "offset_seconds": 997,
+      "speaker": "Arjun Malhotra",
+      "text": "My recommendation is that we make security review acceleration a cross-functional revenue priority."
+    },
+    {
+      "offset_seconds": 1119,
+      "speaker": "Aditi Rao",
+      "text": "Okay, we are aligned on make security review acceleration a cross-functional revenue priority. Let's capture owners and move."
+    }
+  ]
+}

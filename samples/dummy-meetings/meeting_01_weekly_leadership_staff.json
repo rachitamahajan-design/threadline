@@ -1,0 +1,130 @@
+{
+  "id": "meeting_01",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Weekly Leadership Staff",
+  "started_at": "2026-07-06T16:30:00+05:30",
+  "duration_minutes": 53,
+  "participants": [
+    {
+      "name": "Aditi Rao",
+      "role": "CEO"
+    },
+    {
+      "name": "Rohan Mehta",
+      "role": "CTO"
+    },
+    {
+      "name": "Arjun Malhotra",
+      "role": "VP Product"
+    },
+    {
+      "name": "Meera Iyer",
+      "role": "VP Sales"
+    },
+    {
+      "name": "Nisha Kapoor",
+      "role": "VP Customer Success"
+    },
+    {
+      "name": "Kabir Shah",
+      "role": "VP Finance"
+    },
+    {
+      "name": "Tara Menon",
+      "role": "VP Marketing"
+    }
+  ],
+  "topics": [
+    "Q2 performance",
+    "US enterprise",
+    "AI Copilot",
+    "Hiring"
+  ],
+  "summary": "Discussion covered Q2 performance, US enterprise, AI Copilot, Hiring. The team reached 3 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Keep US enterprise as the top commercial priority for Q3",
+    "Limit the AI roadmap to meeting summaries and workflow recommendations",
+    "Freeze non-critical hiring until September"
+  ],
+  "action_items": [
+    {
+      "owner": "Rohan Mehta",
+      "task": "Keep US enterprise as the top commercial priority for Q3",
+      "due": "2026-07-13"
+    },
+    {
+      "owner": "Arjun Malhotra",
+      "task": "Limit the AI roadmap to meeting summaries and workflow recommendations",
+      "due": "2026-07-14"
+    },
+    {
+      "owner": "Meera Iyer",
+      "task": "Freeze non-critical hiring until September",
+      "due": "2026-07-15"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Aditi Rao",
+      "text": "Let's focus today's discussion on Q2 performance, US enterprise, AI Copilot."
+    },
+    {
+      "offset_seconds": 115,
+      "speaker": "Rohan Mehta",
+      "text": "From the platform side, we can support this, but we should define the technical boundary clearly."
+    },
+    {
+      "offset_seconds": 227,
+      "speaker": "Arjun Malhotra",
+      "text": "The product problem is not lack of ideas. It is choosing the smallest set that creates repeat value."
+    },
+    {
+      "offset_seconds": 359,
+      "speaker": "Meera Iyer",
+      "text": "The market signal is consistent across the larger deals, especially in the US enterprise segment."
+    },
+    {
+      "offset_seconds": 488,
+      "speaker": "Nisha Kapoor",
+      "text": "The customer pattern matters more than the loudest individual request. We should act on repeat behavior."
+    },
+    {
+      "offset_seconds": 570,
+      "speaker": "Kabir Shah",
+      "text": "I am comfortable with the investment if we can see the unit economics and the downside case."
+    },
+    {
+      "offset_seconds": 662,
+      "speaker": "Tara Menon",
+      "text": "The message will work better if we can show proof rather than another list of features."
+    },
+    {
+      "offset_seconds": 761,
+      "speaker": "Aditi Rao",
+      "text": "My recommendation is that we keep US enterprise as the top commercial priority for Q3."
+    },
+    {
+      "offset_seconds": 888,
+      "speaker": "Rohan Mehta",
+      "text": "My recommendation is that we limit the AI roadmap to meeting summaries and workflow recommendations."
+    },
+    {
+      "offset_seconds": 1037,
+      "speaker": "Arjun Malhotra",
+      "text": "My recommendation is that we freeze non-critical hiring until September."
+    },
+    {
+      "offset_seconds": 1173,
+      "speaker": "Aditi Rao",
+      "text": "Okay, we are aligned on freeze non-critical hiring until september. Let's capture owners and move."
+    }
+  ]
+}

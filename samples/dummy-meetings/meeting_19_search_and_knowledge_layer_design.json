@@ -1,0 +1,92 @@
+{
+  "id": "meeting_19",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Search and Knowledge Layer Design",
+  "started_at": "2026-08-11T14:00:00+05:30",
+  "duration_minutes": 53,
+  "participants": [
+    {
+      "name": "Arjun Malhotra",
+      "role": "VP Product"
+    },
+    {
+      "name": "Dev Khanna",
+      "role": "Head of AI"
+    },
+    {
+      "name": "Ishita Nair",
+      "role": "Director of Product"
+    },
+    {
+      "name": "Sanjay Pillai",
+      "role": "Data Platform Lead"
+    }
+  ],
+  "topics": [
+    "Semantic search",
+    "Knowledge graph",
+    "Citations",
+    "AI Copilot"
+  ],
+  "summary": "Discussion covered Semantic search, Knowledge graph, Citations, AI Copilot. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Use embeddings for candidate retrieval and structured links for expansion",
+    "Every generated answer must include source references"
+  ],
+  "action_items": [
+    {
+      "owner": "Dev Khanna",
+      "task": "Use embeddings for candidate retrieval and structured links for expansion",
+      "due": "2026-08-18"
+    },
+    {
+      "owner": "Ishita Nair",
+      "task": "Every generated answer must include source references",
+      "due": "2026-08-19"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Arjun Malhotra",
+      "text": "Let's focus today's discussion on Semantic search, Knowledge graph, Citations."
+    },
+    {
+      "offset_seconds": 99,
+      "speaker": "Dev Khanna",
+      "text": "We can use model output here, but it needs citations and a clear failure path."
+    },
+    {
+      "offset_seconds": 222,
+      "speaker": "Ishita Nair",
+      "text": "We should design around the user outcome and remove steps that exist only because of our internal structure."
+    },
+    {
+      "offset_seconds": 340,
+      "speaker": "Sanjay Pillai",
+      "text": "We should store the relationship explicitly rather than trying to infer it every time at query time."
+    },
+    {
+      "offset_seconds": 450,
+      "speaker": "Arjun Malhotra",
+      "text": "My recommendation is that we use embeddings for candidate retrieval and structured links for expansion."
+    },
+    {
+      "offset_seconds": 538,
+      "speaker": "Dev Khanna",
+      "text": "My recommendation is that we every generated answer must include source references."
+    },
+    {
+      "offset_seconds": 659,
+      "speaker": "Arjun Malhotra",
+      "text": "Okay, we are aligned on every generated answer must include source references. Let's capture owners and move."
+    }
+  ]
+}

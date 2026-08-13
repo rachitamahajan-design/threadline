@@ -1,0 +1,74 @@
+{
+  "id": "meeting_11",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "1:1 Aditi and Arjun",
+  "started_at": "2026-07-29T11:00:00+05:30",
+  "duration_minutes": 37,
+  "participants": [
+    {
+      "name": "Aditi Rao",
+      "role": "CEO"
+    },
+    {
+      "name": "Arjun Malhotra",
+      "role": "VP Product"
+    }
+  ],
+  "topics": [
+    "Roadmap",
+    "Pricing v3",
+    "AI Copilot",
+    "Onboarding"
+  ],
+  "summary": "Discussion covered Roadmap, Pricing v3, AI Copilot, Onboarding. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Do not add new AI workflows before beta usage data",
+    "Protect Pricing v3 and onboarding activation as Q3 work"
+  ],
+  "action_items": [
+    {
+      "owner": "Arjun Malhotra",
+      "task": "Do not add new AI workflows before beta usage data",
+      "due": "2026-07-28"
+    },
+    {
+      "owner": "Aditi Rao",
+      "task": "Protect Pricing v3 and onboarding activation as Q3 work",
+      "due": "2026-07-28"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Aditi Rao",
+      "text": "Let's focus today's discussion on Roadmap, Pricing v3, AI Copilot."
+    },
+    {
+      "offset_seconds": 90,
+      "speaker": "Arjun Malhotra",
+      "text": "The product problem is not lack of ideas. It is choosing the smallest set that creates repeat value."
+    },
+    {
+      "offset_seconds": 224,
+      "speaker": "Aditi Rao",
+      "text": "My recommendation is that we do not add new AI workflows before beta usage data."
+    },
+    {
+      "offset_seconds": 321,
+      "speaker": "Arjun Malhotra",
+      "text": "My recommendation is that we protect Pricing v3 and onboarding activation as Q3 work."
+    },
+    {
+      "offset_seconds": 461,
+      "speaker": "Aditi Rao",
+      "text": "Okay, we are aligned on protect pricing v3 and onboarding activation as q3 work. Let's capture owners and move."
+    }
+  ]
+}
