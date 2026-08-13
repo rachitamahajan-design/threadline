@@ -36,6 +36,15 @@ const apiKey = await ensureApiKey().catch((e: Error) => {
   process.exit(1);
 });
 let live: LiveSession | null = null;
+
+// Global hotkey daemon (double-Fn toggles recording). Best-effort companion
+// process; absence or permission problems must never affect the server.
+import { spawn as spawnProc } from "node:child_process";
+if (existsSync("capture/threadline-hotkey")) {
+  const hk = spawnProc("capture/threadline-hotkey", [], { stdio: ["pipe", "ignore", "pipe"] });
+  hk.stderr?.on("data", (d: Buffer) => console.log(d.toString().trim()));
+  hk.on("error", () => console.log("[hotkey] failed to start"));
+}
 const sseClients = new Set<(e: LiveEvent) => void>();
 const recentEvents: LiveEvent[] = [];
 
@@ -204,6 +213,25 @@ const api: Record<string, Handler> = {
     const s = live;
     live = null;
     return await s.stop();
+  },
+
+  /** Global-hotkey entry: one endpoint that starts or stops. */
+  async "POST /api/record/toggle"() {
+    if (live) {
+      const s = live;
+      live = null;
+      return { action: "stopped", ...(await s.stop()) };
+    }
+    const title = `Quick capture ${new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+    recentEvents.length = 0;
+    live = new LiveSession(db, apiKey, title, "discovery");
+    live.onEvent((e) => {
+      recentEvents.push(e);
+      if (recentEvents.length > 200) recentEvents.shift();
+      for (const send of sseClients) send(e);
+    });
+    live.start();
+    return { action: "started", meetingId: live.meetingId, title };
   },
 
   /** Mid-meeting notes: extract from the transcript so far, keep recording. */
