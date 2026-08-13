@@ -444,6 +444,8 @@
   .people-chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; cursor: pointer; }
   .people-chip:hover { border-color: var(--thread); }
   .up-item { position: relative; padding-left: 22px; }
+  .up-item.compact { padding: 10px 0 10px 22px; }
+  .up-item.compact::before { top: 8px; bottom: 8px; }
   .up-item::before {
     content: ""; position: absolute; left: 5px; top: 20px; bottom: 6px; width: 1.4px; opacity: .45;
     background: repeating-linear-gradient(to bottom, var(--ink-3) 0 11px, transparent 11px 19px);
@@ -1404,12 +1406,19 @@ async function loadUpcoming() {
   box.innerHTML = ups.map((u, i) => {
     const mins = Math.round((u.at_ms - Date.now()) / 60000);
     const when = mins < 60 ? `In ${mins} min` : new Date(u.at_ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    const dateTag = new Date(u.at_ms).getDate() !== new Date().getDate() ? " · " + fmtDate(u.at_ms) : "";
+    if (i > 0)
+      return `<div class="up-item compact" data-up="${u.id}">
+        <span class="up-when">${when}${dateTag}</span>
+        <span style="font-weight:600;font-size:13.5px;margin-left:10px">${esc(u.title)}</span>
+        ${u.participants ? `<span class="t-meta" style="margin-left:8px">${esc(u.participants)}</span>` : ""}
+      </div>`;
     return `<div class="up-item" data-up="${u.id}" data-people="${esc(u.participants ?? "")}">
-      ${i === 0 ? `<div class="up-needle"><svg width="30" height="12" viewBox="0 0 40 15" fill="none">
+      <div class="up-needle"><svg width="30" height="12" viewBox="0 0 40 15" fill="none">
         <path d="M2.9 4.2 C 1.2 5.1, 1.2 9.9, 2.9 10.8 L 11 9.9 L 33 8.15 L 38.4 7.5 L 33 6.85 L 11 5.1 Z" fill="url(#rn-g)"/>
         <ellipse cx="6.4" cy="7.5" rx="1.05" ry="2.15" fill="var(--bg)" stroke="#7d838d" stroke-width="0.55"/>
-      </svg></div>` : ""}
-      <div class="up-when">${when}${new Date(u.at_ms).getDate() !== new Date().getDate() ? " · " + fmtDate(u.at_ms) : ""}</div>
+      </svg></div>
+      <div class="up-when">${when}${dateTag}</div>
       <div class="up-title">${esc(u.title)}</div>
       ${u.participants ? `<div class="t-meta">${esc(u.participants)}</div>` : ""}
       <div class="prep-slot"></div>
@@ -1422,7 +1431,7 @@ async function loadUpcoming() {
     const prep = await api(`/api/prep?people=${encodeURIComponent(people)}`);
     const slot = el.querySelector(".prep-slot");
     const bits = [];
-    for (const o of prep.open.slice(0, 2))
+    for (const o of prep.open)
       bits.push(`<div class="prep"><b>Still open — ${esc(o.body.owner)}</b>${esc(o.body.task)}${o.body.due ? ` (due ${esc(o.body.due)})` : ""}</div>`);
     for (const r of prep.recent.slice(0, 2))
       bits.push(`<div class="prep past" data-mid="${r.id}" style="cursor:pointer"><b>Last time — ${esc(r.title)}</b>${fmtDate(r.started_at)}</div>`);
