@@ -282,7 +282,7 @@
 <script>
 const $ = (s) => document.querySelector(s);
 const main = $("#main");
-const state = { view: "today", meetingId: null, highlight: null };
+const state = { view: "today", meetingId: null, highlight: null, deepLink: null };
 const fmtDate = (ms) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 const fmtTs = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -660,8 +660,8 @@ async function renderMeeting(id) {
     ${backlinks.length ? `<div class="card"><h2>Threaded to</h2>${backlinks.map((b) => `
       <span class="backlink" data-mid="${b.id}">${esc(b.title)} <span style="opacity:.6">via ${esc(b.via)}</span></span>`).join("")}</div>` : ""}
     <div class="card"><h2>Transcript</h2>
-      ${utterances.map((u) => `
-        <div class="utt ${hl && u.text.toLowerCase().includes(hl.toLowerCase().slice(0, 24)) ? "hl" : ""}">
+      ${utterances.map((u, ui) => `
+        <div id="u-${ui}" class="utt ${(hl && u.text.toLowerCase().includes(hl.toLowerCase().slice(0, 24))) || (state.deepLink != null && Math.abs(u.offset_s - state.deepLink) < 1) ? "hl" : ""}">
           <div class="ts">${fmtTs(u.offset_s)}</div>
           <div class="who">${esc(u.speaker ?? u.speaker_role)}</div>
           <div>${esc(u.text)}</div>
@@ -670,6 +670,11 @@ async function renderMeeting(id) {
     <div class="exit-line">Run exit: <span class="pill ${meeting.exit === "shipped" ? "pass" : "block"}">${esc(meeting.exit ?? "?")}</span>
       ${claims.filter((c) => c.gate === "passed").length} claims passed ·
       ${blocked.length} blocked by gates${blocked.length ? ` (${blocked.map((b) => esc(b.gate_reason)).join("; ")})` : ""}</div>`;
+  if (state.deepLink != null) {
+    const target = utterances.findIndex((u) => Math.abs(u.offset_s - state.deepLink) < 1);
+    if (target >= 0) setTimeout(() => document.getElementById(`u-${target}`)?.scrollIntoView({ block: "center" }), 30);
+    state.deepLink = null;
+  }
   state.highlight = null;
   wireMeetingLinks();
   wireNotesAutosave(id);
@@ -768,6 +773,7 @@ function wireMeetingLinks() {
     el.addEventListener("click", () => {
       state.meetingId = el.dataset.mid;
       if (el.dataset.q) state.highlight = el.dataset.q;
+      if (el.dataset.off) state.deepLink = Number(el.dataset.off);
       render();
       window.scrollTo(0, 0);
     }));
@@ -976,21 +982,52 @@ function renderLive(title) {
 }
 
 let searchTimer;
+let askSeq = 0; // superseded asks must not overwrite newer ones
 $("#search").addEventListener("input", (e) => {
   clearTimeout(searchTimer);
   const q = e.target.value.trim();
   if (!q) return render();
   searchTimer = setTimeout(async () => {
     const hits = await api(`/api/search?q=${encodeURIComponent(q)}`);
-    main.innerHTML = `<h1>“${esc(q)}”</h1><div class="sub">${hits.length} meeting${hits.length === 1 ? "" : "s"} on this thread</div>
+    const meetings = [...new Set(hits.map((h) => h.meeting_id))].length;
+    main.innerHTML = `<h1>“${esc(q)}”</h1>
+      <div class="sub">${hits.length} line${hits.length === 1 ? "" : "s"} across ${meetings} meeting${meetings === 1 ? "" : "s"}</div>
+      <div id="ask-card"><button class="copybtn" id="ask-btn" style="margin:0 0 12px">Ask across all meetings ↵</button></div>
       <div class="card">${hits.length ? hits.map((h) => `
-        <div class="m-row" data-mid="${h.id}">
-          <div class="m-date">${fmtDate(h.started_at)}</div>
+        <div class="m-row" data-mid="${h.meeting_id}" data-off="${h.offset_s}">
+          <div class="m-date">${fmtDate(h.started_at)} · ${fmtTs(h.offset_s)}</div>
           <div><div class="m-title">${esc(h.title)}</div><div class="t-meta">${h.hit}</div></div>
         </div>`).join("") : `<div class="empty">${SPOOL_SVG}No thread found — it searches every word of every meeting.</div>`}</div>`;
     wireMeetingLinks();
+    $("#ask-btn")?.addEventListener("click", () => runAsk(q));
   }, 250);
 });
+
+// Ask fires on Enter or the button — NEVER per keystroke: it can cost an LLM call.
+$("#search").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.value.trim()) runAsk(e.target.value.trim());
+});
+
+async function runAsk(q) {
+  const seq = ++askSeq;
+  const card = $("#ask-card");
+  if (!card) return;
+  card.innerHTML = `<div class="card"><div class="t-meta">Reading across every meeting…</div></div>`;
+  let r;
+  try { r = await api(`/api/ask?q=${encodeURIComponent(q)}`); }
+  catch (err) { if (seq === askSeq) card.innerHTML = `<div class="card"><div class="t-meta">Ask failed: ${esc(String(err))}</div></div>`; return; }
+  if (seq !== askSeq || !$("#ask-card")) return; // superseded or view changed
+  const pill = r.exit === "shipped" ? "pass" : "block";
+  $("#ask-card").innerHTML = `<div class="card">
+    <h2>${r.mode === "synthesized" ? "Answer" : "Closest passages"} <span class="pill ${pill}">${esc(r.exit)}</span></h2>
+    ${r.answer.length ? r.answer.map((p) => `
+      <div class="claim">${esc(p.text)}<br>
+        <span class="backlink" data-mid="${p.meeting_id}" data-off="${p.offset_s}">${esc(p.meeting_title)} · ${fmtTs(p.offset_s)}</span></div>`).join("")
+      : `<div class="t-meta">Couldn't ground an answer — the receipts below are what matched.</div>`}
+    ${r.blocked.length ? `<div class="t-meta" style="margin-top:8px">${r.blocked.length} sentence(s) dropped — no receipt in the retrieved snippets</div>` : ""}
+  </div>`;
+  wireMeetingLinks();
+}
 
 render();
 </script>

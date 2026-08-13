@@ -11,6 +11,7 @@ import { openDb } from "../lib/db.js";
 import { LiveSession, type LiveEvent } from "./live.js";
 import { ensureApiKey } from "../lib/firstrun.js";
 import { googleConfigured, googleConnected, authUrl, exchangeCode, upcomingEvents } from "./google.js";
+import { ask } from "../pipeline/ask.js";
 
 // tiny .env loader
 for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"); } catch { return []; } })()) {
@@ -77,7 +78,10 @@ const api: Record<string, Handler> = {
     const runs = (db.prepare(`SELECT * FROM runs WHERE meeting_id = ? ORDER BY id DESC LIMIT 1`).all(id) as { steps: string }[]).map(
       (r) => ({ ...r, steps: JSON.parse(r.steps) }),
     );
-    // backlinks: other meetings sharing a person/topic node with this one
+    // backlinks: other meetings sharing a person/topic node with this one —
+    // plus meetings one `related` hop away, so "ANZ rollout" (kickoff) still
+    // threads to "ANZ pricing" (investor call) without pretending they are
+    // the same topic.
     const backlinks = db
       .prepare(
         `SELECT DISTINCT m.id, m.title, n.label AS via FROM edges e1
@@ -90,9 +94,17 @@ const api: Record<string, Handler> = {
          JOIN edges e2 ON e1.dst = e2.dst AND e2.meeting_id != e1.meeting_id
          JOIN meetings m ON m.id = e2.meeting_id
          JOIN nodes n ON n.id = e1.dst
-         WHERE e1.meeting_id = ? AND n.kind != 'meeting'`,
+         WHERE e1.meeting_id = ? AND n.kind != 'meeting'
+         UNION
+         SELECT DISTINCT m.id, m.title, n1.label || ' ~ ' || n2.label AS via FROM edges e1
+         JOIN edges r  ON r.src = e1.dst AND r.kind = 'related'
+         JOIN edges e2 ON e2.dst = r.dst AND e2.kind = 'mentions' AND e2.meeting_id != e1.meeting_id
+         JOIN meetings m ON m.id = e2.meeting_id
+         JOIN nodes n1 ON n1.id = e1.dst
+         JOIN nodes n2 ON n2.id = r.dst
+         WHERE e1.meeting_id = ? AND e1.kind = 'mentions'`,
       )
-      .all(id, id);
+      .all(id, id, id);
     return { meeting, utterances, claims, runs: runs[0] ?? null, backlinks };
   },
 
@@ -102,18 +114,38 @@ const api: Record<string, Handler> = {
     return { nodes, edges };
   },
 
+  // Chunk-level search: every hit carries offset_s, so the UI can land the
+  // reader on the exact transcript line instead of just the meeting.
   "GET /api/search"(p) {
     const q = (p.get("q") ?? "").trim();
     if (!q) return [];
     const safe = q.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
     if (!safe) return [];
-    return db
-      .prepare(
-        `SELECT DISTINCT m.id, m.title, m.started_at, snippet(search, 2, '<b>', '</b>', '…', 12) AS hit
-         FROM search s JOIN meetings m ON m.id = s.meeting_id
-         WHERE search MATCH ? ORDER BY rank LIMIT 20`,
-      )
-      .all(safe.split(/\s+/).map((w) => `"${w}"`).join(" OR "));
+    const words = safe.split(/\s+/);
+    const run = (match: string) => {
+      try {
+        return db
+          .prepare(
+            `SELECT c.id AS chunk_id, c.meeting_id, m.title, m.started_at, c.kind, c.start_offset_s AS offset_s,
+                    snippet(chunk_fts, 0, '<b>', '</b>', '…', 12) AS hit
+             FROM chunk_fts f JOIN chunks c ON c.id = f.rowid JOIN meetings m ON m.id = c.meeting_id
+             WHERE chunk_fts MATCH ? ORDER BY bm25(chunk_fts, 10.0, 2.0) LIMIT 20`,
+          )
+          .all(match) as unknown[];
+      } catch { return []; }
+    };
+    // AND with a trailing prefix for precision while typing; OR keeps the old recall floor.
+    const strict = run(words.map((w, i) => (i === words.length - 1 ? `"${w}"*` : `"${w}"`)).join(" AND "));
+    return strict.length ? strict : run(words.map((w) => `"${w}"`).join(" OR "));
+  },
+
+  // Ask the brain: hybrid retrieval + gated synthesis. Costs an LLM call when
+  // OPENAI_API_KEY is set (extractive and fully local otherwise), so the UI
+  // fires it on Enter — never per keystroke.
+  async "GET /api/ask"(p) {
+    const q = (p.get("q") ?? "").trim();
+    if (!q) return { error: "missing q" };
+    return await ask(db, q);
   },
 
   "POST /api/record/start"(p, body) {
