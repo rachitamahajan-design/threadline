@@ -1,0 +1,101 @@
+{
+  "id": "meeting_06",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Board Prep: Q2 Narrative",
+  "started_at": "2026-07-17T16:30:00+05:30",
+  "duration_minutes": 33,
+  "participants": [
+    {
+      "name": "Aditi Rao",
+      "role": "CEO"
+    },
+    {
+      "name": "Kabir Shah",
+      "role": "VP Finance"
+    },
+    {
+      "name": "Meera Iyer",
+      "role": "VP Sales"
+    },
+    {
+      "name": "Rohan Mehta",
+      "role": "CTO"
+    },
+    {
+      "name": "Tara Menon",
+      "role": "VP Marketing"
+    }
+  ],
+  "topics": [
+    "Board",
+    "Growth",
+    "NRR",
+    "AI investment"
+  ],
+  "summary": "Discussion covered Board, Growth, NRR, AI investment. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Frame Q2 as a shift toward enterprise-led expansion",
+    "Present AI spend with usage and margin guardrails"
+  ],
+  "action_items": [
+    {
+      "owner": "Kabir Shah",
+      "task": "Frame Q2 as a shift toward enterprise-led expansion",
+      "due": "2026-07-24"
+    },
+    {
+      "owner": "Meera Iyer",
+      "task": "Present AI spend with usage and margin guardrails",
+      "due": "2026-07-25"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Aditi Rao",
+      "text": "Let's focus today's discussion on Board, Growth, NRR."
+    },
+    {
+      "offset_seconds": 91,
+      "speaker": "Kabir Shah",
+      "text": "I am comfortable with the investment if we can see the unit economics and the downside case."
+    },
+    {
+      "offset_seconds": 232,
+      "speaker": "Meera Iyer",
+      "text": "The market signal is consistent across the larger deals, especially in the US enterprise segment."
+    },
+    {
+      "offset_seconds": 381,
+      "speaker": "Rohan Mehta",
+      "text": "From the platform side, we can support this, but we should define the technical boundary clearly."
+    },
+    {
+      "offset_seconds": 469,
+      "speaker": "Tara Menon",
+      "text": "The message will work better if we can show proof rather than another list of features."
+    },
+    {
+      "offset_seconds": 584,
+      "speaker": "Aditi Rao",
+      "text": "My recommendation is that we frame Q2 as a shift toward enterprise-led expansion."
+    },
+    {
+      "offset_seconds": 673,
+      "speaker": "Kabir Shah",
+      "text": "My recommendation is that we present AI spend with usage and margin guardrails."
+    },
+    {
+      "offset_seconds": 809,
+      "speaker": "Aditi Rao",
+      "text": "Okay, we are aligned on present ai spend with usage and margin guardrails. Let's capture owners and move."
+    }
+  ]
+}

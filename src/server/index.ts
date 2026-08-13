@@ -36,6 +36,15 @@ const apiKey = await ensureApiKey().catch((e: Error) => {
   process.exit(1);
 });
 let live: LiveSession | null = null;
+
+// Global hotkey daemon (double-Fn toggles recording). Best-effort companion
+// process; absence or permission problems must never affect the server.
+import { spawn as spawnProc } from "node:child_process";
+if (existsSync("capture/threadline-hotkey")) {
+  const hk = spawnProc("capture/threadline-hotkey", [], { stdio: ["pipe", "ignore", "pipe"] });
+  hk.stderr?.on("data", (d: Buffer) => console.log(d.toString().trim()));
+  hk.on("error", () => console.log("[hotkey] failed to start"));
+}
 const sseClients = new Set<(e: LiveEvent) => void>();
 const recentEvents: LiveEvent[] = [];
 
@@ -206,6 +215,143 @@ const api: Record<string, Handler> = {
     return await s.stop();
   },
 
+  /** Global-hotkey entry: one endpoint that starts or stops. */
+  async "POST /api/record/toggle"() {
+    if (live) {
+      const s = live;
+      live = null;
+      return { action: "stopped", ...(await s.stop()) };
+    }
+    const title = `Quick capture ${new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+    recentEvents.length = 0;
+    live = new LiveSession(db, apiKey, title, "discovery");
+    live.onEvent((e) => {
+      recentEvents.push(e);
+      if (recentEvents.length > 200) recentEvents.shift();
+      for (const send of sseClients) send(e);
+    });
+    live.start();
+    return { action: "started", meetingId: live.meetingId, title };
+  },
+
+  /** Mid-meeting notes: extract from the transcript so far, keep recording. */
+  async "POST /api/record/notes"() {
+    if (!live) return { error: "not recording" };
+    const utts = live.snapshot();
+    if (utts.length < 1) return { error: "Not enough speech yet — give it a minute." };
+    const cid = `${live.meetingId}-sofar-${Date.now()}`;
+    const durationS = Math.max(...utts.map((u) => u.offset_s + u.duration_s));
+    try {
+      const { triggerRecap, awaitRecap } = await import("../lib/pyai.js");
+      await triggerRecap(apiKey, cid, utts, durationS);
+      const r = await awaitRecap(apiKey, cid, 30_000);
+      if (r.status !== "complete" || !r.record) throw new Error(r.error ?? "recap incomplete");
+      return { record: r.record, lines: utts.length };
+    } catch (e) {
+      const { hasOpenAI, openaiExtract } = await import("../lib/openai.js");
+      if (hasOpenAI()) {
+        try { return { record: await openaiExtract(utts), lines: utts.length, engine: "fallback" }; } catch {}
+      }
+      return { error: `Notes engine unavailable: ${e instanceof Error ? e.message : e}` };
+    }
+  },
+
+  /** Mid-recording metadata: mode and topic, applied at stop. */
+  "POST /api/record/meta"(p, body) {
+    if (!live) return { error: "not recording" };
+    const { mode, topic_id } = (body ?? {}) as { mode?: string; topic_id?: number };
+    live.setMeta({ mode, topicId: topic_id });
+    return { ok: true };
+  },
+
+  /** Delete a meeting and everything hanging off it. */
+  "POST /api/meeting/delete"(p, body) {
+    const { id } = (body ?? {}) as { id?: string };
+    if (!id) return { error: "missing id" };
+    const tryRun = (sql: string, ...args: unknown[]) => { try { db.prepare(sql).run(...(args as [])); } catch {} };
+    tryRun("DELETE FROM chunk_fts WHERE rowid IN (SELECT id FROM chunks WHERE meeting_id = ?)", id);
+    for (const t of ["chunks", "entity_mentions", "claims", "utterances", "runs", "meeting_projects", "search",
+                     "summary_versions", "corrections", "notes_versions", "correction_events"])
+      tryRun(`DELETE FROM ${t} WHERE meeting_id = ?`, id);
+    tryRun("DELETE FROM edges WHERE meeting_id = ? OR src = ? OR dst = ?", id, id, id);
+    tryRun("DELETE FROM nodes WHERE id = ?", id);
+    tryRun("DELETE FROM meetings WHERE id = ?", id);
+    tryRun("DELETE FROM nodes WHERE kind != 'meeting' AND id NOT IN (SELECT src FROM edges UNION SELECT dst FROM edges)");
+    return { ok: true };
+  },
+
+  /**
+   * Context pack for one Brain node, as markdown built for pasting into an
+   * LLM: what the node is, how it connects, and the receipts behind it.
+   */
+  "GET /api/node/context"(p) {
+    const id = p.get("id") ?? "";
+    const node = db.prepare(`SELECT * FROM nodes WHERE id = ?`).get(id) as { id: string; kind: string; label: string } | undefined;
+    if (!node) return { error: "unknown node" };
+    const md: string[] = [];
+    const meetingRow = (mid: string) => db.prepare(`SELECT * FROM meetings WHERE id = ?`).get(mid) as { id: string; title: string; started_at: number; headline: string | null; summary: string | null } | undefined;
+    const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+    const claimsOf = (mid: string) =>
+      (db.prepare(`SELECT kind, body, quote FROM claims WHERE meeting_id = ? AND gate = 'passed'`).all(mid) as { kind: string; body: string; quote: string | null }[])
+        .map((c) => ({ ...c, body: JSON.parse(c.body) as Record<string, string | null> }));
+    const neighborsOf = (nid: string, kind: string) =>
+      db.prepare(
+        `SELECT DISTINCT n.id, n.label FROM edges e JOIN nodes n ON n.id = CASE WHEN e.src = ? THEN e.dst ELSE e.src END
+         WHERE (e.src = ? OR e.dst = ?) AND n.kind = ?`,
+      ).all(nid, nid, nid, kind) as { id: string; label: string }[];
+
+    if (node.kind === "meeting") {
+      const m = meetingRow(node.id);
+      if (!m) return { error: "meeting missing" };
+      md.push(`# Meeting: ${m.title} (${day(m.started_at)})`);
+      if (m.summary) md.push(`\n## Summary\n${m.summary}`);
+      const cs = claimsOf(m.id);
+      const dec = cs.filter((c) => c.kind === "decision");
+      const act = cs.filter((c) => c.kind === "action_item");
+      if (dec.length) md.push(`\n## Decisions\n` + dec.map((d) => `- ${d.body.text}`).join("\n"));
+      if (act.length) md.push(`\n## Action items\n` + act.map((a) => `- ${a.body.owner ?? "unassigned"}: ${a.body.task}${a.body.due ? ` (due ${a.body.due})` : ""} — evidence: "${a.quote ?? a.body.task}"`).join("\n"));
+      const people = neighborsOf(m.id, "person");
+      const topics = neighborsOf(m.id, "topic");
+      md.push(`\n## Connections\n- People present: ${people.map((p) => p.label).join(", ") || "unknown"}\n- Topics discussed: ${topics.map((t) => t.label).join(", ") || "none extracted"}`);
+      for (const t of topics.slice(0, 6)) {
+        const others = (db.prepare(`SELECT DISTINCT e.meeting_id FROM edges e WHERE (e.src = ? OR e.dst = ?) AND e.meeting_id != ?`).all(t.id, t.id, m.id) as { meeting_id: string }[])
+          .map((r) => meetingRow(r.meeting_id)).filter(Boolean) as { title: string; started_at: number }[];
+        if (others.length) md.push(`- "${t.label}" also came up in: ${others.map((o) => `${o.title} (${day(o.started_at)})`).join("; ")}`);
+      }
+    } else {
+      const meetIds = (db.prepare(`SELECT DISTINCT meeting_id FROM edges WHERE (src = ? OR dst = ?) AND meeting_id IS NOT NULL`).all(node.id, node.id) as { meeting_id: string }[]).map((r) => r.meeting_id);
+      const meets = meetIds.map(meetingRow).filter(Boolean) as { id: string; title: string; started_at: number; headline: string | null }[];
+      meets.sort((a, b) => a.started_at - b.started_at);
+      md.push(`# ${node.kind === "person" ? "Person" : "Topic"}: ${node.label}`);
+      md.push(`\nAppears in ${meets.length} meeting${meets.length === 1 ? "" : "s"}.`);
+      md.push(`\n## Timeline`);
+      for (const m of meets) md.push(`- ${day(m.started_at)} — ${m.title}${m.headline ? `: ${m.headline}` : ""}`);
+      const label = node.label.toLowerCase();
+      const related: string[] = [];
+      for (const m of meets) {
+        for (const c of claimsOf(m.id)) {
+          const text = `${c.body.text ?? ""} ${c.body.task ?? ""} ${c.quote ?? ""}`.toLowerCase();
+          if (node.kind === "person" && c.kind === "action_item" && (c.body.owner ?? "").toLowerCase() === label)
+            related.push(`- [${m.title}] ${node.label} owns: ${c.body.task}${c.body.due ? ` (due ${c.body.due})` : ""}`);
+          else if (node.kind === "topic" && text.includes(label))
+            related.push(`- [${m.title}] ${c.kind}: ${c.body.text ?? c.body.task}${c.quote ? ` — evidence: "${c.quote}"` : ""}`);
+        }
+      }
+      if (related.length) md.push(`\n## ${node.kind === "person" ? "Commitments and mentions" : "Decisions and actions on this topic"}\n` + [...new Set(related)].slice(0, 12).join("\n"));
+      const coPeople = new Map<string, number>();
+      const coTopics = new Map<string, number>();
+      for (const mid of meetIds) {
+        for (const p of neighborsOf(mid, "person")) if (p.id !== node.id) coPeople.set(p.label, (coPeople.get(p.label) ?? 0) + 1);
+        for (const t of neighborsOf(mid, "topic")) if (t.id !== node.id) coTopics.set(t.label, (coTopics.get(t.label) ?? 0) + 1);
+      }
+      const top = (m: Map<string, number>, n: number) => [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([l, c]) => `${l} (${c}×)`);
+      md.push(`\n## Connection graph\n- Co-occurring people: ${top(coPeople, 6).join(", ") || "—"}\n- Co-occurring topics: ${top(coTopics, 8).join(", ") || "—"}`);
+    }
+    md.push(`\n---\nExported from Threadline — a local-first meeting brain. Every claim above passed a grounding gate against the source transcript.`);
+    const markdown = md.join("\n");
+    return { markdown, filename: `threadline-${node.kind}-${node.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40)}.md` };
+  },
+
   "GET /api/record/state"() {
     return { recording: !!live, meetingId: live?.meetingId ?? null, title: live?.title ?? null };
   },
@@ -313,7 +459,15 @@ const api: Record<string, Handler> = {
          WHERE c.project_id = ? AND c.kind = 'action_item' ORDER BY c.done ASC, c.id DESC`,
       )
       .all(id) as { body: string }[]).map((c) => ({ ...c, body: JSON.parse(c.body) }));
-    return { project, meetings, claims, people, speakers, docs, items };
+    const topics = db
+      .prepare(
+        `SELECT n.label, COUNT(DISTINCT e.meeting_id) c FROM meeting_projects mp
+         JOIN edges e ON e.meeting_id = mp.meeting_id AND e.kind = 'mentions'
+         JOIN nodes n ON n.id = e.dst AND n.kind = 'topic'
+         WHERE mp.project_id = ? GROUP BY n.id ORDER BY c DESC, n.label LIMIT 8`,
+      )
+      .all(id);
+    return { project, meetings, claims, people, speakers, docs, items, topics };
   },
 
   "GET /api/people"() {

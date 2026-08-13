@@ -1,0 +1,92 @@
+{
+  "id": "meeting_09",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "PLG Activation Experiment",
+  "started_at": "2026-07-24T16:30:00+05:30",
+  "duration_minutes": 30,
+  "participants": [
+    {
+      "name": "Ritika Jain",
+      "role": "Growth Lead"
+    },
+    {
+      "name": "Arjun Malhotra",
+      "role": "VP Product"
+    },
+    {
+      "name": "Ishita Nair",
+      "role": "Director of Product"
+    },
+    {
+      "name": "Neha Kulkarni",
+      "role": "Director of RevOps"
+    }
+  ],
+  "topics": [
+    "PLG",
+    "Activation",
+    "Onboarding",
+    "Experiment"
+  ],
+  "summary": "Discussion covered PLG, Activation, Onboarding, Experiment. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Define activation as two successful workflows and ten completed runs",
+    "Test a guided checklist plus contextual templates"
+  ],
+  "action_items": [
+    {
+      "owner": "Arjun Malhotra",
+      "task": "Define activation as two successful workflows and ten completed runs",
+      "due": "2026-07-28"
+    },
+    {
+      "owner": "Ishita Nair",
+      "task": "Test a guided checklist plus contextual templates",
+      "due": "2026-07-28"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Ritika Jain",
+      "text": "Let's focus today's discussion on PLG, Activation, Onboarding."
+    },
+    {
+      "offset_seconds": 131,
+      "speaker": "Arjun Malhotra",
+      "text": "The product problem is not lack of ideas. It is choosing the smallest set that creates repeat value."
+    },
+    {
+      "offset_seconds": 222,
+      "speaker": "Ishita Nair",
+      "text": "We should design around the user outcome and remove steps that exist only because of our internal structure."
+    },
+    {
+      "offset_seconds": 309,
+      "speaker": "Neha Kulkarni",
+      "text": "The data is strong enough to test this, but I want the success metric defined before launch."
+    },
+    {
+      "offset_seconds": 429,
+      "speaker": "Ritika Jain",
+      "text": "My recommendation is that we define activation as two successful workflows and ten completed runs."
+    },
+    {
+      "offset_seconds": 516,
+      "speaker": "Arjun Malhotra",
+      "text": "My recommendation is that we test a guided checklist plus contextual templates."
+    },
+    {
+      "offset_seconds": 613,
+      "speaker": "Ritika Jain",
+      "text": "Okay, we are aligned on test a guided checklist plus contextual templates. Let's capture owners and move."
+    }
+  ]
+}

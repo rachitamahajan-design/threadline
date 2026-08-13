@@ -1,0 +1,92 @@
+{
+  "id": "meeting_15",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Q3 Marketing Planning",
+  "started_at": "2026-08-06T14:00:00+05:30",
+  "duration_minutes": 33,
+  "participants": [
+    {
+      "name": "Tara Menon",
+      "role": "VP Marketing"
+    },
+    {
+      "name": "Maya Fernandes",
+      "role": "Product Marketing Lead"
+    },
+    {
+      "name": "Ritika Jain",
+      "role": "Growth Lead"
+    },
+    {
+      "name": "Meera Iyer",
+      "role": "VP Sales"
+    }
+  ],
+  "topics": [
+    "Marketing",
+    "Enterprise",
+    "AI Copilot",
+    "Customer stories"
+  ],
+  "summary": "Discussion covered Marketing, Enterprise, AI Copilot, Customer stories. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Reduce broad paid social and shift budget to customer proof",
+    "Use AI beta outputs as shareable product artifacts"
+  ],
+  "action_items": [
+    {
+      "owner": "Maya Fernandes",
+      "task": "Reduce broad paid social and shift budget to customer proof",
+      "due": "2026-08-13"
+    },
+    {
+      "owner": "Ritika Jain",
+      "task": "Use AI beta outputs as shareable product artifacts",
+      "due": "2026-08-14"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Tara Menon",
+      "text": "Let's focus today's discussion on Marketing, Enterprise, AI Copilot."
+    },
+    {
+      "offset_seconds": 93,
+      "speaker": "Maya Fernandes",
+      "text": "The story gets much clearer when the output itself is something users want to share."
+    },
+    {
+      "offset_seconds": 220,
+      "speaker": "Ritika Jain",
+      "text": "I want this tested as a controlled experiment so we know whether it changes activation or just clicks."
+    },
+    {
+      "offset_seconds": 339,
+      "speaker": "Meera Iyer",
+      "text": "The market signal is consistent across the larger deals, especially in the US enterprise segment."
+    },
+    {
+      "offset_seconds": 444,
+      "speaker": "Tara Menon",
+      "text": "My recommendation is that we reduce broad paid social and shift budget to customer proof."
+    },
+    {
+      "offset_seconds": 582,
+      "speaker": "Maya Fernandes",
+      "text": "My recommendation is that we use AI beta outputs as shareable product artifacts."
+    },
+    {
+      "offset_seconds": 731,
+      "speaker": "Tara Menon",
+      "text": "Okay, we are aligned on use ai beta outputs as shareable product artifacts. Let's capture owners and move."
+    }
+  ]
+}

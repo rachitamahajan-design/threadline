@@ -1,0 +1,101 @@
+{
+  "id": "meeting_14",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Onboarding Redesign Review",
+  "started_at": "2026-08-05T16:30:00+05:30",
+  "duration_minutes": 43,
+  "participants": [
+    {
+      "name": "Ishita Nair",
+      "role": "Director of Product"
+    },
+    {
+      "name": "Ritika Jain",
+      "role": "Growth Lead"
+    },
+    {
+      "name": "Nisha Kapoor",
+      "role": "VP Customer Success"
+    },
+    {
+      "name": "Ananya Bose",
+      "role": "Director of Customer Success"
+    },
+    {
+      "name": "Arjun Malhotra",
+      "role": "VP Product"
+    }
+  ],
+  "topics": [
+    "Onboarding",
+    "Activation",
+    "Templates",
+    "Customer Success"
+  ],
+  "summary": "Discussion covered Onboarding, Activation, Templates, Customer Success. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Make onboarding outcome-based rather than feature-based",
+    "Trigger human help when an account misses day-14 activation"
+  ],
+  "action_items": [
+    {
+      "owner": "Ritika Jain",
+      "task": "Make onboarding outcome-based rather than feature-based",
+      "due": "2026-08-12"
+    },
+    {
+      "owner": "Nisha Kapoor",
+      "task": "Trigger human help when an account misses day-14 activation",
+      "due": "2026-08-13"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Ishita Nair",
+      "text": "Let's focus today's discussion on Onboarding, Activation, Templates."
+    },
+    {
+      "offset_seconds": 141,
+      "speaker": "Ritika Jain",
+      "text": "I want this tested as a controlled experiment so we know whether it changes activation or just clicks."
+    },
+    {
+      "offset_seconds": 244,
+      "speaker": "Nisha Kapoor",
+      "text": "The customer pattern matters more than the loudest individual request. We should act on repeat behavior."
+    },
+    {
+      "offset_seconds": 346,
+      "speaker": "Ananya Bose",
+      "text": "A timed intervention will work better than asking CSMs to manually watch every account."
+    },
+    {
+      "offset_seconds": 461,
+      "speaker": "Arjun Malhotra",
+      "text": "The product problem is not lack of ideas. It is choosing the smallest set that creates repeat value."
+    },
+    {
+      "offset_seconds": 562,
+      "speaker": "Ishita Nair",
+      "text": "My recommendation is that we make onboarding outcome-based rather than feature-based."
+    },
+    {
+      "offset_seconds": 672,
+      "speaker": "Ritika Jain",
+      "text": "My recommendation is that we trigger human help when an account misses day-14 activation."
+    },
+    {
+      "offset_seconds": 759,
+      "speaker": "Ishita Nair",
+      "text": "Okay, we are aligned on trigger human help when an account misses day-14 activation. Let's capture owners and move."
+    }
+  ]
+}

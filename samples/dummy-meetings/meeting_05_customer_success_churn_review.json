@@ -1,0 +1,92 @@
+{
+  "id": "meeting_05",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "Customer Success Churn Review",
+  "started_at": "2026-07-15T11:00:00+05:30",
+  "duration_minutes": 41,
+  "participants": [
+    {
+      "name": "Nisha Kapoor",
+      "role": "VP Customer Success"
+    },
+    {
+      "name": "Ananya Bose",
+      "role": "Director of Customer Success"
+    },
+    {
+      "name": "Neha Kulkarni",
+      "role": "Director of RevOps"
+    },
+    {
+      "name": "Arjun Malhotra",
+      "role": "VP Product"
+    }
+  ],
+  "topics": [
+    "Churn",
+    "Activation",
+    "Onboarding",
+    "Pricing"
+  ],
+  "summary": "Discussion covered Churn, Activation, Onboarding, Pricing. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Use first-30-day activation as a primary churn signal",
+    "Trigger intervention when fewer than two workflows are live by day 14"
+  ],
+  "action_items": [
+    {
+      "owner": "Ananya Bose",
+      "task": "Use first-30-day activation as a primary churn signal",
+      "due": "2026-07-22"
+    },
+    {
+      "owner": "Neha Kulkarni",
+      "task": "Trigger intervention when fewer than two workflows are live by day 14",
+      "due": "2026-07-23"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Nisha Kapoor",
+      "text": "Let's focus today's discussion on Churn, Activation, Onboarding."
+    },
+    {
+      "offset_seconds": 140,
+      "speaker": "Ananya Bose",
+      "text": "A timed intervention will work better than asking CSMs to manually watch every account."
+    },
+    {
+      "offset_seconds": 284,
+      "speaker": "Neha Kulkarni",
+      "text": "The data is strong enough to test this, but I want the success metric defined before launch."
+    },
+    {
+      "offset_seconds": 373,
+      "speaker": "Arjun Malhotra",
+      "text": "The product problem is not lack of ideas. It is choosing the smallest set that creates repeat value."
+    },
+    {
+      "offset_seconds": 509,
+      "speaker": "Nisha Kapoor",
+      "text": "My recommendation is that we use first-30-day activation as a primary churn signal."
+    },
+    {
+      "offset_seconds": 613,
+      "speaker": "Ananya Bose",
+      "text": "My recommendation is that we trigger intervention when fewer than two workflows are live by day 14."
+    },
+    {
+      "offset_seconds": 713,
+      "speaker": "Nisha Kapoor",
+      "text": "Okay, we are aligned on trigger intervention when fewer than two workflows are live by day 14. Let's capture owners and move."
+    }
+  ]
+}

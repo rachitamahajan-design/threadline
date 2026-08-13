@@ -1,0 +1,101 @@
+{
+  "id": "meeting_07",
+  "company": {
+    "name": "KiteOps",
+    "hq": "Bengaluru, India",
+    "stage": "Series C",
+    "arr_usd_m": 32,
+    "employees": 310,
+    "business": "B2B SaaS workflow and customer operations platform"
+  },
+  "title": "US Enterprise Launch Plan",
+  "started_at": "2026-07-20T11:00:00+05:30",
+  "duration_minutes": 42,
+  "participants": [
+    {
+      "name": "Meera Iyer",
+      "role": "VP Sales"
+    },
+    {
+      "name": "Tara Menon",
+      "role": "VP Marketing"
+    },
+    {
+      "name": "Rahul Desai",
+      "role": "Director of Enterprise Sales"
+    },
+    {
+      "name": "Maya Fernandes",
+      "role": "Product Marketing Lead"
+    },
+    {
+      "name": "Sameer Batra",
+      "role": "Head of Partnerships"
+    }
+  ],
+  "topics": [
+    "US enterprise",
+    "ICP",
+    "Messaging",
+    "Partnerships"
+  ],
+  "summary": "Discussion covered US enterprise, ICP, Messaging, Partnerships. The team reached 2 clear decision(s) and assigned follow-up work.",
+  "decisions": [
+    "Focus on 200-2000 employee B2B software and tech-enabled services",
+    "Lead with implementation speed and governance"
+  ],
+  "action_items": [
+    {
+      "owner": "Tara Menon",
+      "task": "Focus on 200-2000 employee B2B software and tech-enabled services",
+      "due": "2026-07-27"
+    },
+    {
+      "owner": "Rahul Desai",
+      "task": "Lead with implementation speed and governance",
+      "due": "2026-07-28"
+    }
+  ],
+  "transcript": [
+    {
+      "offset_seconds": 0,
+      "speaker": "Meera Iyer",
+      "text": "Let's focus today's discussion on US enterprise, ICP, Messaging."
+    },
+    {
+      "offset_seconds": 145,
+      "speaker": "Tara Menon",
+      "text": "The message will work better if we can show proof rather than another list of features."
+    },
+    {
+      "offset_seconds": 260,
+      "speaker": "Rahul Desai",
+      "text": "The pipeline is there. The friction is happening later in security, implementation, and procurement."
+    },
+    {
+      "offset_seconds": 407,
+      "speaker": "Maya Fernandes",
+      "text": "The story gets much clearer when the output itself is something users want to share."
+    },
+    {
+      "offset_seconds": 544,
+      "speaker": "Sameer Batra",
+      "text": "The best partners are the ones already inside the customer's implementation motion."
+    },
+    {
+      "offset_seconds": 657,
+      "speaker": "Meera Iyer",
+      "text": "My recommendation is that we focus on 200-2000 employee B2B software and tech-enabled services."
+    },
+    {
+      "offset_seconds": 751,
+      "speaker": "Tara Menon",
+      "text": "My recommendation is that we lead with implementation speed and governance."
+    },
+    {
+      "offset_seconds": 883,
+      "speaker": "Meera Iyer",
+      "text": "Okay, we are aligned on lead with implementation speed and governance. Let's capture owners and move."
+    }
+  ]
+}
