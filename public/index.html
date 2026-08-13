@@ -7,213 +7,210 @@
 <style>
   :root {
     color-scheme: light;
-    --bg: #f3efe7;            /* warm cream paper */
-    --surface: #fdfcf8;
-    --ink: #1d1b16;           /* cartoon outline ink */
-    --ink-2: #57534a;
-    --ink-3: #8f8a7d;
-    --thread: #5b74e0;        /* warm blue thread */
-    --thread-soft: #dde3fb;
-    --warm: #e8752e;          /* warm counterpoint, used sparingly */
-    --node-meeting: #2a78d6; --node-person: #eb6834; --node-topic: #1baf7a;
-    --pass: #17694a; --block: #cf3f3e;
-    --line: #d9d3c5;
+    --bg: #faf8f5;              /* warm near-white */
+    --surface: #ffffff;
+    --ink: #21201c;
+    --ink-2: #6b675f;
+    --ink-3: #a39e94;
+    --thread: #5b74e0;          /* warm blue thread */
+    --thread-soft: #eceffc;
+    --warm: #e8752e;
+    --pass: #3d8b68; --block: #cf5a52;
+    --line: #eee9e1;            /* hairline */
+    --shadow: 0 1px 2px rgb(60 50 30 / 0.04), 0 8px 28px rgb(60 50 30 / 0.05);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --bg: #201e19; --surface: #2a2721;
-      --ink: #f4f1e8; --ink-2: #c6c1b2; --ink-3: #8f8a7d;
-      --thread: #7b90f0; --thread-soft: #2c3554; --warm: #f08644;
-      --node-meeting: #3987e5; --node-person: #d95926; --node-topic: #199e70;
-      --pass: #3fa87b; --block: #e66767;
-      --line: #454034;
+      --bg: #1b1a17; --surface: #23221e;
+      --ink: #f0eee9; --ink-2: #b3afa6; --ink-3: #7a766d;
+      --thread: #8296ec; --thread-soft: #2a2f45;
+      --warm: #f08644;
+      --pass: #4caf87; --block: #e07a70;
+      --line: #33312b;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.35);
     }
   }
   * { box-sizing: border-box; margin: 0; }
   body {
     background: var(--bg); color: var(--ink);
-    font: 15.5px/1.55 ui-rounded, "SF Pro Rounded", "Nunito", -apple-system, system-ui, sans-serif;
+    font: 14.5px/1.6 -apple-system, "SF Pro Text", Inter, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
-    background-image: radial-gradient(var(--line) 0.8px, transparent 0.8px);
-    background-size: 26px 26px;
+    letter-spacing: 0.005em;
   }
   header {
     display: flex; align-items: center; gap: 18px;
-    padding: 12px 26px; position: sticky; top: 0; z-index: 5;
-    background: var(--bg); border-bottom: 2px solid var(--ink);
+    padding: 14px 28px; position: sticky; top: 0; z-index: 5;
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
   }
-  .logo { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 19px; letter-spacing: -0.02em; }
+  .logo { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 16.5px; letter-spacing: -0.01em; }
   .logo svg { display: block; }
-  nav { display: flex; gap: 6px; }
-  nav button {
-    border: 2px solid transparent; background: none; color: var(--ink-2); font: inherit; font-weight: 700;
-    padding: 6px 14px; border-radius: 99px; cursor: pointer;
-  }
-  nav button:hover { color: var(--ink); }
-  nav button.active {
-    background: var(--surface); color: var(--ink); border-color: var(--ink);
-    box-shadow: 2.5px 2.5px 0 var(--ink);
-  }
   #search {
-    margin-left: auto; width: 290px; padding: 8px 14px;
-    border: 2px solid var(--ink); border-radius: 99px;
-    background: var(--surface); color: var(--ink); font: inherit;
+    margin-left: auto; width: 300px; padding: 8px 14px;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px;
+    transition: border-color .15s, box-shadow .15s;
   }
+  #search:focus { outline: none; border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); box-shadow: 0 0 0 3px var(--thread-soft); }
   #search::placeholder { color: var(--ink-3); }
+  #google-btn {
+    border: 1px solid var(--line); background: var(--surface); font: inherit; font-weight: 500; font-size: 13px;
+    padding: 7px 14px; border-radius: 10px; cursor: pointer; color: var(--ink-2);
+    transition: border-color .15s, color .15s;
+  }
+  #google-btn:hover { border-color: var(--ink-3); color: var(--ink); }
   #rec {
-    border: 2px solid var(--ink); font: inherit; font-weight: 800; cursor: pointer;
-    padding: 7px 16px; border-radius: 99px; color: #fff; background: var(--thread);
-    box-shadow: 2.5px 2.5px 0 var(--ink);
+    border: 0; font: inherit; font-weight: 600; font-size: 13.5px; cursor: pointer;
+    padding: 8px 17px; border-radius: 10px; color: #fff; background: var(--thread);
+    box-shadow: 0 1px 2px rgb(50 60 140 / 0.25); transition: filter .15s;
   }
-  #rec:active { translate: 2px 2px; box-shadow: none; }
-  #rec.recording { animation: pulse 1.4s ease-in-out infinite; background: var(--block); }
-  @keyframes pulse { 50% { opacity: 0.7; } }
+  #rec:hover { filter: brightness(1.07); }
+  #rec.recording { background: var(--block); animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.75; } }
 
-  .shell { display: grid; grid-template-columns: 208px 1fr; min-height: calc(100vh - 60px); }
+  .shell { display: grid; grid-template-columns: 216px 1fr; min-height: calc(100vh - 61px); }
   #side {
-    border-right: 2px solid var(--ink); background: var(--surface); padding: 18px 12px;
-    position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto;
+    padding: 22px 14px; position: sticky; top: 61px; height: calc(100vh - 61px); overflow-y: auto;
+    border-right: 1px solid var(--line);
   }
-  .side-section { margin-bottom: 22px; }
-  .side-section + .side-section { border-top: 2px dashed var(--line); padding-top: 16px; }
+  .side-section { margin-bottom: 26px; }
   .side-head {
-    font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3);
-    font-weight: 800; padding: 0 10px 6px; display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-3);
+    font-weight: 600; padding: 0 12px 8px; display: flex; align-items: center; justify-content: space-between;
   }
   .side-head button {
-    border: 2px solid var(--ink); background: var(--surface); border-radius: 7px; width: 22px; height: 22px;
-    font-weight: 800; cursor: pointer; line-height: 1; color: var(--ink);
+    border: 0; background: none; border-radius: 6px; width: 22px; height: 22px;
+    font-weight: 600; font-size: 15px; cursor: pointer; line-height: 1; color: var(--ink-3);
   }
+  .side-head button:hover { color: var(--thread); background: var(--thread-soft); }
   .side-link {
-    display: block; width: 100%; text-align: left; border: 2px solid transparent; background: none;
-    color: var(--ink-2); font: inherit; font-weight: 700; padding: 7px 10px; border-radius: 10px; cursor: pointer;
+    display: block; width: 100%; text-align: left; border: 0; background: none;
+    color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 500;
+    padding: 8px 12px; border-radius: 9px; cursor: pointer; transition: background .12s, color .12s;
   }
-  .side-link:hover { color: var(--ink); }
-  .side-link.active { background: var(--thread-soft); color: var(--ink); border-color: var(--ink); }
-  main { max-width: 1060px; margin: 0 auto; padding: 30px 26px 60px; width: 100%; }
-  .home-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
-  @media (max-width: 900px) { .home-grid { grid-template-columns: 1fr; } .shell { grid-template-columns: 1fr; } #side { display: none; } }
-  #google-btn {
-    border: 2px solid var(--ink); background: var(--surface); font: inherit; font-weight: 700; font-size: 13px;
-    padding: 6px 13px; border-radius: 99px; cursor: pointer; color: var(--ink-2);
-  }
-  /* ── thread grammar: rail, stitches, needle ─────────────────────── */
-  .loose-rail { position: relative; padding-left: 20px; }
-  .loose-rail::before {
-    content: ""; position: absolute; left: 5px; top: 12px; bottom: 12px; width: 2px; border-radius: 2px;
-    background: repeating-linear-gradient(to bottom, var(--thread) 0 7px, transparent 7px 13px);
-    opacity: 0.45;
-  }
-  /* stitch marker: the visible link between a task and its source quote */
-  .receipt::before {
-    content: ""; display: inline-block; width: 21px; height: 2px; margin-right: 8px; vertical-align: 3px;
-    background: repeating-linear-gradient(to right, var(--thread) 0 5px, transparent 5px 9px);
-  }
-  .todo.done .receipt::before { background: var(--thread); } /* stitch closed */
-  .stitch-connector { display: block; margin: -8px 0 -8px 52px; }
-  #needle-runner { position: absolute; left: -1px; z-index: 3; pointer-events: none; transition: top 0.38s cubic-bezier(.5,0,.3,1); }
-  .prep { border-left: 2px dashed var(--thread); position: relative; }
-  .prep.active { border-left-style: solid; }
-  .prep.active::before {
-    content: ""; position: absolute; left: -6px; top: 10px; width: 12px; height: 2.5px; border-radius: 2px;
-    background: linear-gradient(90deg, #8d939e, #e6e9ee, #9aa1ad); transform: rotate(-38deg);
-  }
-  .open-stitch { display: none; width: 26px; height: 2px; margin-left: 8px; vertical-align: 3px;
-    background: repeating-linear-gradient(to right, var(--thread) 0 5px, transparent 5px 9px); }
-  .m-row:hover .open-stitch { display: inline-block; }
-  .up-item { padding: 10px 0; }
-  .up-item + .up-item { border-top: 2px dashed var(--line); }
-  .up-when { font-size: 12.5px; font-weight: 800; color: var(--thread); }
-  .prep { font-size: 13px; color: var(--ink-2); margin-top: 5px; border-left: 3px solid var(--thread); padding: 2px 10px; background: color-mix(in srgb, var(--thread) 6%, transparent); border-radius: 3px; }
-  .prep b { display: block; }
-  h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 4px; }
-  .sub { color: var(--ink-2); margin-bottom: 26px; }
+  .side-link:hover { color: var(--ink); background: color-mix(in srgb, var(--surface) 60%, var(--bg)); }
+  .side-link.active { background: var(--thread-soft); color: var(--ink); font-weight: 600; }
+  main { max-width: 1020px; margin: 0 auto; padding: 40px 36px 80px; width: 100%; }
+  h1 { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .sub { color: var(--ink-2); font-size: 14px; margin-bottom: 30px; }
   .card {
-    background: var(--surface); border: 2px solid var(--ink);
-    border-radius: 16px; padding: 20px 22px; margin-bottom: 20px;
-    box-shadow: 4px 4px 0 var(--ink);
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 24px 26px; margin-bottom: 22px; box-shadow: var(--shadow);
   }
   .card h2 {
-    font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3);
-    margin-bottom: 14px; font-weight: 800;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-3);
+    margin-bottom: 16px; font-weight: 600;
   }
-  /* stitched divider — the thread motif */
-  .todo, .m-row, .claim { border-top: 2px dashed var(--line); }
-  .todo:first-of-type, .m-row:first-of-type, .claim:first-of-type { border-top: 0; }
+  .stats { display: flex; gap: 44px; margin: 4px 0 34px; }
+  .stat b { display: block; font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
+  .stat span { font-size: 12.5px; color: var(--ink-3); }
+  .home-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 900px) { .home-grid { grid-template-columns: 1fr; } .shell { grid-template-columns: 1fr; } #side { display: none; } }
 
-  .todo { display: flex; gap: 12px; padding: 12px 0; align-items: flex-start; }
-  .todo input {
-    appearance: none; width: 20px; height: 20px; margin-top: 2px; cursor: pointer; flex: none;
-    border: 2px solid var(--ink); border-radius: 6px; background: var(--surface);
-    display: grid; place-content: center;
+  /* ── thread: a fine silk line, not a dash ── */
+  .loose-rail { position: relative; padding-left: 22px; }
+  .loose-rail::before {
+    content: ""; position: absolute; left: 6px; top: 14px; bottom: 14px; width: 1.5px; border-radius: 2px;
+    background: linear-gradient(to bottom,
+      color-mix(in srgb, var(--thread) 15%, transparent),
+      color-mix(in srgb, var(--thread) 45%, transparent) 30%,
+      color-mix(in srgb, var(--thread) 45%, transparent) 70%,
+      color-mix(in srgb, var(--thread) 15%, transparent));
   }
-  .todo input:checked { background: var(--thread); }
-  .todo input:checked::before { content: "✕"; color: #fff; font-weight: 900; font-size: 12px; }
-  .todo.done .t-task { text-decoration: line-through wavy var(--thread); color: var(--ink-3); }
-  .t-task { font-weight: 700; }
-  .t-meta { color: var(--ink-2); font-size: 13.5px; }
+  .receipt::before {
+    content: ""; display: inline-block; width: 14px; height: 1.5px; margin: 0 8px 0 0; vertical-align: 4px; border-radius: 2px;
+    background: color-mix(in srgb, var(--thread) 50%, transparent);
+  }
+  .todo.done .receipt::before { background: var(--thread); }
+  .stitch-connector { display: block; margin: -10px 0 -10px 56px; }
+  #needle-runner { position: absolute; left: 0; z-index: 3; pointer-events: none; transition: top 0.38s cubic-bezier(.5,0,.3,1); }
+  .open-stitch { display: none; width: 18px; height: 1.5px; margin-left: 10px; vertical-align: 4px; border-radius: 2px;
+    background: color-mix(in srgb, var(--thread) 50%, transparent); }
+  .m-row:hover .open-stitch { display: inline-block; }
+
+  .todo { display: flex; gap: 13px; padding: 13px 0; align-items: flex-start; }
+  .todo + .todo { border-top: 1px solid var(--line); }
+  .todo input { margin-top: 4px; width: 16px; height: 16px; accent-color: var(--thread); cursor: pointer; flex: none; }
+  .todo.done .t-task { text-decoration: line-through; color: var(--ink-3); }
+  .t-task { font-weight: 570; font-size: 14.5px; }
+  .t-meta { color: var(--ink-3); font-size: 12.5px; margin-top: 1px; }
   .receipt {
-    font-size: 13.5px; color: var(--ink-2); margin-top: 5px; cursor: pointer;
-    border-left: 3px solid var(--thread); padding: 3px 10px; border-radius: 3px;
-    background: color-mix(in srgb, var(--thread) 9%, transparent);
+    font-size: 12.5px; color: var(--ink-2); margin-top: 7px; cursor: pointer;
+    padding: 3px 0; border-radius: 6px; transition: color .12s;
   }
-  .stats { display: flex; gap: 34px; margin: 0 0 26px; }
-  .stat b { display: block; font-size: 24px; font-weight: 800; color: var(--ink); }
-  .stat span { font-size: 13px; color: var(--ink-3); font-weight: 700; }
-  textarea.notes {
-    width: 100%; min-height: 130px; resize: vertical; font: inherit; color: var(--ink);
-    background: color-mix(in srgb, var(--thread) 4%, transparent);
-    border: 2px dashed var(--line); border-radius: 10px; padding: 12px 14px; outline: none;
-  }
-  textarea.notes:focus { border-color: var(--thread); }
-  .draft { white-space: pre-wrap; font-size: 14.5px; background: color-mix(in srgb, var(--thread) 5%, transparent); border-radius: 10px; padding: 14px 16px; }
-  .copybtn {
-    border: 2px solid var(--ink); background: var(--surface); font: inherit; font-weight: 700; font-size: 13px;
-    padding: 4px 14px; border-radius: 99px; cursor: pointer; margin-top: 10px; box-shadow: 2px 2px 0 var(--ink);
-  }
-  .copybtn:active { translate: 2px 2px; box-shadow: none; }
-  .receipt:hover { background: color-mix(in srgb, var(--thread) 18%, transparent); }
+  .receipt:hover { color: var(--thread); }
 
   .pill {
-    display: inline-block; font-size: 12.5px; font-weight: 700; padding: 2px 11px; border-radius: 99px;
-    border: 2px solid var(--ink); color: var(--ink); background: var(--surface);
+    display: inline-block; font-size: 11.5px; font-weight: 550; padding: 2.5px 10px; border-radius: 99px;
+    background: color-mix(in srgb, var(--line) 55%, transparent); color: var(--ink-2);
   }
-  .pill.pass { background: var(--pass); color: #fff; }
-  .pill.block { background: var(--block); color: #fff; }
+  .pill.pass { background: color-mix(in srgb, var(--pass) 12%, transparent); color: var(--pass); }
+  .pill.block { background: color-mix(in srgb, var(--block) 12%, transparent); color: var(--block); }
 
-  .m-row { display: flex; gap: 14px; padding: 13px 0; cursor: pointer; align-items: baseline; }
-  .m-row:hover .m-title { color: var(--thread); text-decoration: underline wavy var(--thread) 1.5px; }
-  .m-title { font-weight: 800; }
-  .m-date { color: var(--ink-3); font-size: 13px; min-width: 88px; font-weight: 700; }
+  .m-row { display: flex; gap: 16px; padding: 14px 0; cursor: pointer; align-items: baseline; }
+  .m-row + .m-row { border-top: 1px solid var(--line); }
+  .m-row:hover .m-title { color: var(--thread); }
+  .m-title { font-weight: 570; font-size: 14.5px; transition: color .12s; }
+  .m-date { color: var(--ink-3); font-size: 12.5px; min-width: 84px; font-variant-numeric: tabular-nums; }
 
-  .utt { display: flex; gap: 12px; padding: 7px 0; }
-  .utt.hl { background: color-mix(in srgb, var(--thread) 14%, transparent); border-radius: 10px; padding: 7px 10px; margin: 0 -10px; }
-  .utt .who { min-width: 76px; font-weight: 800; font-size: 13px; color: var(--ink-2); padding-top: 2px; }
-  .utt .ts { color: var(--ink-3); font-size: 12px; min-width: 40px; text-align: right; padding-top: 3px; font-variant-numeric: tabular-nums; }
-  .claim { padding: 10px 0; }
+  .utt { display: flex; gap: 14px; padding: 8px 0; }
+  .utt.hl { background: var(--thread-soft); border-radius: 8px; padding: 8px 12px; margin: 0 -12px; }
+  .utt .who { min-width: 72px; font-weight: 600; font-size: 12.5px; color: var(--ink-2); padding-top: 2px; }
+  .utt .ts { color: var(--ink-3); font-size: 11.5px; min-width: 38px; text-align: right; padding-top: 3px; font-variant-numeric: tabular-nums; }
+  .claim { padding: 10px 0; font-size: 14.5px; }
+  .claim + .claim { border-top: 1px solid var(--line); }
   .backlink {
-    display: inline-block; margin: 3px 8px 3px 0; padding: 5px 13px; border-radius: 99px;
-    border: 2px solid var(--ink); background: var(--thread-soft); color: var(--ink);
-    cursor: pointer; font-size: 13.5px; font-weight: 700; box-shadow: 2px 2px 0 var(--ink);
+    display: inline-block; margin: 3px 8px 3px 0; padding: 5px 13px; border-radius: 9px;
+    background: var(--thread-soft); color: var(--thread);
+    cursor: pointer; font-size: 13px; font-weight: 550; transition: filter .12s;
   }
-  .backlink:active { translate: 2px 2px; box-shadow: none; }
+  .backlink:hover { filter: brightness(0.96); }
 
-  #graph-wrap { position: relative; height: 560px; overflow: hidden; border-radius: 14px; padding: 0; }
+  #graph-wrap { position: relative; height: 560px; overflow: hidden; padding: 0; }
   #graph { width: 100%; height: 100%; display: block; cursor: grab; }
-  .legend { display: flex; gap: 20px; align-items: center; padding: 12px 6px 0; font-size: 13.5px; font-weight: 700; color: var(--ink-2); }
-  .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 7px; border: 2px solid var(--ink); vertical-align: -1px; }
-  .legend .l-m::before { background: var(--node-meeting); border-radius: 50%; }
-  .legend .l-p::before { background: var(--node-person); border-radius: 3px; }
-  .legend .l-t::before { background: var(--node-topic); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); border: 0; width: 14px; height: 14px; }
+  .legend { display: flex; gap: 20px; align-items: center; padding: 14px 6px 0; font-size: 12.5px; color: var(--ink-2); }
+  .legend span::before { content: ""; display: inline-block; margin-right: 7px; vertical-align: -1px; }
+  .legend .l-m::before { width: 10px; height: 10px; border-radius: 50%; background: var(--thread); }
+  .legend .l-p::before { width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--ink-3); }
+  .legend .l-t::before { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
 
-  .empty { color: var(--ink-3); text-align: center; padding: 36px 0; }
-  .empty svg { display: block; margin: 0 auto 12px; }
-  .exit-line { font-size: 13.5px; color: var(--ink-2); margin-top: 12px; }
-  b { color: var(--thread); }
+  .empty { color: var(--ink-3); text-align: center; padding: 44px 0; font-size: 13.5px; }
+  .empty svg { display: none; }
+  .exit-line { font-size: 12.5px; color: var(--ink-3); margin-top: 14px; }
+  b { font-weight: 600; }
+  textarea.notes {
+    width: 100%; min-height: 130px; resize: vertical; font: inherit; color: var(--ink);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 11px; padding: 13px 15px; outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  textarea.notes:focus { border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); box-shadow: 0 0 0 3px var(--thread-soft); }
+  .draft { white-space: pre-wrap; font-size: 13.5px; background: var(--bg); border: 1px solid var(--line); border-radius: 11px; padding: 15px 17px; }
+  .copybtn {
+    border: 1px solid var(--line); background: var(--surface); font: inherit; font-weight: 500; font-size: 12.5px;
+    padding: 5px 14px; border-radius: 9px; cursor: pointer; margin-top: 10px; color: var(--ink-2);
+    transition: border-color .12s, color .12s;
+  }
+  .copybtn:hover { border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); color: var(--thread); }
   .live-partial { color: var(--ink-3); font-style: italic; }
   .live-you .who { color: var(--thread); }
-  .live-status { font-size: 12px; color: var(--ink-3); padding: 2px 0; font-family: ui-monospace, monospace; }
+  .live-status { font-size: 11.5px; color: var(--ink-3); padding: 2px 0; font-family: ui-monospace, monospace; }
+
+  .up-item { padding: 12px 0; }
+  .up-item + .up-item { border-top: 1px solid var(--line); }
+  .up-when { font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em; color: var(--thread); text-transform: uppercase; }
+  .prep {
+    font-size: 12.5px; color: var(--ink-2); margin-top: 7px; position: relative;
+    border-left: 1.5px solid color-mix(in srgb, var(--thread) 25%, transparent);
+    padding: 3px 12px; border-radius: 0 6px 6px 0;
+  }
+  .prep.active { border-left-color: var(--thread); background: color-mix(in srgb, var(--thread) 4%, transparent); }
+  .prep.active::before {
+    content: ""; position: absolute; left: -5px; top: 11px; width: 9px; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, #b9bec6, #e9ebee, #9aa1ad); transform: rotate(-36deg);
+  }
+  .prep b { display: block; font-weight: 600; color: var(--ink-2); }
 </style>
 </head>
 <body>
@@ -581,13 +578,13 @@ function shareDecisionCard(text, meeting, people) {
   x.fillStyle = "#f3efe7"; x.fillRect(0, 0, W, H);
   x.strokeStyle = "#1d1b16"; x.lineWidth = 6; x.strokeRect(14, 14, W - 28, H - 28);
   // stitched top thread
-  x.strokeStyle = "#e8752e"; x.lineWidth = 5; x.setLineDash([16, 14]); x.lineCap = "round";
+  x.strokeStyle = "#5b74e0"; x.lineWidth = 2.5; x.lineCap = "round"; x.globalAlpha = 0.7;
   x.beginPath(); x.moveTo(60, 92); x.quadraticCurveTo(W / 2, 130, W - 60, 92); x.stroke();
-  x.setLineDash([]);
-  x.fillStyle = "#8f8a7d"; x.font = "700 26px ui-rounded, system-ui";
+  x.globalAlpha = 1;
+  x.fillStyle = "#a39e94"; x.font = "600 22px -apple-system, system-ui";
   x.fillText("DECISION", 70, 68);
   // decision text, wrapped
-  x.fillStyle = "#1d1b16"; x.font = "800 52px ui-rounded, system-ui";
+  x.fillStyle = "#21201c"; x.font = "650 48px -apple-system, system-ui";
   const words = text.split(" ");
   let line = "", y = 210;
   for (const w of words) {
@@ -596,13 +593,13 @@ function shareDecisionCard(text, meeting, people) {
   }
   x.fillText(line, 70, y);
   // meta
-  x.fillStyle = "#57534a"; x.font = "600 30px ui-rounded, system-ui";
+  x.fillStyle = "#6b675f"; x.font = "500 26px -apple-system, system-ui";
   x.fillText(`${meeting.title} · ${fmtDate(meeting.started_at)}`, 70, H - 150);
   if (people.length) x.fillText(people.join(" · "), 70, H - 105);
   // attribution
-  x.strokeStyle = "#e8752e"; x.lineWidth = 4; x.setLineDash([10, 9]);
-  x.beginPath(); x.moveTo(70, H - 62); x.lineTo(240, H - 62); x.stroke(); x.setLineDash([]);
-  x.fillStyle = "#8f8a7d"; x.font = "700 26px ui-rounded, system-ui";
+  x.strokeStyle = "#5b74e0"; x.lineWidth = 2; x.globalAlpha = 0.7;
+  x.beginPath(); x.moveTo(70, H - 62); x.lineTo(240, H - 62); x.stroke(); x.globalAlpha = 1;
+  x.fillStyle = "#a39e94"; x.font = "600 22px -apple-system, system-ui";
   x.fillText("stitched by Threadline", 256, H - 53);
   const a = document.createElement("a");
   a.download = "threadline-decision.png";
@@ -664,8 +661,7 @@ async function renderGraph() {
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
   const css = getComputedStyle(document.documentElement);
-  const COLOR = { meeting: css.getPropertyValue("--node-meeting"), person: css.getPropertyValue("--node-person"), topic: css.getPropertyValue("--node-topic") };
-  const INK = css.getPropertyValue("--ink"), INK3 = css.getPropertyValue("--ink-3"), THREAD = css.getPropertyValue("--thread"), SURFACE = css.getPropertyValue("--surface");
+  const INK = css.getPropertyValue("--ink"), INK3 = css.getPropertyValue("--ink-3"), THREAD = css.getPropertyValue("--thread"), SURFACE = css.getPropertyValue("--surface").trim();
 
   const ns = nodes.map((n, i) => ({
     ...n, label: n.meeting_title ?? n.label,
@@ -705,31 +701,30 @@ async function renderGraph() {
 
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    // threads: stitched dashed lines with a gentle sag, like real thread
-    ctx.strokeStyle = THREAD; ctx.lineWidth = 2; ctx.setLineDash([7, 6]); ctx.lineCap = "round";
+    // threads: fine solid curves with a gentle sag — silk, not sketch
+    ctx.lineWidth = 1.4; ctx.lineCap = "round"; ctx.strokeStyle = THREAD;
     for (const e of es) {
       const a = byId[e.src], b = byId[e.dst];
-      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + Math.min(34, Math.hypot(b.x - a.x, b.y - a.y) * 0.12);
+      ctx.globalAlpha = 0.32;
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + Math.min(28, Math.hypot(b.x - a.x, b.y - a.y) * 0.1);
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(mx, my, b.x, b.y); ctx.stroke();
     }
-    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
     for (const n of ns) {
-      ctx.fillStyle = COLOR[n.kind] ?? INK3;
-      ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
       ctx.beginPath();
-      if (n.kind === "person") {
-        const s = n.r;
-        ctx.roundRect(n.x - s, n.y - s, s * 2, s * 2, 5);
-      } else if (n.kind === "topic") {
-        ctx.moveTo(n.x, n.y - n.r); ctx.lineTo(n.x + n.r, n.y); ctx.lineTo(n.x, n.y + n.r); ctx.lineTo(n.x - n.r, n.y); ctx.closePath();
+      ctx.arc(n.x, n.y, n.r, 0, 2 * Math.PI);
+      if (n.kind === "meeting") {
+        ctx.fillStyle = THREAD; ctx.fill();
+      } else if (n.kind === "person") {
+        ctx.fillStyle = SURFACE; ctx.fill();
+        ctx.strokeStyle = INK3; ctx.lineWidth = 1.5; ctx.stroke();
       } else {
-        ctx.arc(n.x, n.y, n.r, 0, 2 * Math.PI);
+        ctx.fillStyle = INK3; ctx.globalAlpha = 0.65; ctx.fill(); ctx.globalAlpha = 1;
       }
-      ctx.fill(); ctx.stroke();
       if (n.kind === "meeting" || n.kind === "person") {
-        ctx.fillStyle = INK; ctx.font = "800 12px ui-rounded, system-ui"; ctx.textAlign = "center";
+        ctx.fillStyle = INK; ctx.font = "600 11.5px -apple-system, system-ui"; ctx.textAlign = "center";
         const label = n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label;
-        ctx.fillText(label, n.x, n.y + n.r + 16);
+        ctx.fillText(label, n.x, n.y + n.r + 15);
       }
     }
   }
@@ -738,7 +733,7 @@ async function renderGraph() {
   (function loop() { tick(); draw(); if (++frames < 600 || drag) requestAnimationFrame(loop); else drawLabelsFinal(); })();
   function drawLabelsFinal() {
     draw();
-    ctx.fillStyle = INK3; ctx.font = "700 11px ui-rounded, system-ui"; ctx.textAlign = "center";
+    ctx.fillStyle = INK3; ctx.font = "500 11px -apple-system, system-ui"; ctx.textAlign = "center";
     for (const n of ns) if (n.kind === "topic") ctx.fillText(n.label.length > 18 ? n.label.slice(0, 17) + "…" : n.label, n.x, n.y + n.r + 13);
   }
 
@@ -769,9 +764,9 @@ async function renderGraph() {
     o.scale(dpr, dpr);
     o.fillStyle = "#f3efe7"; o.fillRect(0, 0, W2, H2);
     o.strokeStyle = "#1d1b16"; o.lineWidth = 4; o.strokeRect(8, 8, W2 - 16, H2 - 16);
-    o.fillStyle = "#1d1b16"; o.font = "800 30px ui-rounded, system-ui";
+    o.fillStyle = "#21201c"; o.font = "650 26px -apple-system, system-ui";
     o.fillText("My meeting brain", 30, 52);
-    o.fillStyle = "#8f8a7d"; o.font = "700 16px ui-rounded, system-ui";
+    o.fillStyle = "#a39e94"; o.font = "500 15px -apple-system, system-ui";
     o.fillText(`${ns.filter((n) => n.kind === "meeting").length} meetings · ${ns.filter((n) => n.kind === "person").length} people · ${ns.filter((n) => n.kind === "topic").length} topics — stitched by Threadline`, 30, 76);
     o.drawImage(canvas, 0, 0, canvas.width, canvas.height, 20, pad, W, H);
     const a = document.createElement("a");
