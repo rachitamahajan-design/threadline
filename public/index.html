@@ -2518,12 +2518,17 @@ async function stopRecording() {
  * Picture-in-Picture) with the timer, the live line, and Stop — so the
  * meeting stays visible over Zoom, docs, everything. Chrome/Arc/Edge.
  */
-async function openCompanion(title) {
-  if (!("documentPictureInPicture" in window) || pipWin) return;
+async function openCompanion(title, manual) {
+  if (pipWin) return;
+  if (!("documentPictureInPicture" in window)) {
+    if (manual) alert("This browser can't make always-on-top windows (needs Chrome, Arc or Edge, version 116+). The recording itself is unaffected.");
+    return;
+  }
   try {
     pipWin = await documentPictureInPicture.requestWindow({ width: 330, height: 168 });
   } catch (e) {
     pipWin = null;
+    if (manual) alert("Couldn't open the floating window: " + (e && e.message ? e.message : e));
     const b = $("#popout-btn");
     if (b) { b.style.color = "var(--thread)"; b.style.borderColor = "var(--thread)"; }
     return; // needs a fresh click — the Pop out button provides one
