@@ -18,6 +18,7 @@ import { hasOpenAI } from "../lib/openai.js";
 import type { Utterance } from "../lib/pyai.js";
 import { googleConfigured, googleConnected, authUrl, exchangeCode, upcomingEvents } from "./google.js";
 import { ask } from "../pipeline/ask.js";
+import { converse } from "../pipeline/needle.js";
 
 // tiny .env loader
 for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"); } catch { return []; } })()) {
@@ -530,6 +531,46 @@ const api: Record<string, Handler> = {
     const { id, done } = body as { id: number; done: boolean };
     db.prepare(`UPDATE claims SET done = ? WHERE id = ? AND kind = 'action_item'`).run(done ? 1 : 0, id);
     return { ok: true };
+  },
+
+  // ── Needle: conversations threaded through every meeting ──────────────
+  "GET /api/needle/conversations"() {
+    return db.prepare(
+      `SELECT c.id, c.title, c.project_id, c.created_at,
+              (SELECT count(*) FROM messages m WHERE m.conversation_id = c.id) AS n_messages
+       FROM conversations c ORDER BY c.id DESC LIMIT 30`,
+    ).all();
+  },
+
+  "POST /api/needle/new"(p, body) {
+    const { title, project_id, seed } = (body ?? {}) as {
+      title?: string; project_id?: number;
+      seed?: { question: string; content: string; payload?: object };
+    };
+    const name = (title ?? seed?.question ?? "New thread").slice(0, 80);
+    db.prepare("INSERT INTO conversations (title, project_id, created_at) VALUES (?, ?, ?)")
+      .run(name, project_id ?? null, Date.now());
+    const id = (db.prepare("SELECT last_insert_rowid() AS id").get() as { id: number }).id;
+    if (seed) {
+      // Spotlight handoff: the palette answer (with its retrieved chunks)
+      // becomes the first exchange, so follow-ups ground against it.
+      const ins = db.prepare("INSERT INTO messages (conversation_id, role, content, payload, created_at) VALUES (?, ?, ?, ?, ?)");
+      ins.run(id, "user", seed.question, null, Date.now());
+      ins.run(id, "assistant", seed.content, JSON.stringify(seed.payload ?? {}), Date.now());
+    }
+    return { id };
+  },
+
+  "GET /api/needle/messages"(p) {
+    const id = Number(p.get("id"));
+    return (db.prepare("SELECT id, role, content, payload FROM messages WHERE conversation_id = ? ORDER BY id").all(id) as { payload: string | null }[])
+      .map((m) => ({ ...m, payload: m.payload ? JSON.parse(m.payload) : null }));
+  },
+
+  async "POST /api/needle/send"(p, body) {
+    const { conversation_id, text } = (body ?? {}) as { conversation_id?: number; text?: string };
+    if (!conversation_id || !text?.trim()) return { error: "missing conversation_id or text" };
+    return await converse(db, conversation_id, text.trim());
   },
 
   /** Re-run the full pipeline over a stored meeting. Idempotent; keeps corrections. */
