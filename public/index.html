@@ -2430,9 +2430,9 @@ let recording = false, evtSource = null;
 recBtn.addEventListener("click", async () => {
   try {
   if (!recording) {
-    const title = prompt("Meeting title?", "Untitled meeting");
-    if (title === null) return;
-    const resp = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
+    // No pre-record dialog: naming happens at stop, prefilled from the
+    // conversation itself. Starting is one click / one hotkey.
+    const resp = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
     if (!resp.ok) throw new Error(`server responded ${resp.status}`);
     const r = await resp.json();
     if (r.error) return alert(r.error);
@@ -2463,6 +2463,77 @@ recBtn.addEventListener("click", async () => {
     recBtn.classList.remove("recording");
     console.error("record click failed:", err);
     alert(`Recording failed: ${err.message}\n\nMake sure you opened http://localhost:4640 (served by \`npm run dev\`), not the file directly or another preview server.`);
+  }
+});
+
+// ── Global record-state truth + hotkey stop naming ───────────────────────
+// The #rec button's flag was purely client-local, so a recording started from
+// the macOS hotkey (POST /api/record/toggle) desynced it. One always-open SSE
+// watcher keeps the widget honest and owns the post-stop naming modal —
+// regardless of whether stop came from the button, the hotkey, or another tab.
+function setRecUi(on) {
+  recording = on;
+  recBtn.disabled = false;
+  recBtn.textContent = on ? "■ Stop & stitch" : "● Record";
+  recBtn.classList.toggle("recording", on);
+}
+async function syncRecordState() {
+  try { setRecUi((await api("/api/record/state")).recording); } catch { /* server gone */ }
+}
+function namedAlready(mid) {
+  const k = `tl-named-${mid}`;
+  if (localStorage.getItem(k)) return true;
+  localStorage.setItem(k, "1");
+  return false;
+}
+async function showNamingModal(meetingId) {
+  if (namedAlready(meetingId)) return; // SSE replays old events to new tabs
+  const { meeting } = await api(`/api/meeting?id=${meetingId}`);
+  if (!meeting || meeting.error) return;
+  document.getElementById("name-modal")?.remove();
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="tl-modal" id="name-modal"><div class="box">
+      <h2>Name this meeting</h2>
+      <div class="t-meta" style="margin-bottom:10px">Named from the conversation — keep it or type your own.</div>
+      <input id="name-input" value="${esc(meeting.title)}" style="width:100%;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink)">
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button class="copybtn" id="name-keep">Keep</button>
+        <button class="copybtn" id="name-save" style="background:var(--thread);color:#fff;border-color:transparent">Save</button>
+      </div>
+    </div></div>`);
+  const modal = $("#name-modal"), input = $("#name-input");
+  input.focus(); input.select();
+  const close = () => modal.remove();
+  const save = async () => {
+    const title = input.value.trim();
+    if (title && title !== meeting.title)
+      await fetch("/api/meeting/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: meetingId, title }) });
+    close();
+    if (state.meetingId === meetingId) render();
+  };
+  $("#name-save").addEventListener("click", save);
+  $("#name-keep").addEventListener("click", close);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); if (e.key === "Escape") close(); });
+  modal.addEventListener("mousedown", (e) => { if (e.target === modal) close(); });
+}
+(function globalRecordWatch() {
+  const src = new EventSource("/api/record/events");
+  src.onmessage = (ev) => {
+    let e; try { e = JSON.parse(ev.data); } catch { return; }
+    if (e.type === "stopped") { syncRecordState(); if (e.exit !== "failed") showNamingModal(e.meetingId); }
+    else if (e.type === "error") { syncRecordState(); }
+    else if (e.type === "status") { if (!recording) syncRecordState(); }
+  };
+  src.onopen = syncRecordState;
+})();
+syncRecordState();
+
+// ⌘⇧R inside the app — same muscle memory as the system-wide hotkey.
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "r") {
+    e.preventDefault();
+    fetch("/api/record/toggle", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+      .then((r) => r.json()).then(() => syncRecordState());
   }
 });
 

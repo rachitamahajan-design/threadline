@@ -158,6 +158,12 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
       m.id,
     );
 
+    // Auto-title: a meeting still wearing a default name takes one from its own
+    // content. Must run AFTER the upsert above (which forces title from the
+    // session) and only against the two default shapes, so an explicit name is
+    // never overwritten and a regenerate can't rename twice.
+    autoTitle(db, m.id, headline ?? rec.tldr ?? null);
+
     // Second pass: restructure the draft into a validated, grounded document.
     // Non-core — a failure here degrades to the flat summary, never kills the run.
     if (hasOpenAI()) {
@@ -218,6 +224,37 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
   db.prepare("UPDATE meetings SET exit = ? WHERE id = ?").run(exit, m.id);
 
   return { exit, steps, stored };
+}
+
+/**
+ * Content-derived title for meetings still wearing a default name. The two
+ * default shapes in the wild: the server's `Meeting <locale datetime>` and the
+ * old UI prompt's literal "Untitled meeting". Anything else is a human choice
+ * and is never touched.
+ */
+export function autoTitle(db: DatabaseSync, meetingId: string, headline: string | null) {
+  const row = db.prepare("SELECT title FROM meetings WHERE id = ?").get(meetingId) as { title: string } | undefined;
+  if (!row) return;
+  const isDefault = row.title === "Untitled meeting" || /^Meeting \d/.test(row.title);
+  if (!isDefault) return;
+
+  let title = headline?.trim() ?? "";
+  if (!title) {
+    // No headline (extraction thin) — fall back to the strongest topic + date.
+    const top = db
+      .prepare(
+        `SELECT e.label FROM entity_mentions m JOIN entities e ON e.id = m.entity_id
+         WHERE m.meeting_id = ? AND m.gate = 'passed' AND e.kind = 'topic'
+         GROUP BY e.id ORDER BY count(*) DESC, sum(m.score) DESC LIMIT 1`,
+      )
+      .get(meetingId) as { label: string } | undefined;
+    if (!top) return; // nothing to name from — keep the default
+    const when = new Date((db.prepare("SELECT started_at FROM meetings WHERE id = ?").get(meetingId) as { started_at: number }).started_at)
+      .toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    title = `${top.label} — ${when}`;
+  }
+  if (title.length > 60) title = title.slice(0, 57).trimEnd() + "…";
+  db.prepare("UPDATE meetings SET title = ? WHERE id = ?").run(title, meetingId);
 }
 
 /** Push Recap's claims through the grounding gate, store both outcomes. */
