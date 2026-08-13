@@ -204,6 +204,12 @@
   }
   #graph-tip b { display: block; font-weight: 650; font-size: 13px; letter-spacing: -0.01em; }
   #graph-tip span { color: var(--ink-3); font-size: 11.5px; }
+  #brain-q {
+    position: absolute; left: 14px; top: 14px; z-index: 2; width: 210px;
+    border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--surface) 92%, transparent);
+    padding: 6px 11px; font: 12.5px -apple-system, system-ui; color: var(--ink); outline: none;
+  }
+  #brain-q:focus { border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); }
   #graph-ctl {
     position: absolute; right: 14px; bottom: 14px; z-index: 2;
     display: flex; flex-direction: column; gap: 6px;
@@ -2314,6 +2320,7 @@ async function renderGraph() {
     <div class="card" id="graph-wrap">
       <canvas id="graph"></canvas>
       <div id="graph-tip"></div>
+      <input id="brain-q" placeholder="Spotlight… (word or name)" autocomplete="off">
       <div id="graph-ctl">
         <button id="gz-in" title="Zoom in">+</button>
         <button id="gz-out" title="Zoom out">−</button>
@@ -2331,7 +2338,7 @@ async function renderGraph() {
       <span style="display:flex;align-items:center;gap:8px">
         <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="3.4" fill="var(--ink-3)"/><path d="M13.6 12.6 C 16 13.6, 17.6 12.2, 19 13.4" stroke="var(--ink-3)" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"/></svg>
         Topic <i>· a knot with a loose end</i></span>
-      <button class="copybtn" style="margin:0 0 0 auto" id="export-graph">Share this brain ↗</button></div>`;
+      <button class="copybtn" style="margin:0 0 0 auto" id="ctx-md">Copy context .md of selection</button></div>`;
 
   const canvas = $("#graph"), wrap = $("#graph-wrap"), tip = $("#graph-tip"), panel = $("#graph-panel");
   const dpr = window.devicePixelRatio || 1;
@@ -2355,6 +2362,26 @@ async function renderGraph() {
   const byId = Object.fromEntries(ns.map((n) => [n.id, n]));
   const es = edges.filter((e) => byId[e.src] && byId[e.dst]).map((e) => ({ a: byId[e.src], b: byId[e.dst], kind: e.kind }));
   let hover = null, selected = null, stopped = false;
+  let spot = null; // Set of node ids under the spotlight, or null
+  let qTimer;
+  $("#brain-q").addEventListener("input", (e) => {
+    clearTimeout(qTimer);
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) { spot = null; return; }
+    qTimer = setTimeout(async () => {
+      const ids = new Set(ns.filter((n) => (n.label ?? "").toLowerCase().includes(q)).map((n) => n.id));
+      try {
+        for (const hit of await api(`/api/search?q=${encodeURIComponent(q)}`)) ids.add(hit.meeting_id);
+      } catch (e) {}
+      // light the matches and everything directly threaded to them
+      const lit = new Set(ids);
+      for (const e2 of es) {
+        if (ids.has(e2.a.id)) lit.add(e2.b.id);
+        if (ids.has(e2.b.id)) lit.add(e2.a.id);
+      }
+      spot = lit.size ? lit : new Set(["__none__"]);
+    }, 220);
+  });
 
   // ── settle a 2D force layout, then lift into 3D ──
   function settle(iterations) {
@@ -2440,14 +2467,16 @@ async function renderGraph() {
     ctx.globalAlpha = 1;
 
     const proj = new Map(ns.map((n) => [n, project(n)]));
-    const lit = (n) => !hover || n === hover || es.some((e) => (e.a === hover && e.b === n) || (e.b === hover && e.a === n));
+    const inSpot = (n) => !spot || spot.has(n.id);
+    const lit = (n) => (!hover || n === hover || es.some((e) => (e.a === hover && e.b === n) || (e.b === hover && e.a === n))) && inSpot(n);
     const depthAlpha = (z) => 0.35 + 0.65 * Math.max(0, Math.min(1, (240 - z) / 480));
 
     ctx.lineCap = "round";
     for (const e of es) {
       const a = proj.get(e.a), b = proj.get(e.b);
       const on = hover && (e.a === hover || e.b === hover);
-      const da = Math.min(depthAlpha(a.z), depthAlpha(b.z));
+      let da = Math.min(depthAlpha(a.z), depthAlpha(b.z));
+      if (spot && !(spot.has(e.a.id) && spot.has(e.b.id))) da *= 0.15;
       ctx.strokeStyle = on ? "rgba(91,116,224,.5)" : `rgba(33,32,28,${(0.09 * da).toFixed(3)})`;
       ctx.lineWidth = on ? 1.2 : 0.8;
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
@@ -2545,7 +2574,7 @@ async function renderGraph() {
     const r = canvas.getBoundingClientRect();
     const n = hitAt(ev.clientX - r.left, ev.clientY - r.top);
     if (n?.kind === "meeting") { selected = n.id; await openPanel(n.id); return; }
-    if (n) return; // person/topic: hover already tells the story
+    if (n) { selected = n.id; await openNodePanel(n); return; }
     if (selected) { selected = null; panel.classList.remove("open"); return; }
     setSpin(!autoSpin); // empty cloth: pause / resume the slow turn
   });
@@ -2556,6 +2585,50 @@ async function renderGraph() {
     ev.preventDefault();
     zoom = Math.max(0.55, Math.min(2, zoom * (ev.deltaY > 0 ? 0.94 : 1.06)));
   }, { passive: false });
+
+  async function ctxActions(nodeId) {
+    const r = await api(`/api/node/context?id=${encodeURIComponent(nodeId)}`);
+    if (r.error) { alert(r.error); return null; }
+    return r;
+  }
+  window.__brainCtxDownload = async (nodeId) => {
+    const r = await ctxActions(nodeId);
+    if (!r) return;
+    const a = document.createElement("a");
+    a.download = r.filename;
+    a.href = URL.createObjectURL(new Blob([r.markdown], { type: "text/markdown" }));
+    a.click();
+  };
+  window.__brainCtxCopy = async (nodeId, btn) => {
+    const r = await ctxActions(nodeId);
+    if (!r) return;
+    await navigator.clipboard.writeText(r.markdown);
+    if (btn) { const t = btn.textContent; btn.textContent = "Copied ✓"; setTimeout(() => (btn.textContent = t), 1400); }
+  };
+
+  /** Peek panel for people and topics — the node's story without leaving the graph. */
+  async function openNodePanel(n) {
+    const r = await ctxActions(n.id);
+    if (!r) return;
+    panel.innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:2px">
+        <div>
+          <div class="gp-k" style="margin:0">${n.kind === "person" ? "Person" : "Topic"}</div>
+          <div style="font-weight:650;font-size:17px;letter-spacing:-.015em;line-height:1.3;margin-top:3px">${esc(n.label)}</div>
+          <div style="color:var(--ink-3);font-size:12.5px;margin-top:2px">${esc(n.meta)}</div>
+        </div>
+        <button id="gp-close" style="margin-left:auto;flex:none;border:1px solid var(--line);background:var(--surface);width:26px;height:26px;border-radius:8px;cursor:pointer;color:var(--ink-3);font-size:14px;line-height:1">✕</button>
+      </div>
+      <pre style="white-space:pre-wrap;font:12px/1.55 ui-monospace,monospace;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:16px;max-height:52vh;overflow-y:auto">${esc(r.markdown)}</pre>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="copybtn" style="margin:0" id="gp-copy">Copy .md for your LLM</button>
+        <button class="copybtn" style="margin:0" id="gp-dl">Download</button>
+      </div>`;
+    panel.classList.add("open");
+    $("#gp-close").addEventListener("click", () => { selected = null; panel.classList.remove("open"); });
+    $("#gp-copy").addEventListener("click", (e) => window.__brainCtxCopy(n.id, e.currentTarget));
+    $("#gp-dl").addEventListener("click", () => window.__brainCtxDownload(n.id));
+  }
 
   async function openPanel(id) {
     const { meeting, claims } = await api(`/api/meeting?id=${encodeURIComponent(id)}`);
@@ -2591,29 +2664,21 @@ async function renderGraph() {
         ${decisions.map((d) => `<div style="font-size:13px;line-height:1.55;padding:7px 0;border-top:1px solid var(--line)">✓ ${esc(d.body.text)}</div>`).join("")}</div>` : ""}
       ${meeting.my_notes ? `<div style="margin-top:22px"><div class="gp-k">Your notes</div>
         <div style="font-size:13px;line-height:1.6;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;white-space:pre-wrap">${esc(meeting.my_notes)}</div></div>` : ""}
-      <button id="gp-open" style="margin-top:20px;width:100%;border:0;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;padding:10px 16px;border-radius:10px;color:#fff;background:var(--thread);text-align:left;box-shadow:0 1px 2px rgb(50 60 140 / 0.25)">Open the full meeting →</button>`;
+      <button id="gp-open" style="margin-top:20px;width:100%;border:0;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;padding:10px 16px;border-radius:10px;color:#fff;background:var(--thread);text-align:left;box-shadow:0 1px 2px rgb(50 60 140 / 0.25)">Open the full meeting →</button>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="copybtn" style="margin:0" id="gp-copy">Copy .md for your LLM</button>
+        <button class="copybtn" style="margin:0" id="gp-dl">Download</button>
+      </div>`;
     panel.classList.add("open");
     $("#gp-close").addEventListener("click", () => { selected = null; panel.classList.remove("open"); draw(); });
     $("#gp-open").addEventListener("click", () => { state.meetingId = id; render(); });
+    $("#gp-copy").addEventListener("click", (e) => window.__brainCtxCopy(id, e.currentTarget));
+    $("#gp-dl").addEventListener("click", () => window.__brainCtxDownload(id));
   }
 
-  $("#export-graph").addEventListener("click", () => {
-    const pad = 84, W2 = W + 40, H2 = H + pad + 60;
-    const out = document.createElement("canvas");
-    out.width = W2 * dpr; out.height = H2 * dpr;
-    const o = out.getContext("2d");
-    o.scale(dpr, dpr);
-    o.fillStyle = "#ffffff"; o.fillRect(0, 0, W2, H2);
-    o.strokeStyle = "#e7e9ee"; o.lineWidth = 2; o.strokeRect(1, 1, W2 - 2, H2 - 2);
-    o.fillStyle = "#21201c"; o.font = "650 26px -apple-system, system-ui";
-    o.fillText("My meeting brain", 30, 48);
-    o.fillStyle = "#a39e94"; o.font = "500 15px -apple-system, system-ui";
-    o.fillText(`${ns.filter((n) => n.kind === "meeting").length} meetings · ${ns.filter((n) => n.kind === "person").length} people · ${ns.filter((n) => n.kind === "topic").length} topics · 🪡 Threadline`, 30, 72);
-    o.drawImage(canvas, 0, 0, canvas.width, canvas.height, 20, pad, W, H);
-    const a = document.createElement("a");
-    a.download = "threadline-brain.png";
-    a.href = out.toDataURL("image/png");
-    a.click();
+  $("#ctx-md").addEventListener("click", (e) => {
+    if (!selected) { alert("Click a node first — then this copies its context as markdown for your LLM."); return; }
+    window.__brainCtxCopy(selected, e.currentTarget);
   });
 }
 
