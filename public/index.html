@@ -111,9 +111,10 @@
     border-radius: 14px; padding: 24px 26px; margin-bottom: 22px; box-shadow: var(--shadow);
   }
   .card h2 {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-3);
-    margin-bottom: 16px; font-weight: 600;
+    font-size: 16.5px; letter-spacing: -0.01em; color: var(--ink);
+    margin-bottom: 16px; font-weight: 650;
   }
+  .card h2 .h2-note { font-size: 12.5px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
   .stats { display: flex; gap: 44px; margin: 4px 0 34px; }
   .stat b { display: block; font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
   .stat span { font-size: 12.5px; color: var(--ink-3); }
@@ -242,9 +243,10 @@
   .legend { display: flex; gap: 20px; align-items: center; padding: 14px 6px 0; font-size: 12.5px; color: var(--ink-2); }
   .legend i { font-style: normal; color: var(--ink-3); font-size: 11.5px; }
   .legend span::before { content: ""; display: inline-block; margin-right: 7px; vertical-align: -1px; }
-  .legend .l-m::before { width: 10px; height: 10px; border-radius: 50%; background: var(--thread); }
-  .legend .l-p::before { width: 10px; height: 10px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--ink-3); }
-  .legend .l-t::before { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
+  .legend { font-size: 13.5px; color: var(--ink-2); font-weight: 550; }
+  .legend .l-m::before { width: 11px; height: 11px; border-radius: 50%; background: #5b74e0; box-shadow: 0 0 7px rgb(91 116 224 / 0.75); }
+  .legend .l-p::before { width: 8px; height: 8px; border-radius: 50%; background: #a39e94; }
+  .legend .l-t::before { width: 12px; height: 12px; border-radius: 50%; background: #cf9a35; box-shadow: 0 0 7px rgb(207 154 53 / 0.7); }
 
   .empty { color: var(--ink-3); text-align: center; padding: 44px 0; font-size: 13.5px; }
   .empty svg { display: none; }
@@ -1140,7 +1142,7 @@ async function renderToday() {
       <div class="stat"><b>${stats?.decisions ?? 0}</b><span>decisions</span></div>
     </div>
     <div class="home-grid">
-      <div class="card"><h2>Up next · <button id="notify-bell" title="Notify me when meetings start" style="border:0;background:none;cursor:pointer;font-size:12px">🔔</button> <button id="add-upcoming" style="border:0;background:none;font:inherit;font-weight:800;color:var(--thread);cursor:pointer">+ add</button></h2>
+      <div class="card"><h2>Up next <button id="notify-bell" title="Notify me when meetings start" style="border:0;background:none;cursor:pointer;font-size:12px">🔔</button> <button id="add-upcoming" style="border:0;background:none;font:inherit;font-weight:800;color:var(--thread);cursor:pointer">+ add</button></h2>
         <div id="upcoming-box"><div class="empty" style="padding:16px 0">Nothing scheduled. Connect Google (soon) or add one.</div></div>
       </div>
       <div class="card"><h2>Past meetings</h2>
@@ -1159,7 +1161,7 @@ async function renderToday() {
         <ellipse cx="5" cy="41" rx="2.6" ry="1.7" transform="rotate(-52 5 41)"/>
       </g>
     </svg>
-    <div class="card"><h2>Loose ends · pulled from your meetings</h2>
+    <div class="card"><h2>Loose ends <span class="h2-note">· pulled from your meetings</span></h2>
       <div class="loose-rail" id="loose-rail">
       <div id="rail-needle" aria-hidden="true">
         <div style="font-size:17px;line-height:1">🧵</div>
