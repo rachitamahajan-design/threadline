@@ -59,11 +59,8 @@ export async function whisperTranscribe(
     }));
 }
 
-/** Recap stand-in: structured extraction via chat completions. */
-export async function openaiExtract(utterances: Utterance[]): Promise<RecapRecord> {
-  const transcript = utterances
-    .map((u) => `[${u.offset_s.toFixed(1)}s] ${u.speaker ?? u.speaker_role}: ${u.text}`)
-    .join("\n");
+/** One JSON-mode chat call. Callers own the schema and validation. */
+export async function chatJSON(system: string, user: string, model?: string): Promise<unknown> {
   const res = await fetch(`${BASE}/chat/completions`, {
     method: "POST",
     headers: {
@@ -71,24 +68,37 @@ export async function openaiExtract(utterances: Utterance[]): Promise<RecapRecor
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: model ?? process.env.SUMMARIZER_MODEL ?? "gpt-4o-mini",
       response_format: { type: "json_object" },
       messages: [
-        {
-          role: "system",
-          content:
-            "You extract structured meeting notes. Only include claims supported by the transcript. Reply with JSON: " +
-            '{"tldr": string, "summary_draft": string, "key_decisions": string[], ' +
-            '"action_items": [{"task": string, "owner": string|null, "due": string|null}], ' +
-            '"risk_signals": [{"quote": string, "category": string, "severity": "low"|"medium"|"high"}], ' +
-            '"moments": [{"category": string, "offset_s": number, "description": string}]}. ' +
-            "For moments, use the [Ns] markers for offset_s. Owners must be names heard in the meeting.",
-        },
-        { role: "user", content: transcript },
+        { role: "system", content: system },
+        { role: "user", content: user },
       ],
     }),
   });
-  if (!res.ok) throw new Error(`openai extraction failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) throw new Error(`openai chat failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
   const data = (await res.json()) as { choices: { message: { content: string } }[] };
-  return JSON.parse(data.choices[0].message.content) as RecapRecord;
+  return JSON.parse(data.choices[0].message.content);
+}
+
+/** Timestamped transcript in the `[Ns] speaker:` shape all prompts share. */
+export function flattenTranscript(utterances: Utterance[]): string {
+  return utterances
+    .map((u) => `[${u.offset_s.toFixed(1)}s] ${u.speaker ?? u.speaker_role}: ${u.text}`)
+    .join("\n");
+}
+
+/** Recap stand-in: structured extraction via chat completions. */
+export async function openaiExtract(utterances: Utterance[]): Promise<RecapRecord> {
+  const record = await chatJSON(
+    "You extract structured meeting notes. Only include claims supported by the transcript. Reply with JSON: " +
+      '{"tldr": string, "summary_draft": string, "key_decisions": string[], ' +
+      '"action_items": [{"task": string, "owner": string|null, "due": string|null}], ' +
+      '"risk_signals": [{"quote": string, "category": string, "severity": "low"|"medium"|"high"}], ' +
+      '"moments": [{"category": string, "offset_s": number, "description": string}]}. ' +
+      "For moments, use the [Ns] markers for offset_s. Owners must be names heard in the meeting.",
+    flattenTranscript(utterances),
+    "gpt-4o-mini",
+  );
+  return record as RecapRecord;
 }

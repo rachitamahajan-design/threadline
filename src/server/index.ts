@@ -5,11 +5,17 @@
  *   npm run dev   →  http://localhost:4640
  */
 import { createServer } from "node:http";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import { openDb } from "../lib/db.js";
 import { LiveSession, type LiveEvent } from "./live.js";
 import { ensureApiKey } from "../lib/firstrun.js";
+import { processMeeting, reindexMeeting } from "../pipeline/extract.js";
+import { findOccurrences, applyCorrection, undoCorrection, detectWordSwap } from "../pipeline/corrections.js";
+import { enhanceNotes, structureNotes, chatAboutMeeting } from "../pipeline/notes.js";
+import { bulletAt, type StructuredSummary } from "../lib/summary.js";
+import { hasOpenAI } from "../lib/openai.js";
+import type { Utterance } from "../lib/pyai.js";
 import { googleConfigured, googleConnected, authUrl, exchangeCode, upcomingEvents } from "./google.js";
 import { ask } from "../pipeline/ask.js";
 
@@ -22,6 +28,7 @@ for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"
 const db = openDb();
 const PORT = Number(process.env.PORT ?? 4640);
 const PUBLIC = path.resolve("public");
+const DOCS_DIR = path.resolve("data", "docs");
 
 const apiKey = await ensureApiKey().catch((e: Error) => {
   console.error(e.message);
@@ -44,7 +51,7 @@ const api: Record<string, Handler> = {
   "GET /api/today"() {
     const todos = (db
       .prepare(
-        `SELECT c.id, c.body, c.quote, c.offset_s, c.done, m.title AS meeting_title, m.id AS meeting_id, m.started_at
+        `SELECT c.id, COALESCE(c.edited_body, c.body) AS body, c.quote, c.offset_s, c.done, m.title AS meeting_title, m.id AS meeting_id, m.started_at
          FROM claims c JOIN meetings m ON m.id = c.meeting_id
          WHERE c.kind = 'action_item' AND c.gate = 'passed'
          ORDER BY c.done ASC, m.started_at DESC`,
@@ -56,7 +63,7 @@ const api: Record<string, Handler> = {
       .prepare(
         `SELECT (SELECT COUNT(*) FROM meetings) AS meetings,
                 (SELECT COALESCE(SUM(duration_s),0) FROM meetings) AS seconds,
-                (SELECT COUNT(*) FROM claims WHERE kind='action_item' AND gate='passed' AND done=0) AS open_actions,
+                (SELECT COUNT(*) FROM claims WHERE kind='action_item' AND gate='passed' AND done=0 AND meeting_id != '') AS open_actions,
                 (SELECT COUNT(*) FROM claims WHERE kind='decision' AND gate='passed') AS decisions`,
       )
       .get();
@@ -69,11 +76,16 @@ const api: Record<string, Handler> = {
 
   "GET /api/meeting"(p) {
     const id = p.get("id")!;
-    const meeting = db.prepare(`SELECT * FROM meetings WHERE id = ?`).get(id);
+    const meeting = db.prepare(`SELECT * FROM meetings WHERE id = ?`).get(id) as
+      | ({ summary_json: string | null } & Record<string, unknown>)
+      | undefined;
     if (!meeting) return { error: "not found" };
+    if (meeting.summary_json) {
+      try { meeting.summary_json = JSON.parse(meeting.summary_json); } catch { meeting.summary_json = null; }
+    }
     const utterances = db.prepare(`SELECT * FROM utterances WHERE meeting_id = ? ORDER BY idx`).all(id);
-    const claims = (db.prepare(`SELECT * FROM claims WHERE meeting_id = ?`).all(id) as { body: string }[]).map(
-      (c) => ({ ...c, body: JSON.parse(c.body) }),
+    const claims = (db.prepare(`SELECT * FROM claims WHERE meeting_id = ?`).all(id) as { body: string; edited_body: string | null }[]).map(
+      (c) => ({ ...c, body: JSON.parse(c.edited_body ?? c.body) }),
     );
     const runs = (db.prepare(`SELECT * FROM runs WHERE meeting_id = ? ORDER BY id DESC LIMIT 1`).all(id) as { steps: string }[]).map(
       (r) => ({ ...r, steps: JSON.parse(r.steps) }),
@@ -105,7 +117,18 @@ const api: Record<string, Handler> = {
          WHERE e1.meeting_id = ? AND e1.kind = 'mentions'`,
       )
       .all(id, id, id);
-    return { meeting, utterances, claims, runs: runs[0] ?? null, backlinks };
+    const projects = db
+      .prepare(
+        `SELECT p.id, p.name FROM meeting_projects mp JOIN projects p ON p.id = mp.project_id WHERE mp.meeting_id = ?`,
+      )
+      .all(id);
+    const suggestions = db
+      .prepare(
+        `SELECT s.id, s.project_id, p.name, s.confidence, s.reason FROM project_suggestions s
+         JOIN projects p ON p.id = s.project_id WHERE s.meeting_id = ? AND s.status = 'pending'`,
+      )
+      .all(id);
+    return { meeting, utterances, claims, runs: runs[0] ?? null, backlinks, projects, suggestions };
   },
 
   "GET /api/graph"() {
@@ -150,9 +173,22 @@ const api: Record<string, Handler> = {
 
   "POST /api/record/start"(p, body) {
     if (live) return { error: "already recording" };
-    const { title, mode } = (body ?? {}) as { title?: string; mode?: string };
+    const { title, mode, meeting_id } = (body ?? {}) as { title?: string; mode?: string; meeting_id?: string };
     recentEvents.length = 0;
-    live = new LiveSession(db, apiKey, title?.trim() || `Meeting ${new Date().toLocaleString()}`, mode ?? "discovery");
+    // Resume: keep recording into an existing meeting — new audio lands after
+    // what's already there, and stop re-stitches the whole transcript.
+    if (meeting_id) {
+      const m = db.prepare(`SELECT id, title, mode FROM meetings WHERE id = ?`).get(meeting_id) as
+        | { id: string; title: string; mode: string }
+        | undefined;
+      if (!m) return { error: "meeting not found" };
+      const last = db
+        .prepare(`SELECT COALESCE(MAX(offset_s + duration_s), 0) AS t FROM utterances WHERE meeting_id = ?`)
+        .get(meeting_id) as { t: number };
+      live = new LiveSession(db, apiKey, m.title, m.mode, { meetingId: m.id, offsetBase: last.t + 2 });
+    } else {
+      live = new LiveSession(db, apiKey, title?.trim() || `Meeting ${new Date().toLocaleString()}`, mode ?? "discovery");
+    }
     live.onEvent((e) => {
       recentEvents.push(e);
       if (recentEvents.length > 200) recentEvents.shift();
@@ -176,28 +212,63 @@ const api: Record<string, Handler> = {
   "GET /api/projects"() {
     return db
       .prepare(
-        `SELECT p.id, p.name,
+        `SELECT p.id, p.name, p.description,
           (SELECT COUNT(*) FROM meeting_projects mp WHERE mp.project_id = p.id) AS n_meetings,
           (SELECT COUNT(*) FROM meeting_projects mp JOIN claims c ON c.meeting_id = mp.meeting_id
-             WHERE mp.project_id = p.id AND c.kind='action_item' AND c.gate='passed' AND c.done=0) AS n_open
+             WHERE mp.project_id = p.id AND c.kind='action_item' AND c.gate='passed' AND c.done=0)
+          + (SELECT COUNT(*) FROM claims c2 WHERE c2.project_id = p.id AND c2.kind='action_item' AND c2.done=0) AS n_open
          FROM projects p ORDER BY p.created_at DESC`,
       )
       .all();
   },
 
   "POST /api/project"(p, body) {
-    const { name } = (body ?? {}) as { name?: string };
+    const { name, description } = (body ?? {}) as { name?: string; description?: string };
     if (!name?.trim()) return { error: "missing name" };
     db.prepare(`INSERT INTO projects (name, created_at) VALUES (?, ?) ON CONFLICT(name) DO NOTHING`).run(name.trim(), Date.now());
-    return db.prepare(`SELECT id, name FROM projects WHERE name = ?`).get(name.trim());
+    if (description?.trim())
+      db.prepare(`UPDATE projects SET description = ? WHERE name = ? AND description IS NULL`).run(description.trim(), name.trim());
+    return db.prepare(`SELECT id, name, description FROM projects WHERE name = ?`).get(name.trim());
+  },
+
+  "POST /api/project/update"(p, body) {
+    const { id, name, description } = (body ?? {}) as { id?: number; name?: string; description?: string };
+    if (!id) return { error: "missing id" };
+    if (name?.trim()) db.prepare(`UPDATE projects SET name = ? WHERE id = ?`).run(name.trim(), id);
+    if (description !== undefined) db.prepare(`UPDATE projects SET description = ? WHERE id = ?`).run(description.trim() || null, id);
+    return { ok: true };
   },
 
   "POST /api/project/assign"(p, body) {
     const { project_id, meeting_id, remove } = (body ?? {}) as { project_id?: number; meeting_id?: string; remove?: boolean };
     if (!project_id || !meeting_id) return { error: "missing ids" };
     if (remove) db.prepare(`DELETE FROM meeting_projects WHERE project_id = ? AND meeting_id = ?`).run(project_id, meeting_id);
-    else db.prepare(`INSERT INTO meeting_projects (meeting_id, project_id) VALUES (?, ?) ON CONFLICT DO NOTHING`).run(meeting_id, project_id);
+    else {
+      db.prepare(`INSERT INTO meeting_projects (meeting_id, project_id) VALUES (?, ?) ON CONFLICT DO NOTHING`).run(meeting_id, project_id);
+      // Manual filing settles any pending suggestion for the same pair.
+      db.prepare(`UPDATE project_suggestions SET status = 'accepted' WHERE meeting_id = ? AND project_id = ? AND status = 'pending'`)
+        .run(meeting_id, project_id);
+      linkMeetingPeople(meeting_id, project_id);
+    }
     return { ok: true };
+  },
+
+  "POST /api/suggestion/resolve"(p, body) {
+    const { id, action } = (body ?? {}) as { id?: number; action?: string };
+    if (!id || (action !== "accept" && action !== "dismiss")) return { error: "missing fields" };
+    const s = db.prepare(`SELECT * FROM project_suggestions WHERE id = ? AND status = 'pending'`).get(id) as
+      | { meeting_id: string; project_id: number }
+      | undefined;
+    if (!s) return { error: "not found" };
+    db.prepare(`UPDATE project_suggestions SET status = ? WHERE id = ?`).run(action === "accept" ? "accepted" : "dismissed", id);
+    if (action === "accept") {
+      db.prepare(`INSERT INTO meeting_projects (meeting_id, project_id) VALUES (?, ?) ON CONFLICT DO NOTHING`).run(s.meeting_id, s.project_id);
+      linkMeetingPeople(s.meeting_id, s.project_id);
+    }
+    const projects = db
+      .prepare(`SELECT p.id, p.name FROM meeting_projects mp JOIN projects p ON p.id = mp.project_id WHERE mp.meeting_id = ?`)
+      .all(s.meeting_id);
+    return { ok: true, projects };
   },
 
   "GET /api/project"(p) {
@@ -209,18 +280,184 @@ const api: Record<string, Handler> = {
       .all(id);
     const claims = (db
       .prepare(
-        `SELECT c.id, c.kind, c.body, c.done, c.quote, m.title AS meeting_title, m.id AS meeting_id, m.started_at
+        `SELECT c.id, c.kind, COALESCE(c.edited_body, c.body) AS body, c.done, c.quote, m.title AS meeting_title, m.id AS meeting_id, m.started_at,
+           pe.id AS person_id, pe.team AS person_team
          FROM meeting_projects mp JOIN claims c ON c.meeting_id = mp.meeting_id JOIN meetings m ON m.id = mp.meeting_id
+         LEFT JOIN people pe ON lower(pe.name) = lower(json_extract(COALESCE(c.edited_body, c.body), '$.owner'))
          WHERE mp.project_id = ? AND c.gate = 'passed' AND c.kind IN ('decision','action_item') ORDER BY m.started_at DESC`,
       )
       .all(id) as { body: string }[]).map((c) => ({ ...c, body: JSON.parse(c.body) }));
     const people = db
       .prepare(
-        `SELECT DISTINCT u.speaker FROM meeting_projects mp JOIN utterances u ON u.meeting_id = mp.meeting_id
-         WHERE mp.project_id = ? AND u.speaker IS NOT NULL`,
+        `SELECT pe.id, pe.name, pe.team, pp.added_via FROM project_people pp JOIN people pe ON pe.id = pp.person_id
+         WHERE pp.project_id = ? ORDER BY pe.name COLLATE NOCASE`,
       )
       .all(id);
-    return { project, meetings, claims, people };
+    // Speakers heard in filed meetings but not in the directory — a UI hint.
+    const speakers = db
+      .prepare(
+        `SELECT DISTINCT u.speaker FROM meeting_projects mp JOIN utterances u ON u.meeting_id = mp.meeting_id
+         WHERE mp.project_id = ? AND u.speaker IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM people pe WHERE lower(pe.name) = lower(u.speaker))`,
+      )
+      .all(id);
+    const docs = db
+      .prepare(`SELECT id, title, kind, filename, mime, updated_at FROM documents WHERE project_id = ? ORDER BY updated_at DESC`)
+      .all(id);
+    const items = (db
+      .prepare(
+        `SELECT c.id, COALESCE(c.edited_body, c.body) AS body, c.done, c.person_id, c.document_id,
+           pe.name AS person_name, d.title AS doc_title
+         FROM claims c LEFT JOIN people pe ON pe.id = c.person_id LEFT JOIN documents d ON d.id = c.document_id
+         WHERE c.project_id = ? AND c.kind = 'action_item' ORDER BY c.done ASC, c.id DESC`,
+      )
+      .all(id) as { body: string }[]).map((c) => ({ ...c, body: JSON.parse(c.body) }));
+    return { project, meetings, claims, people, speakers, docs, items };
+  },
+
+  "GET /api/people"() {
+    return db
+      .prepare(
+        `SELECT pe.*, (SELECT COUNT(*) FROM project_people pp WHERE pp.person_id = pe.id) AS n_projects
+         FROM people pe ORDER BY pe.name COLLATE NOCASE`,
+      )
+      .all();
+  },
+
+  "POST /api/person"(p, body) {
+    const { name, team, notes } = (body ?? {}) as { name?: string; team?: string; notes?: string };
+    if (!name?.trim()) return { error: "missing name" };
+    return upsertPerson(name.trim(), team, notes);
+  },
+
+  "POST /api/project/person"(p, body) {
+    const { project_id, person_id, name, team, remove } = (body ?? {}) as {
+      project_id?: number; person_id?: number; name?: string; team?: string; remove?: boolean;
+    };
+    if (!project_id) return { error: "missing project_id" };
+    let pid = person_id;
+    if (!pid && name?.trim()) pid = (upsertPerson(name.trim(), team) as { id: number }).id;
+    if (!pid) return { error: "missing person" };
+    if (remove) db.prepare(`DELETE FROM project_people WHERE project_id = ? AND person_id = ?`).run(project_id, pid);
+    else db.prepare(`INSERT INTO project_people (project_id, person_id, added_via) VALUES (?, ?, 'manual') ON CONFLICT DO NOTHING`).run(project_id, pid);
+    return {
+      ok: true,
+      people: db
+        .prepare(
+          `SELECT pe.id, pe.name, pe.team, pp.added_via FROM project_people pp JOIN people pe ON pe.id = pp.person_id
+           WHERE pp.project_id = ? ORDER BY pe.name COLLATE NOCASE`,
+        )
+        .all(project_id),
+    };
+  },
+
+  /** Manual project action item. The receipt is the user (gate exempt, source='user'). */
+  "POST /api/project/item"(p, body) {
+    const { project_id, task, person_id, due, document_id } = (body ?? {}) as {
+      project_id?: number; task?: string; person_id?: number; due?: string; document_id?: number;
+    };
+    if (!project_id || !task?.trim()) return { error: "missing fields" };
+    const owner = person_id
+      ? ((db.prepare(`SELECT name FROM people WHERE id = ?`).get(person_id) as { name: string } | undefined)?.name ?? null)
+      : null;
+    const bodyJson = JSON.stringify({ task: task.trim(), owner, due: due?.trim() || null });
+    const r = db
+      .prepare(
+        `INSERT INTO claims (meeting_id, kind, body, gate, gate_reason, done, source, project_id, person_id, document_id)
+         VALUES ('', 'action_item', ?, 'passed', 'user-created', 0, 'user', ?, ?, ?)`,
+      )
+      .run(bodyJson, project_id, person_id ?? null, document_id ?? null);
+    return { ok: true, id: Number(r.lastInsertRowid) };
+  },
+
+  "POST /api/project/item/delete"(p, body) {
+    const { id } = (body ?? {}) as { id?: number };
+    if (!id) return { error: "missing id" };
+    db.prepare(`DELETE FROM claims WHERE id = ? AND source = 'user' AND project_id IS NOT NULL`).run(id);
+    return { ok: true };
+  },
+
+  /** Upload a file into a project's context. Base64 in JSON — localhost, small files. */
+  "POST /api/project/doc/upload"(p, body) {
+    const { project_id, filename, mime, data_b64 } = (body ?? {}) as {
+      project_id?: number; filename?: string; mime?: string; data_b64?: string;
+    };
+    if (!project_id || !filename?.trim() || !data_b64) return { error: "missing fields" };
+    const ext = path.extname(filename).toLowerCase();
+    if (![".pdf", ".txt", ".md"].includes(ext)) return { error: "only pdf, txt and md files for now" };
+    const buf = Buffer.from(data_b64, "base64");
+    if (buf.length > 10 * 1024 * 1024) return { error: "file too large (max 10MB)" };
+    const now = Date.now();
+    const r = db
+      .prepare(
+        `INSERT INTO documents (project_id, title, kind, filename, mime, content, created_at, updated_at)
+         VALUES (?, ?, 'upload', ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        project_id,
+        filename.trim(),
+        filename.trim(),
+        mime ?? "application/octet-stream",
+        ext === ".pdf" ? null : buf.toString("utf8"),
+        now,
+        now,
+      );
+    const docId = Number(r.lastInsertRowid);
+    const safe = `${docId}-${filename.trim().replace(/[^\w.-]+/g, "_")}`;
+    writeFileSync(path.join(DOCS_DIR, safe), buf);
+    db.prepare(`UPDATE documents SET path = ? WHERE id = ?`).run(path.join("data", "docs", safe), docId);
+    return db.prepare(`SELECT id, title, kind, filename, mime, updated_at FROM documents WHERE id = ?`).get(docId);
+  },
+
+  /** In-app markdown doc. Versioned like meeting notes. */
+  "POST /api/project/doc"(p, body) {
+    const { project_id, title, markdown } = (body ?? {}) as { project_id?: number; title?: string; markdown?: string };
+    if (!project_id || !title?.trim()) return { error: "missing fields" };
+    const now = Date.now();
+    const r = db
+      .prepare(`INSERT INTO documents (project_id, title, kind, content, created_at, updated_at) VALUES (?, ?, 'note', ?, ?, ?)`)
+      .run(project_id, title.trim(), markdown ?? "", now, now);
+    const docId = Number(r.lastInsertRowid);
+    db.prepare(`INSERT INTO document_versions (document_id, markdown, source, created_at) VALUES (?, ?, 'initial', ?)`)
+      .run(docId, markdown ?? "", now);
+    return db.prepare(`SELECT * FROM documents WHERE id = ?`).get(docId);
+  },
+
+  "GET /api/doc"(p) {
+    const id = Number(p.get("id"));
+    const doc = db.prepare(`SELECT * FROM documents WHERE id = ?`).get(id);
+    if (!doc) return { error: "not found" };
+    const versions = db.prepare(`SELECT COUNT(*) AS n FROM document_versions WHERE document_id = ?`).get(id) as { n: number };
+    return { doc, n_versions: versions.n };
+  },
+
+  "POST /api/doc/save"(p, body) {
+    const { id, markdown, title } = (body ?? {}) as { id?: number; markdown?: string; title?: string };
+    if (!id || typeof markdown !== "string") return { error: "missing fields" };
+    const doc = db.prepare(`SELECT content FROM documents WHERE id = ?`).get(id) as { content: string | null } | undefined;
+    if (!doc) return { error: "not found" };
+    // Periodic baseline so an edit session always has a recent restore point.
+    const last = db
+      .prepare(`SELECT created_at FROM document_versions WHERE document_id = ? AND source = 'user' ORDER BY id DESC LIMIT 1`)
+      .get(id) as { created_at: number } | undefined;
+    if (!last || Date.now() - last.created_at > 300_000)
+      db.prepare(`INSERT INTO document_versions (document_id, markdown, source, created_at) VALUES (?, ?, 'user', ?)`)
+        .run(id, doc.content ?? "", Date.now());
+    db.prepare(`UPDATE documents SET content = ?, title = COALESCE(?, title), updated_at = ? WHERE id = ?`)
+      .run(markdown, title?.trim() || null, Date.now(), id);
+    return { ok: true };
+  },
+
+  "POST /api/doc/delete"(p, body) {
+    const { id } = (body ?? {}) as { id?: number };
+    if (!id) return { error: "missing id" };
+    const doc = db.prepare(`SELECT path FROM documents WHERE id = ?`).get(id) as { path: string | null } | undefined;
+    if (!doc) return { error: "not found" };
+    if (doc.path) { try { rmSync(path.resolve(doc.path)); } catch { /* already gone */ } }
+    db.prepare(`DELETE FROM document_versions WHERE document_id = ?`).run(id);
+    db.prepare(`UPDATE claims SET document_id = NULL WHERE document_id = ?`).run(id);
+    db.prepare(`DELETE FROM documents WHERE id = ?`).run(id);
+    return { ok: true };
   },
 
   async "GET /api/upcoming"() {
@@ -263,7 +500,7 @@ const api: Record<string, Handler> = {
       .all(...names);
     const open = (db
       .prepare(
-        `SELECT c.body, c.quote, m.title AS meeting_title, m.id AS meeting_id FROM claims c JOIN meetings m ON m.id = c.meeting_id
+        `SELECT COALESCE(c.edited_body, c.body) AS body, c.quote, m.title AS meeting_title, m.id AS meeting_id FROM claims c JOIN meetings m ON m.id = c.meeting_id
          WHERE c.kind='action_item' AND c.gate='passed' AND c.done=0 ORDER BY m.started_at DESC LIMIT 30`,
       )
       .all() as { body: string }[])
@@ -277,6 +514,15 @@ const api: Record<string, Handler> = {
     const { id, notes } = (body ?? {}) as { id?: string; notes?: string };
     if (!id) return { error: "missing id" };
     db.prepare(`UPDATE meetings SET my_notes = ? WHERE id = ?`).run(notes ?? "", id);
+    // Periodic user baseline so AI rewrites always have a recent restore point.
+    if (notes?.trim()) {
+      const last = db
+        .prepare(`SELECT created_at FROM notes_versions WHERE meeting_id = ? AND source = 'user' ORDER BY id DESC LIMIT 1`)
+        .get(id) as { created_at: number } | undefined;
+      if (!last || Date.now() - last.created_at > 300_000)
+        db.prepare(`INSERT INTO notes_versions (meeting_id, markdown, source, created_at) VALUES (?, ?, 'user', ?)`)
+          .run(id, notes, Date.now());
+    }
     return { ok: true };
   },
 
@@ -285,7 +531,212 @@ const api: Record<string, Handler> = {
     db.prepare(`UPDATE claims SET done = ? WHERE id = ? AND kind = 'action_item'`).run(done ? 1 : 0, id);
     return { ok: true };
   },
+
+  /** Re-run the full pipeline over a stored meeting. Idempotent; keeps corrections. */
+  async "POST /api/meeting/regenerate"(p, body) {
+    const { id } = (body ?? {}) as { id?: string };
+    if (!id) return { error: "missing id" };
+    if (regenerating.has(id)) return { error: "already regenerating" };
+    const meeting = db.prepare(`SELECT * FROM meetings WHERE id = ?`).get(id) as
+      | { id: string; title: string; mode: string; started_at: number }
+      | undefined;
+    if (!meeting) return { error: "not found" };
+    const utterances = db
+      .prepare(`SELECT speaker, speaker_role, text, offset_s, duration_s FROM utterances WHERE meeting_id = ? ORDER BY idx`)
+      .all(id) as Utterance[];
+    if (!utterances.length) return { error: "no transcript to regenerate from" };
+    regenerating.add(id);
+    try {
+      const { exit, steps, stored } = await processMeeting(db, apiKey, {
+        id: meeting.id,
+        title: meeting.title,
+        mode: meeting.mode,
+        startedAt: meeting.started_at,
+        utterances,
+      });
+      return { ok: true, exit, steps, stored };
+    } finally {
+      regenerating.delete(id);
+    }
+  },
+
+  /** Direct edit of one summary bullet (or the overview). Versioned. */
+  "POST /api/summary/edit"(p, body) {
+    const { meeting_id, path: bulletPath, text } = (body ?? {}) as { meeting_id?: string; path?: string; text?: string };
+    if (!meeting_id || !bulletPath || typeof text !== "string" || !text.trim()) return { error: "missing fields" };
+    const row = db.prepare(`SELECT summary_json FROM meetings WHERE id = ?`).get(meeting_id) as
+      | { summary_json: string | null }
+      | undefined;
+    if (!row?.summary_json) return { error: "no structured summary" };
+    const summary = JSON.parse(row.summary_json) as StructuredSummary;
+    if (bulletPath === "overview") {
+      summary.overview = text.trim();
+    } else {
+      const b = bulletAt(summary, bulletPath);
+      if (!b) return { error: "bad path" };
+      b.text = text.trim();
+      b.edited = true;
+    }
+    db.prepare(
+      `INSERT INTO summary_versions (meeting_id, json, source, created_at) VALUES (?, ?, 'edited', ?)`,
+    ).run(meeting_id, row.summary_json, Date.now());
+    db.prepare(`UPDATE meetings SET summary_json = ? WHERE id = ?`).run(JSON.stringify(summary), meeting_id);
+    reindexMeeting(db, meeting_id);
+    return { ok: true };
+  },
+
+  /** Everywhere a wrong text appears — proposed edits, nothing applied. */
+  "POST /api/correction/preview"(p, body) {
+    const { meeting_id, from_text, to_text } = (body ?? {}) as { meeting_id?: string; from_text?: string; to_text?: string };
+    if (!meeting_id || !from_text?.trim() || !to_text?.trim()) return { error: "missing fields" };
+    return { occurrences: findOccurrences(db, meeting_id, from_text.trim(), to_text.trim()) };
+  },
+
+  /** Apply the accepted subset of a previewed correction. */
+  "POST /api/correction/apply"(p, body) {
+    const { meeting_id, from_text, to_text, refs, persist_global } = (body ?? {}) as {
+      meeting_id?: string; from_text?: string; to_text?: string; refs?: string[]; persist_global?: boolean;
+    };
+    if (!meeting_id || !from_text?.trim() || !to_text?.trim() || !Array.isArray(refs)) return { error: "missing fields" };
+    return applyCorrection(db, meeting_id, refs, {
+      from: from_text.trim(),
+      to: to_text.trim(),
+      persistGlobal: persist_global !== false,
+    });
+  },
+
+  "GET /api/corrections"() {
+    return db.prepare(`SELECT * FROM corrections ORDER BY created_at DESC`).all();
+  },
+
+  /** Live transcript so far — lets Enhance run mid-recording. */
+  "GET /api/record/transcript"() {
+    return { utterances: live?.transcript ?? [], recording: !!live, meetingId: live?.meetingId ?? null };
+  },
+
+  /** AI-polish the user's rough notes in place. Versioned. */
+  async "POST /api/notes/enhance"(p, body) {
+    const { id, notes } = (body ?? {}) as { id?: string; notes?: string };
+    if (!id) return { error: "missing id" };
+    if (!hasOpenAI()) return { error: "OPENAI_API_KEY not configured — enhance needs it" };
+    const utterances = meetingTranscript(id);
+    if (!utterances.length) return { error: "no transcript yet" };
+    return await enhanceNotes(db, id, notes ?? "", utterances);
+  },
+
+  /** Full structured notes: sections, team-wise action items, person inference. */
+  async "POST /api/notes/structure"(p, body) {
+    const { id, notes } = (body ?? {}) as { id?: string; notes?: string };
+    if (!id) return { error: "missing id" };
+    if (!hasOpenAI()) return { error: "OPENAI_API_KEY not configured — structure needs it" };
+    const utterances = meetingTranscript(id);
+    if (!utterances.length) return { error: "no transcript yet" };
+    const meeting = db.prepare(`SELECT title FROM meetings WHERE id = ?`).get(id) as { title: string } | undefined;
+    return await structureNotes(db, id, notes ?? "", utterances, meeting?.title ?? "Meeting");
+  },
+
+  /** Ask-me chat: grounded answers; may rewrite the notes when asked. */
+  async "POST /api/chat"(p, body) {
+    const { meeting_id, message, history, notes } = (body ?? {}) as {
+      meeting_id?: string; message?: string;
+      history?: { role: "user" | "assistant"; content: string }[]; notes?: string;
+    };
+    if (!meeting_id || !message?.trim()) return { error: "missing fields" };
+    if (!hasOpenAI()) return { error: "OPENAI_API_KEY not configured — chat needs it" };
+    const utterances = meetingTranscript(meeting_id);
+    if (!utterances.length) return { error: "no transcript yet" };
+    return await chatAboutMeeting(db, meeting_id, message.trim(), history ?? [], notes ?? "", utterances);
+  },
+
+  /** One-shot correction: every occurrence (exact + similar spellings) fixed now. */
+  "POST /api/correction/auto"(p, body) {
+    const { meeting_id, from_text, to_text, exclude } = (body ?? {}) as {
+      meeting_id?: string; from_text?: string; to_text?: string;
+      exclude?: { notes?: boolean; utterance_idx?: number };
+    };
+    if (!meeting_id || !from_text?.trim() || !to_text?.trim()) return { error: "missing fields" };
+    const occurrences = findOccurrences(db, meeting_id, from_text.trim(), to_text.trim()).filter((o) => {
+      if (exclude?.notes && o.ref.startsWith("meeting_field:my_notes#")) return false;
+      if (exclude?.utterance_idx !== undefined && o.ref.startsWith(`utterance:${exclude.utterance_idx}#`)) return false;
+      return true;
+    });
+    const exact = occurrences.filter((o) => o.match === "exact").length;
+    const result = applyCorrection(db, meeting_id, occurrences.map((o) => o.ref), {
+      from: from_text.trim(), to: to_text.trim(), persistGlobal: true,
+    });
+    return { ...result, breakdown: { exact, fuzzy: occurrences.length - exact } };
+  },
+
+  "POST /api/correction/undo"(p, body) {
+    const { event_id } = (body ?? {}) as { event_id?: number };
+    if (!event_id) return { error: "missing event_id" };
+    return undoCorrection(db, event_id);
+  },
+
+  /** Edit one transcript line; a name swap inside it propagates everywhere else. */
+  "POST /api/utterance/edit"(p, body) {
+    const { meeting_id, idx, text } = (body ?? {}) as { meeting_id?: string; idx?: number; text?: string };
+    if (!meeting_id || idx === undefined || typeof text !== "string" || !text.trim()) return { error: "missing fields" };
+    const row = db
+      .prepare(`SELECT text FROM utterances WHERE meeting_id = ? AND idx = ?`)
+      .get(meeting_id, idx) as { text: string } | undefined;
+    if (!row) return { error: "not found" };
+    db.prepare(`UPDATE utterances SET text = ? WHERE meeting_id = ? AND idx = ?`).run(text.trim(), meeting_id, idx);
+    reindexMeeting(db, meeting_id);
+    const swap = detectWordSwap(row.text, text.trim());
+    let correction = null;
+    if (swap) {
+      const occurrences = findOccurrences(db, meeting_id, swap.from, swap.to).filter(
+        (o) => !o.ref.startsWith(`utterance:${idx}#`),
+      );
+      if (occurrences.length) {
+        const res = applyCorrection(db, meeting_id, occurrences.map((o) => o.ref), {
+          from: swap.from, to: swap.to, persistGlobal: true,
+        });
+        correction = { ...res, from: swap.from, to: swap.to };
+      }
+    }
+    return { ok: true, correction };
+  },
+
+  "POST /api/correction/delete"(p, body) {
+    const { id } = (body ?? {}) as { id?: number };
+    if (!id) return { error: "missing id" };
+    db.prepare(`DELETE FROM corrections WHERE id = ?`).run(id);
+    return { ok: true };
+  },
 };
+
+const regenerating = new Set<string>();
+
+function upsertPerson(name: string, team?: string, notes?: string) {
+  db.prepare(`INSERT INTO people (name, team, notes, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(name) DO NOTHING`)
+    .run(name, team?.trim() || null, notes?.trim() || null, Date.now());
+  if (team?.trim()) db.prepare(`UPDATE people SET team = ? WHERE name = ? COLLATE NOCASE`).run(team.trim(), name);
+  if (notes?.trim()) db.prepare(`UPDATE people SET notes = ? WHERE name = ? COLLATE NOCASE`).run(notes.trim(), name);
+  return db.prepare(`SELECT * FROM people WHERE name = ? COLLATE NOCASE`).get(name);
+}
+
+/** Filing a meeting pulls its known speakers into the project's people. */
+function linkMeetingPeople(meetingId: string, projectId: number) {
+  const speakers = db
+    .prepare(`SELECT DISTINCT speaker FROM utterances WHERE meeting_id = ? AND speaker IS NOT NULL`)
+    .all(meetingId) as { speaker: string }[];
+  for (const { speaker } of speakers) {
+    const person = db.prepare(`SELECT id FROM people WHERE name = ? COLLATE NOCASE`).get(speaker) as { id: number } | undefined;
+    if (person)
+      db.prepare(`INSERT INTO project_people (project_id, person_id, added_via) VALUES (?, ?, 'meeting') ON CONFLICT DO NOTHING`)
+        .run(projectId, person.id);
+  }
+}
+
+/** Transcript for a meeting — the live session's finals while recording, else the DB. */
+function meetingTranscript(id: string): Utterance[] {
+  if (live?.meetingId === id) return live.transcript;
+  return db
+    .prepare(`SELECT speaker, speaker_role, text, offset_s, duration_s FROM utterances WHERE meeting_id = ? ORDER BY idx`)
+    .all(id) as Utterance[];
+}
 
 const MIME: Record<string, string> = {
   ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png",
@@ -331,6 +782,26 @@ createServer(async (req, res) => {
     return;
   }
 
+  // Raw document download — the one non-JSON API route.
+  if (key === "GET /api/doc/file") {
+    const id = Number(url.searchParams.get("id"));
+    const doc = db.prepare(`SELECT path, mime, filename FROM documents WHERE id = ?`).get(id) as
+      | { path: string | null; mime: string | null; filename: string | null }
+      | undefined;
+    const full = doc?.path ? path.resolve(doc.path) : null;
+    if (!full || !full.startsWith(DOCS_DIR) || !existsSync(full)) {
+      res.writeHead(404);
+      res.end("not found");
+      return;
+    }
+    res.writeHead(200, {
+      "Content-Type": doc!.mime ?? "application/octet-stream",
+      "Content-Disposition": `inline; filename="${(doc!.filename ?? "file").replace(/[^\w.-]+/g, "_")}"`,
+    });
+    res.end(readFileSync(full));
+    return;
+  }
+
   if (api[key]) {
     let body: unknown = null;
     if (req.method === "POST") {
@@ -353,7 +824,11 @@ createServer(async (req, res) => {
   const file = url.pathname === "/" ? "/index.html" : url.pathname;
   const full = path.join(PUBLIC, path.normalize(file));
   if (full.startsWith(PUBLIC) && existsSync(full)) {
-    res.writeHead(200, { "Content-Type": MIME[path.extname(full)] ?? "application/octet-stream" });
+    res.writeHead(200, {
+      "Content-Type": MIME[path.extname(full)] ?? "application/octet-stream",
+      // Local dev app: the UI changes constantly, stale caches cost debugging hours.
+      "Cache-Control": "no-store",
+    });
     res.end(readFileSync(full));
     return;
   }

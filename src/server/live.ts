@@ -38,13 +38,22 @@ export class LiveSession {
   private stopping = false;
   readonly meetingId: string;
 
+  /** New utterances land after everything already recorded (resume support). */
+  private offsetBase = 0;
+  private resuming = false;
+  private tapeSuffix = "";
+
   constructor(
     private db: DatabaseSync,
     private apiKey: string,
     readonly title: string,
     readonly mode: string,
+    resume?: { meetingId: string; offsetBase: number },
   ) {
-    this.meetingId = `meeting_live_${Date.now()}`;
+    this.meetingId = resume?.meetingId ?? `meeting_live_${Date.now()}`;
+    this.offsetBase = resume?.offsetBase ?? 0;
+    this.resuming = !!resume;
+    this.tapeSuffix = resume ? `-s${Date.now()}` : "";
   }
 
   onEvent(fn: (e: LiveEvent) => void) {
@@ -55,6 +64,11 @@ export class LiveSession {
     for (const fn of this.listeners) fn(e);
   }
 
+  /** Finals so far — lets the UI enhance notes before the meeting is stitched. */
+  get transcript(): Utterance[] {
+    return [...this.finals].sort((a, b) => a.offset_s - b.offset_s);
+  }
+
   start() {
     const bin = "capture/threadline-capture";
     if (!existsSync(bin)) {
@@ -62,9 +76,17 @@ export class LiveSession {
       return;
     }
     this.startedAt = Date.now();
+    // Stub row so notes autosave works from the first second of recording;
+    // processMeeting's upsert fills in the rest at stop time.
+    this.db
+      .prepare(
+        `INSERT INTO meetings (id, title, mode, started_at, duration_s) VALUES (?, ?, ?, ?, 0)
+         ON CONFLICT(id) DO NOTHING`,
+      )
+      .run(this.meetingId, this.title, this.mode, this.startedAt);
     mkdirSync("data/recordings", { recursive: true });
     for (const ch of [0, 1]) {
-      this.tapes[ch] = createWriteStream(`data/recordings/${this.meetingId}-ch${ch}.pcm`);
+      this.tapes[ch] = createWriteStream(`data/recordings/${this.meetingId}${this.tapeSuffix}-ch${ch}.pcm`);
       this.openSocket(ch);
     }
 
@@ -104,7 +126,7 @@ export class LiveSession {
       if (msg.type === "partial" && msg.text) {
         this.emit({ type: "partial", speaker, text: msg.text, utteranceId: msg.utterance_id ?? "" });
       } else if (msg.type === "final" && msg.text?.trim()) {
-        const offsetS = Math.max(0, ((msg.t_ms ?? 0) - (msg.audio_ms ?? 0)) / 1000);
+        const offsetS = this.offsetBase + Math.max(0, ((msg.t_ms ?? 0) - (msg.audio_ms ?? 0)) / 1000);
         const durationS = (msg.audio_ms ?? 0) / 1000;
         if (speaker === "Them") {
           this.themRecent.push({ text: msg.text, at: Date.now() });
@@ -171,10 +193,10 @@ export class LiveSession {
       this.emit({ type: "status", message: "PyAI produced no transcript — falling back to Whisper over the saved recording" });
       try {
         for (const [ch, speaker] of [[0, "Them"], [1, "You"]] as const) {
-          const pcm = readFileSync(`data/recordings/${this.meetingId}-ch${ch}.pcm`);
+          const pcm = readFileSync(`data/recordings/${this.meetingId}${this.tapeSuffix}-ch${ch}.pcm`);
           if (pcm.length < 16000) continue; // under half a second of audio
           const utts = await whisperTranscribe(pcm16ToWav(pcm), speaker, ROLE[speaker]);
-          this.finals.push(...utts);
+          this.finals.push(...utts.map((u) => ({ ...u, offset_s: this.offsetBase + u.offset_s })));
         }
         this.finals.sort((a, b) => a.offset_s - b.offset_s);
         if (this.finals.length) this.emit({ type: "status", message: `Whisper fallback recovered ${this.finals.length} lines` });
@@ -196,14 +218,35 @@ export class LiveSession {
         reason = "Audio was captured but no speech was recognized — the recording may be silence or too quiet.";
       }
       this.emit({ type: "error", message: reason });
+      if (this.resuming) return { meetingId: this.meetingId, exit: "failed", reason }; // prior content stays
+      // The stub row: keep it only if the user typed notes worth keeping.
+      const stub = this.db.prepare("SELECT my_notes FROM meetings WHERE id = ?").get(this.meetingId) as
+        | { my_notes: string | null }
+        | undefined;
+      if (stub && !stub.my_notes?.trim()) {
+        this.db.prepare("DELETE FROM notes_versions WHERE meeting_id = ?").run(this.meetingId);
+        this.db.prepare("DELETE FROM meetings WHERE id = ?").run(this.meetingId);
+      } else if (stub) {
+        this.db.prepare("UPDATE meetings SET exit = 'failed' WHERE id = ?").run(this.meetingId);
+      }
       return { meetingId: this.meetingId, exit: "failed", reason };
+    }
+    // Resuming an earlier meeting: this session's finals extend what's stored.
+    let utterances = this.finals;
+    if (this.resuming) {
+      const existing = this.db
+        .prepare(
+          "SELECT speaker, speaker_role, text, offset_s, duration_s FROM utterances WHERE meeting_id = ? ORDER BY idx",
+        )
+        .all(this.meetingId) as Utterance[];
+      utterances = [...existing, ...this.finals];
     }
     const res = await processMeeting(this.db, this.apiKey, {
       id: this.meetingId,
       title: this.title,
       mode: this.mode,
       startedAt: this.startedAt,
-      utterances: this.finals,
+      utterances,
     });
     this.emit({ type: "stopped", meetingId: this.meetingId, exit: res.exit });
     return { meetingId: this.meetingId, exit: res.exit };

@@ -18,6 +18,9 @@ import { resolveCandidates, storeResolutions } from "./resolve.js";
 import { projectGraph } from "./project.js";
 import { indexMeeting } from "./chunker.js";
 import { hasOpenAI, openaiExtract } from "../lib/openai.js";
+import { structureSummary } from "./summarize.js";
+import { suggestProjects } from "./match.js";
+import { applyDictionary } from "./corrections.js";
 
 export type MeetingInput = {
   id: string;
@@ -27,11 +30,72 @@ export type MeetingInput = {
   utterances: Utterance[];
 };
 
+/**
+ * Wipe a meeting's derived rows so reprocessing is idempotent. Utterances use
+ * INSERT OR REPLACE and runs are append-only by invariant; everything else is
+ * rebuilt from scratch each run.
+ */
+export function clearDerived(db: DatabaseSync, meetingId: string) {
+  db.prepare("DELETE FROM claims WHERE meeting_id = ?").run(meetingId);
+  db.prepare("DELETE FROM search WHERE meeting_id = ?").run(meetingId);
+  db.prepare("DELETE FROM edges WHERE meeting_id = ?").run(meetingId);
+  // Sweep nodes that no longer appear in any meeting's graph.
+  db.prepare(
+    `DELETE FROM nodes WHERE kind != 'meeting'
+       AND id NOT IN (SELECT src FROM edges UNION SELECT dst FROM edges)`,
+  ).run();
+}
+
+/**
+ * Rebuild the FTS rows for one meeting from current DB state (corrected
+ * utterances, structured summary if present, else the flat summary). Both the
+ * pipeline and the corrections engine call this so the index never drifts.
+ */
+export function reindexMeeting(db: DatabaseSync, meetingId: string) {
+  db.prepare("DELETE FROM search WHERE meeting_id = ?").run(meetingId);
+  const ins = db.prepare("INSERT INTO search (meeting_id, kind, text) VALUES (?, ?, ?)");
+  const m = db
+    .prepare("SELECT title, summary, summary_json, my_notes FROM meetings WHERE id = ?")
+    .get(meetingId) as
+    | { title: string; summary: string | null; summary_json: string | null; my_notes: string | null }
+    | undefined;
+  if (!m) return;
+  if (m.my_notes?.trim()) ins.run(meetingId, "notes", m.my_notes);
+  let indexedStructured = false;
+  if (m.summary_json) {
+    try {
+      const s = JSON.parse(m.summary_json) as {
+        overview?: string;
+        sections?: { title: string; bullets?: { text: string }[]; subsections?: { title: string; bullets?: { text: string }[] }[] }[];
+      };
+      ins.run(meetingId, "summary", `${m.title} ${s.overview ?? ""}`);
+      for (const sec of s.sections ?? []) {
+        const parts = [sec.title, ...(sec.bullets ?? []).map((b) => b.text)];
+        for (const sub of sec.subsections ?? []) parts.push(sub.title, ...(sub.bullets ?? []).map((b) => b.text));
+        ins.run(meetingId, "summary", parts.join(" "));
+      }
+      indexedStructured = true;
+    } catch {
+      /* fall through to flat summary */
+    }
+  }
+  if (!indexedStructured) ins.run(meetingId, "summary", `${m.title} ${m.summary ?? ""}`);
+  const utts = db
+    .prepare("SELECT text FROM utterances WHERE meeting_id = ? ORDER BY idx")
+    .all(meetingId) as { text: string }[];
+  for (const u of utts) ins.run(meetingId, "utterance", u.text);
+}
+
 export async function processMeeting(db: DatabaseSync, apiKey: string, m: MeetingInput) {
   const budget = new Budget(60, 180_000);
   const steps: StepRecord[] = [];
+
+  // Known corrections are applied before anything downstream sees the text —
+  // a mistake the user fixed once never reappears, even on regenerate.
+  m = { ...m, utterances: applyDictionary(db, m.id, m.utterances) };
   const durationS = Math.max(...m.utterances.map((u) => u.offset_s + u.duration_s), 0);
 
+  clearDerived(db, m.id);
   db.prepare(
     `INSERT INTO meetings (id, title, mode, started_at, duration_s) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET title=excluded.title`,
@@ -48,9 +112,12 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
     "core:recap",
     budget,
     async () => {
-      await triggerRecap(apiKey, m.id, m.utterances, durationS);
+      // Fresh call id per run: Recap refuses a changed payload for an existing
+      // call, and reprocessing after corrections legitimately changes the text.
+      const recapId = `${m.id}-r${Date.now()}`;
+      await triggerRecap(apiKey, recapId, m.utterances, durationS);
       budget.spendUnits(1);
-      const r = await awaitRecap(apiKey, m.id);
+      const r = await awaitRecap(apiKey, recapId);
       if (r.status === "failed") throw new Error(r.error ?? "recap failed");
       return r;
     },
@@ -91,6 +158,32 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
       m.id,
     );
 
+    // Second pass: restructure the draft into a validated, grounded document.
+    // Non-core — a failure here degrades to the flat summary, never kills the run.
+    if (hasOpenAI()) {
+      const structured = await structureSummary(budget, m.utterances, rec);
+      steps.push(structured.record);
+      if (structured.value) {
+        db.prepare("UPDATE meetings SET summary_json = ? WHERE id = ?").run(
+          JSON.stringify(structured.value),
+          m.id,
+        );
+        db.prepare(
+          "INSERT INTO summary_versions (meeting_id, json, source, created_at) VALUES (?, ?, 'generated', ?)",
+        ).run(m.id, JSON.stringify(structured.value), Date.now());
+        steps.push({
+          name: "gate:summary-grounding",
+          status: structured.ungrounded > 0 ? "blocked" : "ok",
+          attempts: 1,
+          ms: 0,
+          reason:
+            structured.ungrounded > 0
+              ? `${structured.ungrounded} bullet(s) had no verifiable anchor in the transcript`
+              : undefined,
+        });
+      }
+    }
+
     // Canonical entities, then project them down into nodes/edges. Replaces
     // the old buildGraph(), whose topics were the first six words of a
     // decision — which is why reworded topics never joined across meetings.
@@ -104,13 +197,18 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
     steps.push(projectGraph(db, [m.id]));
 
     // Retrieval chunks (windows + claims + summary), delete-then-insert so
-    // reprocessing can never duplicate index rows. Also fill the legacy
-    // `search` table the same way until every reader has moved to chunk_fts.
+    // reprocessing can never duplicate index rows. reindexMeeting fills the
+    // legacy `search` table (utterances + structured summary + notes) until
+    // every reader has moved to chunk_fts.
     steps.push(indexMeeting(db, m.id));
-    db.prepare("DELETE FROM search WHERE meeting_id = ?").run(m.id);
-    const insSearch = db.prepare("INSERT INTO search (meeting_id, kind, text) VALUES (?, ?, ?)");
-    insSearch.run(m.id, "summary", `${m.title} ${rec.summary ?? rec.summary_draft ?? ""}`);
-    m.utterances.forEach((u) => insSearch.run(m.id, "utterance", u.text));
+    reindexMeeting(db, m.id);
+
+    // Project matching: suggestions only, the user files. Non-core — skipped
+    // silently without OpenAI or candidate projects, never kills the run.
+    if (hasOpenAI()) {
+      const match = await suggestProjects(db, budget, m, rec);
+      if (match) steps.push(match);
+    }
   }
 
   const exit = decideExit(steps, budget);
