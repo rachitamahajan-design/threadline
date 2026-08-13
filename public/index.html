@@ -413,6 +413,7 @@ async function renderToday() {
       if (n && a) { n.setAttribute("opacity", "1"); a.beginElement(); setTimeout(() => n.setAttribute("opacity", "0"), 1300); }
     }, 400);
   }
+  drawRailThread();
   loadUpcoming();
   $("#add-upcoming").addEventListener("click", async () => {
     const title = prompt("Meeting title?");
