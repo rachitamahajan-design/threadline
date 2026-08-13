@@ -272,10 +272,93 @@
     margin-bottom: 14px; font-weight: 650;
   }
   .card h2 .h2-note { font-size: 12.5px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
-  .stats { display: flex; gap: clamp(20px, 4vw, 44px); margin: 4px 0 30px; flex-wrap: wrap; }
-  .stat b { display: block; font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
-  .stat span { font-size: 12.5px; color: var(--ink-3); }
-  .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 22px; align-items: start; }
+  /* ── Home: gradient stat cards ── */
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: clamp(12px, 1.6vw, 18px); margin: 4px 0 clamp(18px, 2.4vw, 24px);
+  }
+  .stat {
+    background: var(--grad-blue); border: 1px solid var(--glass-border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: clamp(14px, 1.9vw, 18px) clamp(15px, 2vw, 20px); min-width: 0;
+  }
+  .stat.s-peach { background: var(--grad-peach); }
+  .stat.s-mint { background: var(--grad-mint); }
+  .stat.s-lilac { background: var(--grad-lilac); }
+  .stat .ic { display: block; color: var(--ink-2); opacity: .72; margin-bottom: clamp(12px, 2vw, 20px); }
+  .stat b { display: block; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.12; }
+  .stat span { display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+
+  .home-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; align-items: start; }
+  @media (min-width: 1100px) { .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  /* ── Home: Up next, Granola "Coming up" ── */
+  .card h2.serif-h {
+    font-family: ui-serif, "New York", Georgia, "Times New Roman", serif;
+    font-size: 19px; font-weight: 600; letter-spacing: -0.02em;
+  }
+  .up-lead { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 14px; padding: 2px 0 4px; align-items: start; }
+  .up-cal { text-align: center; padding-top: 1px; }
+  .up-daynum {
+    font-family: ui-serif, "New York", Georgia, "Times New Roman", serif;
+    font-size: 34px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  }
+  .up-mon { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); margin-top: 5px; }
+  .up-dow { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+  .up-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ff5f57; margin-right: 5px; vertical-align: 1px; }
+  .up-body { position: relative; padding-left: 15px; min-width: 0; }
+  .up-tick { position: absolute; left: 0; top: 3px; bottom: 3px; width: 3px; border-radius: 3px; background: var(--thread); opacity: .85; }
+  .up-name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.35; }
+  .up-line { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-top: 5px; }
+  .up-time { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .up-time .ampm { font-size: 10.5px; letter-spacing: .04em; margin-left: 2px; }
+  .up-chip {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ink-2);
+    border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px 2px 8px; white-space: nowrap;
+  }
+  .up-chip .ic { color: var(--ink-3); }
+  .up-chip.now { border-color: transparent; background: color-mix(in srgb, #ff5f57 13%, transparent); color: #d0433c; font-weight: 650; }
+  .up-chip.soon { border-color: transparent; background: var(--thread-soft); color: var(--thread); font-weight: 600; }
+  .up-people { font-size: 12.5px; color: var(--ink-3); margin-top: 4px; }
+  .up-slim {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    position: relative; padding: 10px 0 10px 15px; border-top: 1px solid var(--line); margin-top: 12px;
+  }
+  .up-slim + .up-slim { margin-top: 0; }
+  .up-slim .up-tick { top: 12px; bottom: 12px; opacity: .38; }
+  .up-slim .s-time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
+  .up-slim .s-title { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; min-width: 0; }
+  .up-slim .s-people { font-size: 12px; color: var(--ink-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Home: past meetings, grouped by day ── */
+  .day-head { margin: 16px 0 2px; }
+  .day-head:first-child { margin-top: 0; }
+  .mtg-row { display: flex; gap: 12px; align-items: flex-start; padding: 11px 0; cursor: pointer; }
+  .mtg-row + .mtg-row { border-top: 1px solid var(--line); }
+  .mtg-ico {
+    width: 32px; height: 32px; border-radius: 10px; flex: none; margin-top: 1px;
+    background: var(--sunk); border: 1px solid var(--line); color: var(--ink-3);
+    display: grid; place-content: center;
+  }
+  .mtg-row:hover .mtg-ico { color: var(--thread); }
+  .mtg-main { flex: 1; min-width: 0; }
+  .mtg-title { font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; transition: color .12s; }
+  .mtg-row:hover .mtg-title { color: var(--thread); }
+  .mtg-sum {
+    font-size: 12.5px; color: var(--ink-3); margin-top: 2px; line-height: 1.45;
+    display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .mtg-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; margin-top: 1px; }
+  .mtg-time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  @media (max-width: 560px) {
+    /* two-up so the stats stay a row, not a tower */
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat .ic { margin-bottom: 10px; }
+  }
+  @media (max-width: 520px) {
+    .mtg-row { flex-wrap: wrap; }
+    .mtg-side { flex: 1 1 100%; flex-direction: row; align-items: center; padding-left: 44px; margin-top: 6px; justify-content: flex-start; gap: 10px; }
+  }
 
   /* ── the centered search pill (Home / Meetings) ── */
   .search-pill {
@@ -1025,6 +1108,28 @@ const main = $("#main");
 const state = { view: "today", meetingId: null, highlight: null, deepLink: null };
 const fmtDate = (ms) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 const fmtTs = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+/** "3:19 PM" — a wall clock, tabular. */
+const fmtClock = (ms) => new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+/** Midnight-anchored day index, so "yesterday" means the calendar day, not 24h. */
+const dayStart = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+/** "Today" / "Yesterday" for the last two days, then "Wed, Aug 12". */
+function dayLabel(ms) {
+  const diff = Math.round((dayStart(Date.now()) - dayStart(ms)) / 86400000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  if (diff === -1) return "Tomorrow";
+  return new Date(ms).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+/** [[label, rows], …] keeping the incoming order. */
+function groupByDay(rows, key = (r) => r.started_at) {
+  const out = [];
+  for (const r of rows) {
+    const label = dayLabel(key(r));
+    if (out.length && out[out.length - 1][0] === label) out[out.length - 1][1].push(r);
+    else out.push([label, [r]]);
+  }
+  return out;
+}
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const api = (p) => fetch(p).then((r) => r.json());
 /** One sprite, one helper: every button in the app gets a real icon. */
@@ -1623,24 +1728,32 @@ async function renderToday() {
     <div class="sub">${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
     ${searchPill()}
     <div class="stats">
-      <div class="stat"><b>${stats?.meetings ?? 0}</b><span>meetings captured</span></div>
-      <div class="stat"><b>${mins < 60 ? mins + "m" : Math.floor(mins / 60) + "h " + (mins % 60) + "m"}</b><span>listened</span></div>
-      <div class="stat"><b>${stats?.open_actions ?? 0}</b><span>loose ends</span></div>
-      <div class="stat"><b>${stats?.decisions ?? 0}</b><span>decisions</span></div>
+      <div class="stat">${icon("calendar", 19)}<b>${stats?.meetings ?? 0}</b><span>meetings captured</span></div>
+      <div class="stat s-peach">${icon("clock", 19)}<b>${mins < 60 ? mins + "m" : Math.floor(mins / 60) + "h " + (mins % 60) + "m"}</b><span>listened</span></div>
+      <div class="stat s-mint">${icon("needle", 19)}<b>${stats?.open_actions ?? 0}</b><span>loose ends</span></div>
+      <div class="stat s-lilac">${icon("sparkle", 19)}<b>${stats?.decisions ?? 0}</b><span>decisions</span></div>
     </div>
     <div class="home-grid">
-      <div class="card"><h2>Up next <span style="flex:1"></span>
+      <div class="card"><h2 class="serif-h">Up next <span style="flex:1"></span>
         <button id="notify-bell" class="icon-btn" title="Notify me when meetings start" aria-label="Notify me when meetings start" style="width:26px;height:26px">${icon("bell", 15)}</button>
         <button id="add-upcoming" class="copybtn" style="margin:0;padding:4px 10px;font-size:12.5px" title="Add an upcoming meeting">${icon("plus", 14)}add</button></h2>
         <div id="upcoming-box"><div class="empty" style="padding:16px 0">Nothing scheduled. Connect Google (soon) or add one.</div></div>
       </div>
-      <div class="card"><h2>Past meetings</h2>
-        ${meetings.slice(0, 5).map((m) => `
-          <div class="m-row" data-mid="${m.id}">
-            <div class="m-date">${fmtDate(m.started_at)}</div>
-            <div style="flex:1"><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
-            <select class="topic-select" data-tmid="${m.id}" title="Topic"></select>
-          </div>`).join("")}
+      <div class="card"><h2 class="serif-h">Past meetings</h2>
+        ${meetings.length ? groupByDay(meetings.slice(0, 6)).map(([label, rows]) => `
+          <div class="eyebrow day-head">${esc(label)}</div>
+          ${rows.map((m) => `
+          <div class="mtg-row" data-mid="${m.id}">
+            <div class="mtg-ico">${icon("doc", 16)}</div>
+            <div class="mtg-main">
+              <div class="mtg-title">${esc(m.title)}</div>
+              ${m.headline ? `<div class="mtg-sum">${esc(m.headline)}</div>` : ""}
+            </div>
+            <div class="mtg-side">
+              <span class="mtg-time">${fmtClock(m.started_at)}</span>
+              <select class="topic-select" data-tmid="${m.id}" title="Topic"></select>
+            </div>
+          </div>`).join("")}`).join("") : `<div class="empty" style="padding:14px 0">No meetings captured yet.</div>`}
       </div>
     </div>
     <svg class="stitch-connector" width="120" height="44" viewBox="0 0 120 44" aria-hidden="true">
@@ -1650,7 +1763,7 @@ async function renderToday() {
         <ellipse cx="5" cy="41" rx="2.6" ry="1.7" transform="rotate(-52 5 41)"/>
       </g>
     </svg>
-    <div class="card"><h2>Loose ends <span class="h2-note">· pulled from your meetings</span></h2>
+    <div class="card"><h2 class="serif-h">Loose ends <span class="h2-note">· pulled from your meetings</span></h2>
       <div class="loose-rail" id="loose-rail">
       <div id="rail-needle" aria-hidden="true">
         <div style="font-size:17px;line-height:1">🧵</div>
@@ -1902,30 +2015,49 @@ async function loadUpcoming() {
   const box = $("#upcoming-box");
   if (!box) return;
   const ups = await api("/api/upcoming");
-  if (!ups.length) return;
-  box.innerHTML = ups.map((u, i) => {
-    const mins = Math.round((u.at_ms - Date.now()) / 60000);
-    const when = mins < 60 ? `In ${mins} min` : new Date(u.at_ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-    const dateTag = new Date(u.at_ms).getDate() !== new Date().getDate() ? " · " + fmtDate(u.at_ms) : "";
+  const now = Date.now();
+  // A meeting that already started is either running ("Now") or it rolls off —
+  // it must never come back as a negative countdown.
+  const endOf = (u) => u.end_ms || u.at_ms + 60 * 60000;
+  const list = ups.filter((u) => u.at_ms > now || now < endOf(u));
+  if (!list.length) return;
+  box.innerHTML = list.map((u, i) => {
+    const mins = Math.round((u.at_ms - now) / 60000);
+    const running = mins <= 0;
+    const durMin = u.end_ms ? Math.round((u.end_ms - u.at_ms) / 60000) : 0;
+    const d = new Date(u.at_ms);
+    // "10:30 – 11:00 AM" with the meridiem set small
+    const ampm = (ms) => fmtClock(ms).replace(/\s*([AaPp])\.?[Mm]\.?$/, (_, x) => `<span class="ampm">${x.toUpperCase()}M</span>`);
+    const range = u.end_ms ? `${fmtClock(u.at_ms).replace(/\s*[AaPp]\.?[Mm]\.?$/, "")} – ${ampm(u.end_ms)}` : ampm(u.at_ms);
     if (i > 0)
-      return `<div class="up-item compact" data-up="${u.id}">
-        <span class="up-when">${when}${dateTag}</span>
-        <span style="font-weight:600;font-size:13.5px;margin-left:10px">${esc(u.title)}</span>
-        ${u.participants ? `<span class="t-meta" style="margin-left:8px">${esc(u.participants)}</span>` : ""}
+      return `<div class="up-slim" data-up="${u.id}">
+        <span class="up-tick"></span>
+        <span class="s-time">${running ? "Now" : fmtClock(u.at_ms)}${dayStart(u.at_ms) !== dayStart(now) ? " · " + fmtDate(u.at_ms) : ""}</span>
+        <span class="s-title">${esc(u.title)}</span>
+        ${u.participants ? `<span class="s-people">${esc(u.participants)}</span>` : ""}
       </div>`;
-    return `<div class="up-item" data-up="${u.id}" data-people="${esc(u.participants ?? "")}">
-      <div class="up-needle"><svg width="30" height="12" viewBox="0 0 40 15" fill="none">
-        <path d="M2.9 4.2 C 1.2 5.1, 1.2 9.9, 2.9 10.8 L 11 9.9 L 33 8.15 L 38.4 7.5 L 33 6.85 L 11 5.1 Z" fill="url(#rn-g)"/>
-        <ellipse cx="6.4" cy="7.5" rx="1.05" ry="2.15" fill="var(--bg)" stroke="#7d838d" stroke-width="0.55"/>
-      </svg></div>
-      <div class="up-when">${when}${dateTag}</div>
-      <div class="up-title">${esc(u.title)}</div>
-      ${u.participants ? `<div class="t-meta">${esc(u.participants)}</div>` : ""}
-      <div class="prep-slot"></div>
+    return `<div class="up-lead" data-up="${u.id}" data-people="${esc(u.participants ?? "")}">
+      <div class="up-cal">
+        <div class="up-daynum">${d.getDate()}</div>
+        <div class="up-mon">${d.toLocaleDateString(undefined, { month: "short" })}</div>
+        <div class="up-dow">${dayStart(u.at_ms) === dayStart(now) ? `<span class="up-dot"></span>` : ""}${d.toLocaleDateString(undefined, { weekday: "short" })}</div>
+      </div>
+      <div class="up-body">
+        <span class="up-tick"></span>
+        <div class="up-name">${esc(u.title)}</div>
+        <div class="up-line">
+          <span class="up-time">${range}</span>
+          ${durMin > 0 ? `<span class="up-chip">${icon("clock", 12)}${durMin} min</span>` : ""}
+          ${running ? `<span class="up-chip now">Now</span>`
+            : mins < 60 ? `<span class="up-chip soon">In ${mins} min</span>` : ""}
+        </div>
+        ${u.participants ? `<div class="up-people">${esc(u.participants)}</div>` : ""}
+        <div class="prep-slot"></div>
+      </div>
     </div>`;
   }).join("");
   // prep: what the brain knows about each meeting's people
-  for (const el of box.querySelectorAll(".up-item")) {
+  for (const el of box.querySelectorAll(".up-lead")) {
     const people = el.dataset.people;
     if (!people) continue;
     const prep = await api(`/api/prep?people=${encodeURIComponent(people)}`);
