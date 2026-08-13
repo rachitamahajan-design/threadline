@@ -2409,13 +2409,7 @@ async function renderGraph() {
       try {
         for (const hit of await api(`/api/search?q=${encodeURIComponent(q)}`)) ids.add(hit.meeting_id);
       } catch (e) {}
-      // light the matches and everything directly threaded to them
-      const lit = new Set(ids);
-      for (const e2 of es) {
-        if (ids.has(e2.a.id)) lit.add(e2.b.id);
-        if (ids.has(e2.b.id)) lit.add(e2.a.id);
-      }
-      spot = lit.size ? lit : new Set(["__none__"]);
+      spot = ids.size ? ids : new Set(["__none__"]);
     }, 220);
   });
 
@@ -2510,9 +2504,9 @@ async function renderGraph() {
     ctx.lineCap = "round";
     for (const e of es) {
       const a = proj.get(e.a), b = proj.get(e.b);
+      if (spot && !(spot.has(e.a.id) && spot.has(e.b.id))) continue;
       const on = hover && (e.a === hover || e.b === hover);
-      let da = Math.min(depthAlpha(a.z), depthAlpha(b.z));
-      if (spot && !(spot.has(e.a.id) && spot.has(e.b.id))) da *= 0.15;
+      const da = Math.min(depthAlpha(a.z), depthAlpha(b.z));
       ctx.strokeStyle = on ? "rgba(91,116,224,.5)" : `rgba(33,32,28,${(0.09 * da).toFixed(3)})`;
       ctx.lineWidth = on ? 1.2 : 0.8;
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
@@ -2520,6 +2514,7 @@ async function renderGraph() {
 
     // back-to-front
     for (const n of [...ns].sort((x, y) => proj.get(y).z - proj.get(x).z)) {
+      if (spot && !spot.has(n.id)) continue;
       const p = proj.get(n);
       const on = lit(n);
       const hot = n === hover || n.id === selected;
@@ -2532,6 +2527,16 @@ async function renderGraph() {
     // labels: topic hubs in caps; front hemisphere reads clearest
     ctx.textAlign = "left";
     for (const n of ns) {
+      if (spot && !spot.has(n.id)) continue;
+      if (spot && n.kind !== "topic") {
+        const p = proj.get(n);
+        ctx.fillStyle = "rgba(33,32,28,.9)";
+        ctx.font = "600 11.5px -apple-system, system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(n.label.slice(0, 28), p.x, p.y + 18);
+        ctx.textAlign = "left";
+        continue;
+      }
       if (n.kind !== "topic") continue;
       const p = proj.get(n);
       const da = depthAlpha(p.z);
