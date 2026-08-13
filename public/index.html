@@ -1311,7 +1311,11 @@ function needleRunTo(checkbox) {
     const rb = rail.getBoundingClientRect(), cb = checkbox.getBoundingClientRect();
     const cx = cb.left - rb.left + cb.width / 2, cy = cb.top - rb.top + cb.height / 2;
     const x0 = Math.max(0, cx - 54);
-    const d = `M 9 6 C 24 ${cy * 0.25}, -6 ${cy * 0.55}, 8 ${cy * 0.8} S ${x0 - 14} ${cy + 12}, ${x0} ${cy + 7} c 12 -13, 26 -13, 36 -1 c 8 9, 20 9, 28 0 c 8 -9, 20 -9, 34 -6`;
+    const weave = `c 12 -13, 26 -13, 36 -1 c 8 9, 20 9, 28 0 c 8 -9, 20 -9, 34 -6`;
+    // top rows get a short approach; lower rows ride the long slack descent
+    const d = cy < 96
+      ? `M 9 ${Math.max(2, cy - 26)} C 6 ${cy}, ${x0 * 0.5} ${cy + 10}, ${x0} ${cy + 7} ${weave}`
+      : `M 9 6 C 24 ${cy * 0.25}, -6 ${cy * 0.55}, 8 ${cy * 0.8} S ${x0 - 14} ${cy + 12}, ${x0} ${cy + 7} ${weave}`;
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("class", "weave-svg");
