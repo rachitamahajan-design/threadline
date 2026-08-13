@@ -2525,7 +2525,7 @@ async function openCompanion(title, manual) {
     return;
   }
   try {
-    pipWin = await documentPictureInPicture.requestWindow({ width: 330, height: 168 });
+    pipWin = await documentPictureInPicture.requestWindow({ width: 272, height: 74 });
   } catch (e) {
     pipWin = null;
     if (manual) alert("Couldn't open the floating window: " + (e && e.message ? e.message : e));
@@ -2535,23 +2535,30 @@ async function openCompanion(title, manual) {
   }
   const doc = pipWin.document;
   doc.head.innerHTML = `<style>
-    body { margin:0; background:#faf8f5; color:#21201c; font:13px/1.5 -apple-system,system-ui;
-      -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; height:100vh; }
-    header { display:flex; align-items:center; gap:8px; padding:10px 12px 6px; }
-    .dot { width:8px; height:8px; border-radius:50%; background:#cf5a52; animation:p 1.6s ease-in-out infinite; }
+    body { margin:0; background:#faf8f5; color:#21201c; font:12.5px/1.5 -apple-system,system-ui;
+      -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+    header { display:flex; align-items:center; gap:7px; padding:9px 10px; flex:none; }
+    .dot { width:7px; height:7px; border-radius:50%; background:#cf5a52; animation:p 1.6s ease-in-out infinite; flex:none; }
     @keyframes p { 50% { opacity:.4 } }
-    .t { font-weight:650; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; }
-    .clock { font-variant-numeric:tabular-nums; color:#6b675f; font-size:12px; }
-    .line { flex:1; padding:2px 12px; color:#6b675f; font-size:12.5px; overflow:hidden; }
-    .line b { color:#5b74e0; font-weight:600; }
-    footer { padding:8px 12px 10px; }
-    button { width:100%; border:0; border-radius:9px; padding:7px 0; font:inherit; font-weight:600;
-      color:#fff; background:#cf5a52; cursor:pointer; }
+    .t { font-weight:650; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0; }
+    .clock { font-variant-numeric:tabular-nums; color:#6b675f; font-size:11.5px; flex:none; }
+    .ib { border:1px solid #eee9e1; background:#fff; border-radius:7px; width:24px; height:24px;
+      cursor:pointer; color:#6b675f; font-size:12px; line-height:1; flex:none; padding:0; }
+    .ib:hover { border-color:#a3aee8; color:#5b74e0; }
+    .ib.stop { color:#cf5a52; font-weight:700; }
+    #feed { display:none; flex:1; overflow-y:auto; padding:2px 12px 10px; border-top:1px solid #eee9e1; }
+    #feed .u { margin-top:6px; font-size:12px; color:#21201c; }
+    #feed .u b { color:#5b74e0; font-weight:600; margin-right:5px; }
+    #feed .partial { color:#a39e94; font-style:italic; }
+    body.open #feed { display:block; }
   </style>`;
   doc.body.innerHTML = `
-    <header><span class="dot"></span><span class="t">${esc(title)}</span><span class="clock" id="pc">00:00</span></header>
-    <div class="line" id="pl">listening…</div>
-    <footer><button id="ps">■ Stop &amp; process</button></footer>`;
+    <header>
+      <span class="dot"></span><span class="t">${esc(title)}</span><span class="clock" id="pc">00:00</span>
+      <button class="ib" id="px" title="Live transcription">⌄</button>
+      <button class="ib stop" id="ps" title="Stop &amp; process">■</button>
+    </header>
+    <div id="feed"></div>`;
   const t0 = Date.now();
   const iv = setInterval(() => {
     if (!pipWin) return clearInterval(iv);
@@ -2560,12 +2567,41 @@ async function openCompanion(title, manual) {
     if (el) el.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   }, 1000);
   doc.getElementById("ps").addEventListener("click", () => { window.focus(); stopRecording(); });
+  doc.getElementById("px").addEventListener("click", () => {
+    const open = doc.body.classList.toggle("open");
+    doc.getElementById("px").textContent = open ? "⌃" : "⌄";
+    try { pipWin.resizeTo(open ? 340 : 272, open ? 330 : 74); } catch (e) { /* browser may refuse; user can drag-resize */ }
+  });
   pipWin.addEventListener("pagehide", () => { pipWin = null; });
 }
 
+/** live partial: updates the pill's sense of "now" inside the feed */
 function companionLine(speaker, text) {
-  const el = pipWin?.document?.getElementById("pl");
-  if (el) el.innerHTML = `<b>${esc(speaker)}</b> ${esc(text)}`;
+  const doc = pipWin?.document;
+  if (!doc) return;
+  const feed = doc.getElementById("feed");
+  let p = doc.getElementById("pp");
+  if (!p) {
+    p = doc.createElement("div");
+    p.id = "pp"; p.className = "u partial";
+    feed.appendChild(p);
+  }
+  p.innerHTML = `<b>${esc(speaker)}</b>${esc(text)}`;
+  feed.scrollTop = 1e9;
+}
+
+/** a finished line joins the transcript feed */
+function companionFinal(speaker, text) {
+  const doc = pipWin?.document;
+  if (!doc) return;
+  const feed = doc.getElementById("feed");
+  doc.getElementById("pp")?.remove();
+  const d = doc.createElement("div");
+  d.className = "u";
+  d.innerHTML = `<b>${esc(speaker)}</b>${esc(text)}`;
+  feed.appendChild(d);
+  while (feed.children.length > 60) feed.firstChild.remove();
+  feed.scrollTop = 1e9;
 }
 
 // ── Meeting-start notifications ─────────────────────────────────────────
@@ -2613,6 +2649,7 @@ function renderLive(title) {
       const el = partials[e.speaker];
       if (el) { delete partials[e.speaker]; el.remove(); }
       feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}"><div class="ts">${fmtTs(e.offsetS)}</div><div class="who">${e.speaker}</div><div>${esc(e.text)}</div></div>`);
+      companionFinal(e.speaker, e.text);
       window.scrollTo(0, document.body.scrollHeight);
     }
   };
