@@ -2766,7 +2766,7 @@ async function stopRecording() {
   evtSource?.close();
   try { pipWin?.close(); } catch (e) {}
   pipWin = null;
-  if (r.meetingId && r.exit !== "failed") {
+  if (r.meetingId && r.exit !== "failed" && r.exit !== "discarded") {
     sessionStorage.setItem("tl-thread-anim", "1"); // Home plays the needle run: meeting → loose ends
     state.meetingId = r.meetingId; render();
   }

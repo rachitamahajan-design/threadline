@@ -29,7 +29,9 @@ if [[ "$STATE" == *'"recording":true'* ]]; then
   notify "■ Stopped — stitching the meeting…"
   RESP=$(curl -s -m 300 -X POST "$BASE/api/record/toggle" -H 'Content-Type: application/json' -d '{}')
   TITLE=$(printf '%s' "$RESP" | sed -n 's/.*"title":"\([^"]*\)".*/\1/p')
-  if [[ "$RESP" == *'"exit":"failed"'* ]]; then
+  if [[ "$RESP" == *'"exit":"discarded"'* ]]; then
+    notify "Too short — discarded. Hold recordings ≥15s to keep them."
+  elif [[ "$RESP" == *'"exit":"failed"'* ]]; then
     notify "Nothing was captured — check mic/screen permissions for the server's app"
   elif [[ -n "$TITLE" ]]; then
     notify "✓ Saved: $TITLE"
