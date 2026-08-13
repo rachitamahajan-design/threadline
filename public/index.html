@@ -573,29 +573,47 @@ async function liveMetaBar() {
 
 async function meetExtras(mid) {
   await new Promise((r) => setTimeout(r, 80));
-  if (document.getElementById("meet-extras") || !main.querySelector("h1") || state.meetingId !== mid) return;
+  if (document.getElementById("meet-kebab") || !main.querySelector("h1") || state.meetingId !== mid) return;
   const det = await api(`/api/meeting?id=${encodeURIComponent(mid)}`);
   const mentions = det.mentions ?? [], topicIds = det.topicIds ?? [];
   const { list } = await topicOptions(topicIds);
   const names = new Map(list.map((t) => [t.name.toLowerCase(), t]));
   const sugg = [...new Set(mentions.map((x) => names.get(x.toLowerCase())).filter((t) => t && !topicIds.includes(t.id)))];
-  const bar = document.createElement("div");
-  bar.id = "meet-extras";
-  bar.style.cssText = "margin:2px 0 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap";
-  bar.innerHTML = `
-    ${sugg.slice(0, 2).map((t) => `<button class="copybtn" data-sugg="${t.id}" style="margin:0;font-size:12px;padding:3px 11px">Mentions “${esc(t.name)}” — add to topic?</button>`).join("")}
-    <button class="copybtn" id="meet-del" style="margin:0;font-size:12px;padding:3px 11px;color:var(--block)">Delete meeting</button>`;
-  (main.querySelector(".sub") ?? main.querySelector("h1")).after(bar);
-  bar.querySelectorAll("[data-sugg]").forEach((b) => b.addEventListener("click", async () => {
-    await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: Number(b.dataset.sugg), meeting_id: mid }) });
-    b.textContent = "Added ✓"; b.disabled = true; loadSidebar();
-  }));
+  main.style.position = "relative";
+  // suggestions stay as quiet chips under the date
+  if (sugg.length) {
+    const chips = document.createElement("div");
+    chips.id = "meet-extras";
+    chips.style.cssText = "margin:2px 0 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap";
+    chips.innerHTML = sugg.slice(0, 2).map((t) => `<button class="copybtn" data-sugg="${t.id}" style="margin:0;font-size:12px;padding:3px 11px">Mentions “${esc(t.name)}” — add to topic?</button>`).join("");
+    (main.querySelector(".sub") ?? main.querySelector("h1")).after(chips);
+    chips.querySelectorAll("[data-sugg]").forEach((b) => b.addEventListener("click", async () => {
+      await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: Number(b.dataset.sugg), meeting_id: mid }) });
+      b.textContent = "Added ✓"; b.disabled = true; loadSidebar();
+    }));
+  }
+  // destructive actions live behind the ⋯ menu, top right
+  const kebab = document.createElement("div");
+  kebab.id = "meet-kebab";
+  kebab.style.cssText = "position:absolute;top:42px;right:36px;z-index:4";
+  kebab.innerHTML = `
+    <button id="kebab-btn" title="More" style="border:1px solid var(--line);background:var(--surface);width:30px;height:30px;border-radius:9px;cursor:pointer;color:var(--ink-2);font-size:16px;line-height:1">⋯</button>
+    <div id="kebab-menu" hidden style="position:absolute;right:0;top:36px;background:var(--surface);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow);padding:6px;min-width:170px">
+      <button id="meet-del" style="display:block;width:100%;text-align:left;border:0;background:none;font:500 13.5px -apple-system,system-ui;color:var(--block);padding:8px 11px;border-radius:8px;cursor:pointer">Delete meeting</button>
+    </div>`;
+  main.appendChild(kebab);
+  const menu = kebab.querySelector("#kebab-menu");
+  kebab.querySelector("#kebab-btn").addEventListener("click", (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; });
+  document.addEventListener("click", () => { menu.hidden = true; }, { once: true, capture: true });
+  document.getElementById("meet-del").addEventListener("mouseenter", (e) => (e.target.style.background = "color-mix(in srgb, var(--block) 8%, transparent)"));
+  document.getElementById("meet-del").addEventListener("mouseleave", (e) => (e.target.style.background = "none"));
   document.getElementById("meet-del").addEventListener("click", async () => {
     if (!confirm("Delete this meeting and its notes, transcript and threads? This cannot be undone.")) return;
     await fetch("/api/meeting/delete", { method: "POST", body: JSON.stringify({ id: mid }) });
     state.meetingId = null; state.view = "today"; render();
   });
 }
+
 async function topicOptions(selectedIds = []) {
   const ts = await api("/api/projects");
   return { list: ts, html: `<option value="">no topic</option>` +
