@@ -21,10 +21,14 @@ becomes notes with receipts, a to-do list that writes itself, and a node in a
 - **A to-do list that writes itself** — loose ends with owners pulled from
   what people actually committed to, threaded across meetings, stitched closed
   with a needle when you tick them.
-- **Threads** — tag meetings to a thread (Pricing v3, Hiring, …) and every
-  upcoming meeting preps itself: what's still open vs done across that
-  thread's whole history. Ask questions scoped to one thread's repo, live,
-  mid-call, from the floating companion.
+- **Threads** — tag meetings to a thread (Mars Program, Pricing v3, …) and
+  every upcoming meeting preps itself: what's still open vs done across that
+  thread's whole history.
+- **Live assist, in the call** — the floating companion shows the transcript
+  as it streams and carries an Ask box: pick the thread and mid-call questions
+  are answered from that thread's entire repo — past meetings, decisions,
+  docs — with sources named. Your meeting history has your back while you're
+  still talking.
 - **The Brain** — a rotating atlas of meetings, people and topics. Spotlight a
   word to collapse the graph to what mentions it; export any node as a
   grounded context `.md` for whatever LLM you use.
@@ -106,28 +110,56 @@ Tools: `brain_info` (start here) · `search_brain` · `list_claims` ·
 index of everything the brain knows (`npm run brain-md`), the cheapest way for
 any agent to prime itself before querying.
 
-## Share what the brain knows
+## Growth loops
 
-Any Needle conversation exports as a branded card — PNG for Slack, or a PDF
-whose GitHub link actually clicks and whose clone command is selectable text.
-A Brain spotlight exports as a looping GIF with a grounded summary. Decisions
-draw their own lineage as a git-style commit graph across threads.
+Every artifact Threadline produces is built to travel — and to bring the next
+user back with it:
+
+1. **Copy carries attribution** — copy notes or an outline anywhere (Slack,
+   email, a doc) and it lands formatted with a quiet *Powered by Threadline 🪡*
+   link at the bottom. Every paste is a referral.
+2. **Screenshotability** — the app is designed to be photographed: the Brain
+   atlas, the gradient stat cards, the needle stitching a loose end closed.
+   Needle conversations export as branded share cards — PNG for Slack, or a
+   PDF whose GitHub link actually clicks and whose clone command is
+   selectable text. Brain spotlights export as looping GIFs with a grounded
+   summary.
+3. **The interactive Brain, as a file** — export any selection of the atlas
+   as a self-contained interactive HTML page: it rotates, it's explorable,
+   it works offline, and it links back to the repo. Send your brain to
+   someone who doesn't have the app yet.
+4. **Needle sharing** — every answer card names its receipts ("5 receipts
+   across 3 meetings"), so the thing that spreads is also the proof that it
+   works.
 
 ![A shared Needle thread — receipts included](docs/share-card.png)
 
-## Built on PyAI, with an honest harness
+## The harness — AI work without trusting the model
 
-Speech runs on [PyAI](https://pyai.com) — live streaming transcription on
-every recording, batch diarization after it, Recap extraction on stop. One
-key; `npm run demo` mints a free sandbox key itself. If PyAI is unreachable,
-the locally saved tape falls back to a second provider automatically — an
-outage degrades the product instead of killing it.
+Every model-backed workflow (extraction, notes, handoffs, diarization, ask)
+runs **closed loop**, wired per [harnesses.md](harnesses.md):
 
-Every AI workflow runs inside a closed-loop harness: config-driven models,
-budgets and gates, silent aimed retries, four named outcomes
-(shipped / partial / failed / skipped), and crash-proof run records. Before
-changing pipeline code, read [harnesses.md](harnesses.md) — it maps the moving
-parts and the invariants a fork must keep.
+- **Budget governor** — per-workflow unit budgets from `agents.json`; when the
+  budget is spent, the run exits *deadline*, it doesn't keep burning.
+- **Deterministic gates** — grounding (every claim must cite a transcript
+  line) plus a configurable entailment gate. Output that fails a gate is
+  blocked and pruned, not shipped.
+- **Silent, aimed retries** — a failed step retries with the failure fed back
+  into the prompt, capped, without the user ever seeing the churn.
+- **Four named exits** — every run ends `shipped | partial | deadline |
+  failed`, and *partial* is displayed honestly in the UI instead of bluffing.
+- **Crash-proof records** — run rows are written at start and finalized at
+  exit, so even a killed process leaves an auditable trail (`runs` table +
+  rotated JSONL logs that never contain meeting content).
+- **Config, not code** — models, providers (with silent failover), budgets,
+  retry caps, gate strictness and prompts all live in `agents.json` /
+  `config/prompts.json`.
+
+Speech runs on [PyAI](https://pyai.com) — live streaming transcription,
+batch diarization, Recap extraction. One key; `npm run demo` mints a free
+sandbox key itself. If PyAI is unreachable, the locally saved tape falls back
+to a second provider automatically — an outage degrades the product instead
+of killing it.
 
 ## License
 
