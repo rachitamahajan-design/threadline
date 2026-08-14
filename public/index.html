@@ -516,6 +516,44 @@
   .search-pill .ic { color: var(--ink-3); }
   .search-pill .lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+  /* ── Meetings: the list's own filter bar (text + topic chips) ── */
+  .filterbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+  .fb-field {
+    display: flex; align-items: center; gap: 8px; flex: 1 1 260px; min-width: 0;
+    background: var(--card); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border); border-radius: 999px; box-shadow: var(--shadow);
+    padding: 8px 14px; transition: border-color .15s, box-shadow .15s;
+  }
+  .fb-field .ic { color: var(--ink-3); flex: none; }
+  .fb-field:focus-within { border-color: color-mix(in srgb, var(--thread) 50%, var(--line)); box-shadow: var(--shadow-lift); }
+  .fb-field input {
+    flex: 1; min-width: 0; border: 0; background: none; outline: none;
+    font: inherit; font-size: 14px; color: var(--ink);
+  }
+  .fb-field input::placeholder { color: var(--ink-3); }
+  .fb-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+  .fchip {
+    font: inherit; font-size: 12px; font-weight: 550; cursor: pointer; white-space: nowrap;
+    max-width: 22ch; overflow: hidden; text-overflow: ellipsis;
+    color: var(--ink-2); background: var(--card); border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 11px; transition: color .12s, background .12s, border-color .12s;
+  }
+  .fchip:hover { color: var(--thread); border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); }
+  .fchip.on { background: var(--thread); border-color: var(--thread); color: #fff; font-weight: 650; }
+  .fb-clear {
+    font: inherit; font-size: inherit; cursor: pointer; color: var(--thread);
+    background: none; border: 0; padding: 0; text-decoration: underline; text-underline-offset: 2px;
+  }
+  /* the filter hides rows in place; .mtg-row's own display would beat [hidden] */
+  .mtg-row[hidden], .day-head[hidden], .empty[hidden] { display: none; }
+  .mtg-row.mtg-first { border-top: 0; }
+  @media (max-width: 560px) {
+    .filterbar { gap: 8px; }
+    .fb-field { flex: 1 1 100%; }
+    .fb-chips { flex: 1 1 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; scrollbar-width: none; }
+    .fb-chips::-webkit-scrollbar { display: none; }
+  }
+
   /* ── meeting detail: the chip row under the title ── */
   .chip-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 2px; }
   button.up-chip { font: inherit; font-size: 11.5px; cursor: pointer; background: var(--card); }
@@ -1885,10 +1923,10 @@ const TL_CARD = {
 };
 const TL_FONT = {
   serif: '600 34px ui-serif, Georgia, "Times New Roman", serif',
-  title: '600 25px ui-serif, Georgia, "Times New Roman", serif',
+  title: '600 26px ui-serif, Georgia, "Times New Roman", serif',
   body: '15px -apple-system, "SF Pro Text", system-ui, sans-serif',
   small: '13px -apple-system, "SF Pro Text", system-ui, sans-serif',
-  url: '600 14.5px -apple-system, "SF Pro Text", system-ui, sans-serif',
+  url: '600 15px -apple-system, "SF Pro Text", system-ui, sans-serif',
   mono: '13px ui-monospace, SFMono-Regular, Menlo, monospace',
 };
 
@@ -1952,7 +1990,7 @@ function tlRound(ctx, x, y, w, h, r) {
  * carries the header geometry the PDF needs (link rect, command baseline).
  */
 async function needleCardCanvas(title, msgs) {
-  const S = 2, W = 1200, PAD = 56, GAP = 18, LH = 24, BPX = 20, BPY = 15;
+  const S = 2, W = 1200, PAD = 56, GAP = 18, LH = 23, BPX = 20, BPY = 15;
   const m = document.createElement("canvas").getContext("2d");
   const bubbleMax = Math.round((W - PAD * 2) * 0.74);
 
@@ -1981,7 +2019,12 @@ async function needleCardCanvas(title, msgs) {
   for (const msg of msgs) for (const p of msg.payload?.points ?? []) meetingIds.add(p.meeting_id);
   const nAsked = msgs.filter((x) => x.role === "user").length;
 
-  const HEAD_H = 146, TITLE_H = 78, FOOT_H = 92;
+  // Header is three stacked bands so nothing can collide: wordmark + repo URL,
+  // then the clone chip on its own line, then a hairline and the thread title.
+  const MARK_Y = 40, MARK_H = 40;                       // logo box, row 1
+  const CHIP_Y = 98, CHIP_H = 41, CHIP_PX = 16;         // clone chip, row 2
+  const RULE_Y = CHIP_Y + CHIP_H + 26;                  // hairline under row 2
+  const HEAD_H = RULE_Y + 26, TITLE_H = 80, FOOT_H = 92;
   const bodyH = laid.reduce((s, b) => s + b.bh + GAP, 0);
   const H = Math.round(HEAD_H + TITLE_H + Math.max(bodyH - GAP, 0) + FOOT_H);
 
@@ -2008,40 +2051,41 @@ async function needleCardCanvas(title, msgs) {
   vig.addColorStop(0, "rgba(0,0,0,0)"); vig.addColorStop(1, "rgba(0,0,0,0.28)");
   x.fillStyle = vig; x.fillRect(0, 0, W, H);
 
-  // ── header ──
+  // ── row 1: mark + wordmark left, repo URL right, both on the same band ──
+  const markMid = MARK_Y + MARK_H / 2;
   const logo = await tlLogoImage();
-  if (logo) x.drawImage(logo, PAD, 40, 40, 40);
+  if (logo) x.drawImage(logo, PAD, MARK_Y, MARK_H, MARK_H);
   x.fillStyle = TL_CARD.ink; x.font = TL_FONT.serif;
-  x.fillText("Threadline", PAD + 52, 70);
+  x.fillText("Threadline", PAD + 52, markMid + 11);
 
-  x.font = TL_FONT.url; x.textAlign = "right";
-  const urlW = x.measureText(TL_REPO_LABEL).width;
+  x.font = TL_FONT.url;
+  const urlW = Math.ceil(x.measureText(TL_REPO_LABEL).width);
+  const urlBase = markMid + 5;
   x.fillStyle = TL_CARD.thread;
-  x.fillText(TL_REPO_LABEL, W - PAD, 51);
-  x.textAlign = "left";
-  const linkRect = { x: W - PAD - urlW, y: 36, w: urlW, h: 20 };
+  x.textAlign = "right"; x.fillText(TL_REPO_LABEL, W - PAD, urlBase); x.textAlign = "left";
+  const linkRect = { x: W - PAD - urlW, y: urlBase - 15, w: urlW, h: 20 };
 
+  // ── row 2: the clone command, its own line, sized to its text ──
   x.font = TL_FONT.mono;
-  const cmdW = x.measureText(TL_CLONE).width;
-  const chipW = Math.ceil(cmdW) + 30, chipH = 34, chipX = W - PAD - chipW, chipY = 64;
-  tlRound(x, chipX, chipY, chipW, chipH, 9);
-  x.fillStyle = "rgba(10,8,6,0.55)"; x.fill();
+  const chipW = Math.ceil(x.measureText(TL_CLONE).width) + CHIP_PX * 2;
+  tlRound(x, PAD, CHIP_Y, chipW, CHIP_H, 10);
+  x.fillStyle = "rgba(10,8,6,0.5)"; x.fill();
   x.strokeStyle = "rgba(255,246,235,0.13)"; x.lineWidth = 1; x.stroke();
-  const cmdX = chipX + 15, cmdBase = chipY + 22;
+  const cmdX = PAD + CHIP_PX, cmdBase = CHIP_Y + CHIP_H / 2 + 4.5;
   x.fillStyle = TL_CARD.gold; x.fillText("$", cmdX, cmdBase);
   x.fillStyle = TL_CARD.ink2;
   x.fillText(TL_CLONE.slice(2), cmdX + x.measureText("$ ").width, cmdBase);
 
+  // ── row 3: hairline, then the thread title ──
   x.strokeStyle = "rgba(255,246,235,0.10)"; x.lineWidth = 1;
-  x.beginPath(); x.moveTo(PAD, HEAD_H - 26.5); x.lineTo(W - PAD, HEAD_H - 26.5); x.stroke();
+  x.beginPath(); x.moveTo(PAD, RULE_Y + 0.5); x.lineTo(W - PAD, RULE_Y + 0.5); x.stroke();
 
-  // ── thread title ──
   x.fillStyle = TL_CARD.ink; x.font = TL_FONT.title;
   const titleLines = tlWrap(x, title, W - PAD * 2);
-  x.fillText(titleLines.length > 1 ? `${titleLines[0]}…` : titleLines[0], PAD, HEAD_H + 16);
+  x.fillText(titleLines.length > 1 ? `${titleLines[0]}…` : titleLines[0], PAD, RULE_Y + 44);
   x.fillStyle = TL_CARD.ink3; x.font = TL_FONT.small;
   x.fillText(`${nAsked} question${nAsked === 1 ? "" : "s"} pulled through ${meetingIds.size} meeting${meetingIds.size === 1 ? "" : "s"}`,
-    PAD, HEAD_H + 42);
+    PAD, RULE_Y + 70);
 
   // ── the conversation ──
   let y = HEAD_H + TITLE_H;
@@ -2914,15 +2958,90 @@ function meetingRow(m) {
 }
 
 async function renderMeetings() {
-  const ms = await api("/api/meetings");
+  const [ms, topics] = await Promise.all([
+    api("/api/meetings"),
+    api("/api/projects").catch(() => []),
+  ]);
   main.innerHTML = `<h1>Meetings</h1><div class="sub">Every stitch stays on this laptop.</div>
     ${searchPill()}
-    <div class="card">${ms.length
-      ? groupByDay(ms).map(([label, rows]) => `
+    ${ms.length ? `
+      <div class="filterbar">
+        <div class="fb-field">
+          ${icon("search", 15)}
+          <input id="mtg-filter" type="text" autocomplete="off" spellcheck="false"
+            placeholder="Filter by title or participant…" aria-label="Filter meetings">
+        </div>
+        ${topics.length ? `<div class="fb-chips" id="mtg-topics">
+          <button class="fchip on" data-topic="all">All</button>
+          ${topics.map((t) => `<button class="fchip" data-topic="${t.id}" title="${esc(t.name)}">${esc(t.name)}</button>`).join("")}
+        </div>` : ""}
+      </div>` : ""}
+    <div class="card" id="mtg-list">${ms.length
+      ? `${groupByDay(ms).map(([label, rows]) => `
           <div class="eyebrow day-head">${esc(label)}</div>
-          ${rows.map(meetingRow).join("")}`).join("")
+          ${rows.map(meetingRow).join("")}`).join("")}
+        <div class="empty" id="mtg-none" hidden>${SPOOL_SVG}No meetings match —
+          <button class="fb-clear" id="mtg-clear">clear filters</button></div>`
       : `<div class="empty">${SPOOL_SVG}Nothing here yet.</div>`}</div>`;
   wireMeetingLinks();
+  if (ms.length) wireMeetingFilter(ms);
+}
+
+/**
+ * Client-side filter for the meetings list: free text over title/participants/
+ * headline, ANDed with a topic chip. Rows hide in place, day headers follow
+ * their group, and the first visible row of each group drops its hairline so
+ * the borders never start mid-air.
+ */
+function wireMeetingFilter(rows) {
+  const box = $("#mtg-list");
+  const input = $("#mtg-filter");
+  if (!box || !input) return;
+  const meta = new Map(rows.map((m) => [String(m.id), {
+    text: `${m.title ?? ""} ${m.participants ?? ""} ${m.headline ?? ""}`.toLowerCase(),
+    topics: String(m.topic_ids ?? "").split(",").filter(Boolean),
+  }]));
+  const none = $("#mtg-none");
+  let topic = "all";
+
+  const apply = () => {
+    const q = input.value.trim().toLowerCase();
+    let shown = 0, head = null, headCount = 0, firstVis = null;
+    const flush = () => {
+      if (head) head.hidden = headCount === 0;
+      if (firstVis) firstVis.classList.add("mtg-first");
+    };
+    for (const el of box.children) {
+      if (el.classList.contains("day-head")) { flush(); head = el; headCount = 0; firstVis = null; continue; }
+      if (!el.classList.contains("mtg-row")) continue;
+      el.classList.remove("mtg-first");
+      const m = meta.get(el.dataset.mid) ?? { text: "", topics: [] };
+      const ok = (!q || m.text.includes(q)) && (topic === "all" || m.topics.includes(topic));
+      el.hidden = !ok;
+      if (ok) { shown++; headCount++; if (!firstVis) firstVis = el; }
+    }
+    flush();
+    if (none) none.hidden = shown > 0;
+  };
+
+  input.addEventListener("input", apply);
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    e.stopPropagation();                 // don't let it bubble to the global Esc
+    input.value = ""; apply();
+  });
+  $("#mtg-topics")?.querySelectorAll(".fchip").forEach((b) =>
+    b.addEventListener("click", () => {
+      topic = b.dataset.topic;
+      $("#mtg-topics").querySelectorAll(".fchip").forEach((o) => o.classList.toggle("on", o === b));
+      apply();
+    }));
+  $("#mtg-clear")?.addEventListener("click", () => {
+    input.value = ""; topic = "all";
+    $("#mtg-topics")?.querySelectorAll(".fchip").forEach((o) => o.classList.toggle("on", o.dataset.topic === "all"));
+    apply();
+    input.focus();
+  });
 }
 
 // ── Markdown ⇄ DOM for the notes editor ────────────────────────────────
