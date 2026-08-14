@@ -5302,7 +5302,7 @@ async function renderGraph() {
   // Left: just the lit subgraph, breathing gently (a slow wobble + per-node
   // pulse, both sine-locked to the loop length so it cycles seamlessly).
   // Right: Threadline branding and a grounded summary of the query.
-  async function brainSnippetGif(q, sub, summary, progress) {
+  async function brainSnippetGif(q, sub, summary, progress, stillOnly) {
     const GW = 960, GH = 540, VW = 566, N = 36, DELAY = 90;
     const c = document.createElement("canvas");
     c.width = GW; c.height = GH;
@@ -5428,6 +5428,8 @@ async function renderGraph() {
       g.fillText("The meeting brain that stays on your laptop.", PX, footTop + 45);
     }
 
+    if (stillOnly) { frame(0); return { canvas: c }; } // the card, no animation pass
+
     const frames = [];
     for (let t = 0; t < N; t++) {
       frame(t);
@@ -5467,7 +5469,7 @@ async function renderGraph() {
       summary = `Threads in this brain touching “${q}”: ${mts.join(" · ") || sub.map((n) => n.label).join(" · ")}.`;
     }
     try {
-      const { blob, canvas: still } = await brainSnippetGif(q, sub, summary, busy);
+      const { canvas: still } = await brainSnippetGif(q, sub, summary, busy, true);
       const slug = q.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "spotlight";
       // the twistable page carries the same subgraph, serialized
       const iOf = new Map(sub.map((n, i) => [n.id, i]));
@@ -5484,20 +5486,15 @@ async function renderGraph() {
         nodes: sub.map((n) => ({ l: n.label, k: n.kind, x: +n.px.toFixed(1), y: +n.py.toFixed(1), z: +n.pz.toFixed(1), r: +n.r.toFixed(1), s: +n.seed.toFixed(2) })),
         links: es.filter((e) => iOf.has(e.a.id) && iOf.has(e.b.id)).map((e) => [iOf.get(e.a.id), iOf.get(e.b.id)]),
       };
-      const url = URL.createObjectURL(blob);
       openPopover(anchor, `
         <div class="pop-title">${icon("share", 13)}Share this spotlight</div>
         <div style="width:300px;border-radius:12px;border:1px solid var(--glass-border);overflow:hidden">
-          <img src="${url}" alt="Animated brain snippet" style="display:block;width:100%"></div>
-        <div class="t-meta" style="margin:8px 3px 8px">Loops forever · ${(blob.size / 1048576).toFixed(1)} MB GIF</div>
+          <img src="${still.toDataURL("image/png")}" alt="Brain snippet" style="display:block;width:100%"></div>
+        <div class="t-meta" style="margin:8px 3px 8px">${payload.stats} · woven locally</div>
         <button class="menu-row" data-act="html">${icon("doc", 15)}Download interactive page</button>
-        <button class="menu-row" data-act="gif">${icon("download", 15)}Download GIF</button>
-        <button class="menu-row" data-act="png">${icon("download", 15)}Download PNG still</button>
         <button class="menu-row" data-act="copy">${icon("copy", 15)}Copy still image</button>`, (pop, close) => {
         const run = {
           html: () => tlDownload(new Blob([tlBrainHtml(payload)], { type: "text/html" }), `threadline-brain-${slug}.html`),
-          gif: () => tlDownload(blob, `threadline-brain-${slug}.gif`),
-          png: () => still.toBlob((b) => tlDownload(b, `threadline-brain-${slug}.png`), "image/png"),
           copy: async () => {
             try {
               await navigator.clipboard.write([new ClipboardItem({
