@@ -5414,11 +5414,11 @@ async function renderGraph() {
         </div>
         <button id="gp-close" style="margin-left:auto;flex:none;border:1px solid var(--line);background:var(--surface);width:26px;height:26px;border-radius:8px;cursor:pointer;color:var(--ink-3);font-size:14px;line-height:1">✕</button>
       </div>
-      <pre style="white-space:pre-wrap;font:12px/1.55 ui-monospace,monospace;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:16px;max-height:52vh;overflow-y:auto">${esc(r.markdown)}</pre>
+      <button class="copybtn" style="margin:12px 0 0" id="gp-share">${icon("share", 13)} Share GIF</button>
+      <pre style="white-space:pre-wrap;font:12px/1.55 ui-monospace,monospace;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:14px;max-height:52vh;overflow-y:auto">${esc(r.markdown)}</pre>
       <div style="display:flex;gap:8px;margin-top:14px">
         <button class="copybtn" style="margin:0" id="gp-copy">Copy .md for your LLM</button>
         <button class="copybtn" style="margin:0" id="gp-dl">Download</button>
-        <button class="copybtn" style="margin:0" id="gp-share">Share GIF</button>
       </div>`;
     panel.classList.add("open");
     $("#gp-close").addEventListener("click", () => { selected = null; panel.classList.remove("open"); });
@@ -5442,6 +5442,7 @@ async function renderGraph() {
         </div>
         <button id="gp-close" style="margin-left:auto;flex:none;border:1px solid var(--line);background:var(--surface);width:26px;height:26px;border-radius:8px;cursor:pointer;color:var(--ink-3);font-size:14px;line-height:1">✕</button>
       </div>
+      <button class="copybtn" style="margin:12px 0 0" id="gp-share">${icon("share", 13)} Share GIF</button>
       ${meeting.summary ? `<div style="margin-top:20px"><div class="gp-k">Summary</div><div style="font-size:13.5px;line-height:1.6">${esc(meeting.summary)}</div></div>` : ""}
       <div style="margin-top:22px"><div class="gp-k">Pending · by stakeholder</div>
       ${Object.keys(byOwner).length ? Object.entries(byOwner).map(([owner, items]) => `
@@ -5465,7 +5466,6 @@ async function renderGraph() {
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="copybtn" style="margin:0" id="gp-copy">Copy .md for your LLM</button>
         <button class="copybtn" style="margin:0" id="gp-dl">Download</button>
-        <button class="copybtn" style="margin:0" id="gp-share">Share GIF</button>
       </div>`;
     panel.classList.add("open");
     $("#gp-close").addEventListener("click", () => { selected = null; panel.classList.remove("open"); draw(); });
