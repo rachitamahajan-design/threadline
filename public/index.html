@@ -1647,9 +1647,43 @@ if (new URLSearchParams(location.search).get("google") === "connected") history.
 $("#google-btn").addEventListener("click", () => {
   const state = $("#google-btn").dataset.state;
   if (state === "ready") location.href = "/api/google/connect";
-  else if (state === "unconfigured")
-    tlAlert("Google Calendar needs credentials first: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env (see README), then restart Threadline.\n\nGmail and Drive are on the roadmap.");
+  else if (state === "unconfigured") googleSetupModal();
 });
+
+/** One-time Google Cloud setup, walked through in-app instead of "see README". */
+function googleSetupModal() {
+  document.getElementById("google-modal")?.remove();
+  const REDIRECT = "http://localhost:4640/oauth2/callback";
+  const ENV = "GOOGLE_CLIENT_ID=your-client-id\nGOOGLE_CLIENT_SECRET=your-client-secret";
+  const codeBox = (id, content) => `
+    <div style="display:flex;gap:8px;align-items:flex-start;margin-top:6px">
+      <code style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px;overflow-x:auto;white-space:pre">${esc(content)}</code>
+      <button class="copybtn" data-gcopy="${id}">Copy</button>
+    </div>`;
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="tl-modal" id="google-modal"><div class="box" style="max-width:560px">
+      <h2>Connect Google Calendar</h2>
+      <div class="t-meta" style="margin-bottom:14px">Powers the "Up next" meeting notifications. One-time setup, ~5 minutes: Threadline talks to Google directly from this machine — read-only calendar access, token stored locally, no middleman server.</div>
+      <ol style="margin:0 0 8px 18px;line-height:1.9;font-size:14px">
+        <li>Open <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a> → create (or pick) a project</li>
+        <li><b>APIs &amp; Services → Library</b> → enable <b>Google Calendar API</b></li>
+        <li><b>OAuth consent screen</b> → External → stay in <b>Testing</b> mode → add your own Google account as a test user</li>
+        <li><b>Credentials → Create credentials → OAuth client ID</b> → type <b>Web application</b> → add this authorized redirect URI:
+          ${codeBox("redirect", REDIRECT)}</li>
+        <li>Copy the client ID and secret into <code>.env</code> in the Threadline folder:
+          ${codeBox("env", ENV)}</li>
+        <li>Restart Threadline (<code>npm run dev</code>), then click <b>Connect Google</b> again</li>
+      </ol>
+      <div class="t-meta" style="margin-bottom:14px">Gmail and Drive are on the roadmap.</div>
+      <div style="display:flex;justify-content:flex-end"><button class="copybtn" id="google-done">Done</button></div>
+    </div></div>`);
+  const modal = $("#google-modal");
+  const copies = { redirect: REDIRECT, env: ENV };
+  modal.querySelectorAll("[data-gcopy]").forEach((b) =>
+    b.addEventListener("click", () => { navigator.clipboard.writeText(copies[b.dataset.gcopy]); b.textContent = "Copied ✓"; }));
+  $("#google-done").addEventListener("click", () => modal.remove());
+  modal.addEventListener("mousedown", (e) => { if (e.target === modal) modal.remove(); });
+}
 
 $("#add-project").addEventListener("click", () => projectModal());
 
