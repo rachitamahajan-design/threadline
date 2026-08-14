@@ -6700,7 +6700,7 @@ async function openCompanion(title, manual) {
     return;
   }
   try {
-    pipWin = await documentPictureInPicture.requestWindow({ width: 272, height: 74, disallowReturnToOpener: true });
+    pipWin = await documentPictureInPicture.requestWindow({ width: 340, height: 330, disallowReturnToOpener: true });
   } catch (e) {
     pipWin = null;
     if (manual) tlAlert("Couldn't open the floating window: " + (e && e.message ? e.message : e));
@@ -6756,7 +6756,7 @@ async function openCompanion(title, manual) {
   doc.body.innerHTML = `
     <header>
       <span class="dot"></span><span class="t">${esc(title)}</span><span class="clock" id="pc">00:00</span>
-      <button class="ib" id="px" title="Live transcription">⌄</button>
+      <button class="ib" id="px" title="Collapse to a pill / expand">⌃</button>
       <button class="ib stop" id="ps" title="Stop &amp; process">■</button>
     </header>
     <div id="pipbar">
@@ -6767,6 +6767,9 @@ async function openCompanion(title, manual) {
     </div>
     <div id="feed"></div>
     <div id="askrow"><input id="pq" placeholder="Ask your brain — this meeting &amp; past ones"><button id="pgo">Ask</button></div>`;
+  // Open by default: the live transcript and Ask box are the point of the
+  // companion — hiding them behind the ⌄ toggle read as "transcription broken".
+  doc.body.classList.add("open");
   const t0 = Date.now();
   const iv = setInterval(() => {
     if (!pipWin) return clearInterval(iv);
@@ -6858,6 +6861,13 @@ async function openCompanion(title, manual) {
     const open = doc.body.classList.toggle("open");
     doc.getElementById("px").textContent = open ? "⌃" : "⌄";
     try { pipWin.resizeTo(open ? 340 : 272, open ? 330 : 74); } catch (e) { /* browser may refuse; user can drag-resize */ }
+  });
+  // Dragging the pill taller is an intent to see the transcript — open it.
+  pipWin.addEventListener("resize", () => {
+    if (pipWin.innerHeight > 120 && !doc.body.classList.contains("open")) {
+      doc.body.classList.add("open");
+      doc.getElementById("px").textContent = "⌃";
+    }
   });
   pipWin.addEventListener("pagehide", () => { pipWin = null; pes.close(); window.removeEventListener("tl-theme", syncPipTheme); });
 }
