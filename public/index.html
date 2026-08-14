@@ -3591,7 +3591,8 @@ function wireOutline(meetingId, data) {
 
   $("#out-copy")?.addEventListener("click", async (e) => {
     // Copy is the Slack-ready form: summary + bold themes + bullet lines, no receipts.
-    await navigator.clipboard.writeText(outlineToSlack(outline.notes));
+    // Rich HTML so Slack renders it; the mrkdwn text rides along as the fallback.
+    await copyRich(outlineToHtml(outline.notes), outlineToSlack(outline.notes));
     flashBtn(e.currentTarget, "Copied ✓");
   });
 
@@ -3617,16 +3618,16 @@ function wireOutline(meetingId, data) {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const p = btn.dataset.snip;
-      let text;
+      let subtree;
       if (p === "summary") {
         if (!outline.notes?.summary?.text) return;
-        text = outlineToSlack({ summary: outline.notes.summary, themes: [] });
+        subtree = { summary: outline.notes.summary, themes: [] };
       } else {
         const node = bulletAtPath(outline.notes, p);
         if (!node) return;
-        text = outlineToSlack({ themes: [node] });
+        subtree = { themes: [node] };
       }
-      navigator.clipboard.writeText(text);
+      copyRich(outlineToHtml(subtree), outlineToSlack(subtree));
       showToast("Copied for Slack ✓");
     }));
 
@@ -3778,6 +3779,52 @@ function outlineToSlack(notes) {
   if (lines.length && lines[lines.length - 1] !== "") lines.push("");
   lines.push("_Powered by Threadline 🪡_");
   return lines.join("\n");
+}
+
+/**
+ * HTML form of the same outline. Slack does not convert mrkdwn on paste, but its
+ * composer does consume pasted HTML — so bold themes and nested lists survive.
+ */
+function outlineToHtml(notes) {
+  const out = [];
+  if (notes?.summary?.text) out.push(`<p>${esc(notes.summary.text)}</p>`);
+
+  // Children of a bullet, as a <ul> (each <li> may hold a nested <ul>).
+  const list = (bullets) =>
+    `<ul>${(bullets ?? []).map((b) =>
+      `<li>${esc(b.text)}${b.children && b.children.length ? list(b.children) : ""}</li>`).join("")}</ul>`;
+
+  // Top level: bullets with children become a bold line + their list; consecutive
+  // childless ones are grouped into a single <ul> so they read as one block.
+  let loose = [];
+  const flush = () => { if (loose.length) { out.push(list(loose)); loose = []; } };
+  for (const b of notes?.themes ?? []) {
+    if (b.children && b.children.length) {
+      flush();
+      out.push(`<p><b>${esc(b.text)}</b></p>`, list(b.children));
+    } else {
+      loose.push({ text: b.text });
+    }
+  }
+  flush();
+
+  out.push("<p><i>Powered by Threadline 🪡</i></p>");
+  return out.join("");
+}
+
+/**
+ * Clipboard write carrying both flavours: rich HTML for Slack and friends,
+ * plain text for editors that only take text. Falls back on old/insecure origins.
+ */
+async function copyRich(html, plain) {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({
+      "text/html": new Blob([html], { type: "text/html" }),
+      "text/plain": new Blob([plain], { type: "text/plain" }),
+    })]);
+  } catch {
+    await navigator.clipboard.writeText(plain); // http:// or old browser
+  }
 }
 
 function bulletAtPath(notes, path) {
