@@ -32,7 +32,14 @@ becomes notes with receipts, a to-do list that writes itself, and a node in a
   you configured. Transcripts, notes, graph and search live in a SQLite file
   on your machine. Teams that ban cloud notetakers can run this.
 
+![Notes with receipts — every claim cites its transcript line](docs/receipts.png)
+
 ![The Brain — your meetings as an atlas](docs/brain-atlas.png)
+
+Prefer daylight? There's a warm light theme too — the toggle lives next to
+your name.
+
+![Home, light theme](docs/home-light.png)
 
 ## Quick start (five minutes, honestly)
 
@@ -105,6 +112,8 @@ Any Needle conversation exports as a branded card — PNG for Slack, or a PDF
 whose GitHub link actually clicks and whose clone command is selectable text.
 A Brain spotlight exports as a looping GIF with a grounded summary. Decisions
 draw their own lineage as a git-style commit graph across threads.
+
+![A shared Needle thread — receipts included](docs/share-card.png)
 
 ## Built on PyAI, with an honest harness
 
