@@ -21,7 +21,7 @@ import { groundedIn, type StepRecord } from "../lib/harness.js";
 import { recordRun } from "../lib/runlog.js";
 import { because } from "../lib/reasons.js";
 import { generateBrainMd } from "./brain-md.js";
-import { clearFacts } from "../lib/store.js";
+import { clearStatements } from "../lib/store.js";
 import { ensureNotes } from "./handoff.js";
 import type { RecapRecord } from "../lib/pyai.js";
 
@@ -220,7 +220,7 @@ async function diarizeInner(db: DatabaseSync, apiKey: string, meetingId: string,
       // every line, so the old notes now cite the WRONG segments. Facts are
       // cleared and notes regenerate against the diarized transcript (one paid
       // notes call; guarded — a notes failure never fails the diarize run).
-      clearFacts(db, meetingId);
+      clearStatements(db, meetingId);
       await ensureNotes(db, meetingId, { force: true }).catch(() => {});
       notes.push("notes rebuilt against the diarized transcript");
     }
