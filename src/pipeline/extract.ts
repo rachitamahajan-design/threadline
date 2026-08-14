@@ -22,7 +22,7 @@ import { indexMeeting } from "./chunker.js";
 import { generateBrainMd } from "./brain-md.js";
 import { hasOpenAI, openaiExtract } from "../lib/openai.js";
 import { modelConfigured } from "../lib/model.js";
-import { clearFacts } from "../lib/store.js";
+import { clearStatements } from "../lib/store.js";
 import { ensureNotes } from "./handoff.js";
 import { structureSummary } from "./summarize.js";
 import { suggestProjects } from "./match.js";
@@ -250,8 +250,8 @@ async function processMeetingInner(db: DatabaseSync, apiKey: string, m: MeetingI
   if (modelConfigured()) {
     const startedAt = Date.now();
     // Extraction re-runs when the transcript changed under us (corrections,
-    // "record more"), so notes are never composed from stale facts.
-    clearFacts(db, m.id);
+    // "record more"), so notes are never composed from stale statements.
+    clearStatements(db, m.id);
     const notes = await ensureNotes(db, m.id, { force: true, budget }).catch((e: unknown) => ({
       outline: null,
       error: e instanceof Error ? e.message : String(e),

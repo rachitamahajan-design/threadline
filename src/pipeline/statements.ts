@@ -1,36 +1,46 @@
 /**
  * Pass 1 of two: extraction.
  *
- * The model returns atomic facts, each tagged with the segment ids it came from
- * and a kind. No prose, no synthesis, temperature 0. Then we throw away every
- * fact that cannot survive the same deterministic checks the final output faces
- * — because a poisoned fact list makes a poisoned outline unavoidable, no matter
- * how good the compose prompt is.
+ * The model returns atomic statements — anything substantive someone said,
+ * from a hard number to a voiced concern to a joke worth remembering — each
+ * tagged with the segment ids it came from and a kind. No prose, no synthesis,
+ * temperature 0. Then we throw away every statement that cannot survive the
+ * same deterministic checks the final output faces — because a poisoned
+ * statement list makes a poisoned outline unavoidable, no matter how good the
+ * compose prompt is.
  *
- * Facts are extracted once per meeting and reused by every handoff.
+ * Statements are extracted once per meeting and reused by every handoff.
  */
 import { ModelError, chatJson } from "../lib/model.js";
 import { Budget, retry, type StepRecord } from "../lib/harness.js";
 import { CodedError, because } from "../lib/reasons.js";
-import { EXTRACT_FACTS, promptRef } from "../lib/prompts.js";
+import { EXTRACT_STATEMENTS, promptRef } from "../lib/prompts.js";
 import { checkQuotes, verbatimMisses, type GroundingContext } from "../lib/grounding.js";
 import { citedText, renderSegments, type MeetingType, type Segment } from "../lib/segments.js";
 
-export type FactKind = "decision" | "action" | "number" | "quote" | "question" | "statement";
-const KINDS: FactKind[] = ["decision", "action", "number", "quote", "question", "statement"];
+export type StatementKind =
+  | "decision"
+  | "action"
+  | "number"
+  | "quote"
+  | "question"
+  | "opinion"
+  | "aside"
+  | "other";
+const KINDS: StatementKind[] = ["decision", "action", "number", "quote", "question", "opinion", "aside", "other"];
 
-export type Fact = {
-  id: string; // "F1" — debugging and eval only; sources are what count
+export type Statement = {
+  id: string; // "ST1" — debugging and eval only; sources are what count
   text: string;
-  kind: FactKind;
+  kind: StatementKind;
   source: string[];
   speaker?: string;
   heardPoorly?: boolean;
 };
 
-export type FactSet = {
-  facts: Fact[];
-  /** Facts the sanitiser refused, with why. Shown in the debug drawer. */
+export type StatementSet = {
+  statements: Statement[];
+  /** Statements the sanitiser refused, with why. Shown in the debug drawer. */
   dropped: { text: string; reason: string }[];
   promptVersion: string;
 };
@@ -43,30 +53,30 @@ export type FactSet = {
  * Retries are invisible by design. What the user eventually sees is the
  * outcome; what the run record keeps is the attempt count and the reason.
  */
-export async function extractFacts(
+export async function extractStatements(
   segments: Segment[],
   ctx: GroundingContext,
   opts: { type: MeetingType; participants: string[]; budget?: Budget },
-): Promise<{ set: FactSet; step: StepRecord }> {
+): Promise<{ set: StatementSet; step: StepRecord }> {
   const budget = opts.budget ?? Budget.for("notes");
   const run = await retry(
-    "extract:facts",
+    "extract:statements",
     budget,
     async () => {
       const raw = await chatJson({
-        purpose: "facts.extract",
+        purpose: "statements.extract",
         temperature: 0,
-        system: EXTRACT_FACTS.build({
+        system: EXTRACT_STATEMENTS.build({
           transcript: renderSegments(segments),
           participants: opts.participants.join(", ") || "unknown",
           type: opts.type,
         }),
         // The transcript is in the system prompt; the user turn only has to trigger
         // the shape. Weak models do better with an explicit, boring instruction.
-        user: 'Extract the facts now. Return {"facts": [...]} and nothing else.',
+        user: 'Extract the statements now. Return {"statements": [...]} and nothing else.',
       });
       budget.spendUnits(1);
-      return sanitizeFacts(raw, ctx);
+      return sanitizeStatements(raw, ctx);
     },
     // A 404 or a dead key never becomes valid on the third try.
     { retryable: (e) => !(e instanceof ModelError) || e.retryable },
@@ -79,12 +89,14 @@ export async function extractFacts(
 }
 
 /**
- * Deterministic gate on the extraction pass. Keeps only facts that cite real
- * segments and whose figures and quotes actually appear in those segments.
+ * Deterministic gate on the extraction pass. Keeps only statements that cite
+ * real segments and whose figures and quotes actually appear in those segments.
  */
-export function sanitizeFacts(raw: unknown, ctx: GroundingContext): FactSet {
-  const list = Array.isArray((raw as { facts?: unknown })?.facts) ? ((raw as { facts: unknown[] }).facts) : [];
-  const facts: Fact[] = [];
+export function sanitizeStatements(raw: unknown, ctx: GroundingContext): StatementSet {
+  const list = Array.isArray((raw as { statements?: unknown })?.statements)
+    ? ((raw as { statements: unknown[] }).statements)
+    : [];
+  const statements: Statement[] = [];
   const dropped: { text: string; reason: string }[] = [];
   let n = 0;
 
@@ -111,17 +123,17 @@ export function sanitizeFacts(raw: unknown, ctx: GroundingContext): FactSet {
       dropped.push({ text, reason: `figure/date not in cited text: ${misses.map((m) => m.raw).join(", ")}` });
       continue;
     }
-    const badQuote = checkQuotes(text, source, "fact", ctx);
+    const badQuote = checkQuotes(text, source, "statement", ctx);
     if (badQuote.length) {
       dropped.push({ text, reason: "quoted span is not verbatim in one cited segment" });
       continue;
     }
-    const kind = KINDS.includes(f.kind as FactKind) ? (f.kind as FactKind) : "statement";
+    const kind = KINDS.includes(f.kind as StatementKind) ? (f.kind as StatementKind) : "other";
     // Speaker must be someone we heard, else it is an invented attribution.
     const claimed = typeof f.speaker === "string" ? f.speaker.trim() : "";
     const speaker = claimed && ctx.owners.has(claimed.toLowerCase()) ? claimed : undefined;
-    facts.push({
-      id: `F${++n}`,
+    statements.push({
+      id: `ST${++n}`,
       text,
       kind,
       source,
@@ -130,13 +142,13 @@ export function sanitizeFacts(raw: unknown, ctx: GroundingContext): FactSet {
       ...(source.every((id) => (ctx.index.get(id)?.confidence ?? 1) < 0.6) ? { heardPoorly: true } : {}),
     });
   }
-  return { facts, dropped, promptVersion: promptRef(EXTRACT_FACTS) };
+  return { statements, dropped, promptVersion: promptRef(EXTRACT_STATEMENTS) };
 }
 
 /** The compact JSON the compose pass sees. Trimmed to keep weak models on task. */
-export function factsForPrompt(facts: Fact[]): string {
+export function statementsForPrompt(statements: Statement[]): string {
   return JSON.stringify(
-    facts.map((f) => ({
+    statements.map((f) => ({
       text: f.text,
       kind: f.kind,
       source: f.source,

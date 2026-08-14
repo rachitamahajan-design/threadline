@@ -37,7 +37,7 @@ export const FAILURE_CODES = [
   "deadline-exceeded",
   // preconditions
   "no-transcript",
-  "no-facts",
+  "no-statements",
   "no-retrieval",
   "not-found",
   // everything else
@@ -70,7 +70,7 @@ const LABELS: Record<FailureCode, string> = {
   "budget-exhausted": "the run's unit budget was exhausted",
   "deadline-exceeded": "the run's deadline passed",
   "no-transcript": "no transcript exists yet",
-  "no-facts": "nothing in the transcript survived extraction",
+  "no-statements": "nothing in the transcript survived extraction",
   "no-retrieval": "retrieval found nothing relevant",
   "not-found": "the requested record does not exist",
   "upstream-failed": "an upstream service failed",

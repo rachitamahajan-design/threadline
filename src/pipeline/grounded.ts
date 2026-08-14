@@ -1,9 +1,9 @@
 /**
  * The two-pass pipeline: extract → compose → validate → regenerate.
  *
- *   facts (pass 1, temp 0) ─┐
- *                           ├─▶ compose (pass 2) ─▶ validate (code) ─┬─▶ ship
- *   memory (labels only) ───┘            ▲                           │
+ *   statements (pass 1, temp 0) ─┐
+ *                                ├─▶ compose (pass 2) ─▶ validate (code) ─┬─▶ ship
+ *   memory (labels only) ────────┘            ▲                           │
  *                                        └── failures fed back ──────┘
  *                                            (max 2 retries)
  *
@@ -18,14 +18,14 @@ import { CodedError, because, publicReason } from "../lib/reasons.js";
 import { ModelError, chatJson } from "../lib/model.js";
 import { REFINE, REPAIR } from "../lib/prompts.js";
 import { formatFailures, isSoft, type Failure, type GroundingContext } from "../lib/grounding.js";
-import { factsForPrompt, type Fact } from "./facts.js";
+import { statementsForPrompt, type Statement } from "./statements.js";
 
 export type ComposeSpec<T> = {
   /** For logs and the output card: "notes", "handoff:vendor_quote". */
   purpose: string;
   /** Versioned template ref recorded on the output, e.g. "notes.compose@v1". */
   promptVersion: string;
-  system: (facts: string) => string;
+  system: (statements: string) => string;
   /** The user turn. Kept separate so repair/refine text can be appended to it. */
   user: string;
   temperature?: number;
@@ -59,12 +59,12 @@ export const SOFT_ONLY_ATTEMPTS = 2;
 
 export async function compose<T>(
   spec: ComposeSpec<T>,
-  facts: Fact[],
+  statements: Statement[],
   ctx: GroundingContext,
   opts: { budget?: Budget; refine?: string } = {},
 ): Promise<GroundedOutput<T>> {
   const budget = opts.budget ?? new Budget(12, 120_000);
-  const factsJson = factsForPrompt(facts);
+  const statementsJson = statementsForPrompt(statements);
   const steps: StepRecord[] = [];
   // The last invalid candidate survives the loop so we can prune it instead of
   // returning nothing at all.
@@ -81,7 +81,7 @@ export async function compose<T>(
       const raw = await chatJson({
         purpose: spec.purpose,
         temperature: spec.temperature ?? 0.1,
-        system: spec.system(factsJson),
+        system: spec.system(statementsJson),
         user: `${spec.user}${refine}${repair}`,
       });
       budget.spendUnits(1);

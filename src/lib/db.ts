@@ -415,13 +415,21 @@ export function openDb(dir = "data"): DatabaseSync {
 
   // ── Grounded notes & handoffs ────────────────────────────────────────────
   // Extraction is cached per meeting because every handoff composes from the
-  // same fact list; regenerating a handoff must not re-pay for pass 1 or,
-  // worse, compose from a *different* set of facts than the notes did.
+  // same statement list; regenerating a handoff must not re-pay for pass 1 or,
+  // worse, compose from a *different* set of statements than the notes did.
+  // Renamed from meeting_facts when extraction broadened from facts to
+  // statements. Cached rows carry over — their stored prompt_version still says
+  // what produced them, and Regenerate re-extracts on demand.
+  try {
+    db.exec("ALTER TABLE meeting_facts RENAME TO meeting_statements");
+  } catch {
+    /* fresh database, or already renamed */
+  }
   db.exec(`
-    CREATE TABLE IF NOT EXISTS meeting_facts (
+    CREATE TABLE IF NOT EXISTS meeting_statements (
       meeting_id TEXT PRIMARY KEY REFERENCES meetings(id),
-      json TEXT NOT NULL,             -- Fact[]
-      dropped TEXT,                   -- JSON: facts the sanitiser refused, with reasons
+      json TEXT NOT NULL,             -- Statement[]
+      dropped TEXT,                   -- JSON: statements the sanitiser refused, with reasons
       prompt_version TEXT NOT NULL,
       created_at INTEGER NOT NULL
     );

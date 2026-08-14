@@ -337,8 +337,8 @@ export function checkVerbatim(text: string, sourceIds: string[], path: string, c
  *
  * The word-count condition is what keeps it honest. Without it the rule fired on
  * "Rachita: send the security questionnaire this week", whose segment happens to
- * mention October too: a segment usually holds several facts, and a bullet is
- * entitled to carry only one of them.
+ * mention October too: a segment usually holds several statements, and a bullet
+ * is entitled to carry only one of them.
  */
 const TITLEISH_MAX_WORDS = 3;
 

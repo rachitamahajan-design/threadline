@@ -10,18 +10,18 @@
 import type { DatabaseSync } from "node:sqlite";
 import { notesFromMarkdown, notesToMarkdown, type Notes } from "./outline.js";
 import type { Failure } from "./grounding.js";
-import type { Fact, FactSet } from "../pipeline/facts.js";
+import type { Statement, StatementSet } from "../pipeline/statements.js";
 
 // ── Extraction cache ────────────────────────────────────────────────────────
 
-export function readFacts(db: DatabaseSync, meetingId: string): FactSet | null {
-  const row = db.prepare(`SELECT json, dropped, prompt_version FROM meeting_facts WHERE meeting_id = ?`).get(meetingId) as
+export function readStatements(db: DatabaseSync, meetingId: string): StatementSet | null {
+  const row = db.prepare(`SELECT json, dropped, prompt_version FROM meeting_statements WHERE meeting_id = ?`).get(meetingId) as
     | { json: string; dropped: string | null; prompt_version: string }
     | undefined;
   if (!row) return null;
   try {
     return {
-      facts: JSON.parse(row.json) as Fact[],
+      statements: JSON.parse(row.json) as Statement[],
       dropped: row.dropped ? JSON.parse(row.dropped) : [],
       promptVersion: row.prompt_version,
     };
@@ -30,16 +30,16 @@ export function readFacts(db: DatabaseSync, meetingId: string): FactSet | null {
   }
 }
 
-export function writeFacts(db: DatabaseSync, meetingId: string, set: FactSet): void {
+export function writeStatements(db: DatabaseSync, meetingId: string, set: StatementSet): void {
   db.prepare(
-    `INSERT INTO meeting_facts (meeting_id, json, dropped, prompt_version, created_at) VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO meeting_statements (meeting_id, json, dropped, prompt_version, created_at) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(meeting_id) DO UPDATE SET json = excluded.json, dropped = excluded.dropped,
        prompt_version = excluded.prompt_version, created_at = excluded.created_at`,
-  ).run(meetingId, JSON.stringify(set.facts), JSON.stringify(set.dropped), set.promptVersion, Date.now());
+  ).run(meetingId, JSON.stringify(set.statements), JSON.stringify(set.dropped), set.promptVersion, Date.now());
 }
 
-export function clearFacts(db: DatabaseSync, meetingId: string): void {
-  db.prepare(`DELETE FROM meeting_facts WHERE meeting_id = ?`).run(meetingId);
+export function clearStatements(db: DatabaseSync, meetingId: string): void {
+  db.prepare(`DELETE FROM meeting_statements WHERE meeting_id = ?`).run(meetingId);
 }
 
 // ── The notes outline ───────────────────────────────────────────────────────

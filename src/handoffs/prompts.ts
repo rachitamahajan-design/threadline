@@ -25,7 +25,7 @@ ${GROUNDING_RULES}
 
 PARTICIPANTS: ${v.participants}
 MEETING_TYPE: ${v.type}${v.roster ? `\nMEETINGS: ${v.roster}` : ""}
-EXTRACTED_FACTS (json): ${v.facts}
+EXTRACTED_STATEMENTS (json): ${v.statements}
 
 Return JSON only. No prose outside JSON.`,
   };

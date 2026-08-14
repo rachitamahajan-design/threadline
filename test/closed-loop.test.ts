@@ -126,7 +126,7 @@ test("model pricing is config: costOf reads the table", () => {
 
 test("prompt templates load from config/prompts.json with their version stamp", () => {
   assert.match(promptRef(NOTES_COMPOSE), /^notes\.compose@v\d+\+r\d+$/);
-  const built = NOTES_COMPOSE.build({ participants: "Rachita, Maya", type: "investor", facts: "[]" });
+  const built = NOTES_COMPOSE.build({ participants: "Rachita, Maya", type: "investor", statements: "[]" });
   assert.ok(built.includes("PARTICIPANTS: Rachita, Maya"));
   assert.ok(built.includes("MEETING_TYPE: investor"));
   assert.ok(built.includes("traction and metrics quoted")); // investor theme guide
@@ -295,7 +295,7 @@ test("a dead model is an outcome, not a crash: ensureNotes fails closed with a r
   assert.equal(latest.failure?.code, "model-http");
   assert.ok(latest.endedAt !== null);
   // And the extraction step is on the record with its structured reason.
-  assert.ok(latest.steps.some((s) => s.name === "extract:facts" && s.reason?.code === "model-http"));
+  assert.ok(latest.steps.some((s) => s.name === "extract:statements" && s.reason?.code === "model-http"));
 });
 
 test("cleanup", () => {

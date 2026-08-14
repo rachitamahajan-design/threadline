@@ -88,9 +88,9 @@ test("every registered handoff is fully formed", () => {
     assert.equal(typeof h.prune, "function");
     assert.equal(typeof h.toMarkdown, "function");
     // Every prompt bakes in the shared grounding rules.
-    const built = h.prompt.build({ facts: "[]", participants: "A, B", type: "team" });
+    const built = h.prompt.build({ statements: "[]", participants: "A, B", type: "team" });
     assert.match(built, /Grounding rules/);
-    assert.match(built, /EXTRACTED_FACTS/);
+    assert.match(built, /EXTRACTED_STATEMENTS/);
   }
 });
 
