@@ -1021,14 +1021,31 @@ const api: Record<string, Handler> = {
     return { ok: true };
   },
 
-  /** Retag an already-scheduled meeting to a thread (project_id null = untag). */
+  /**
+   * Retag an already-scheduled meeting to a thread (project_id null = untag).
+   * Calendar events have no local row to tag, so tagging one adopts it: an
+   * `upcoming` row is created with the event's fields, and the GET merge —
+   * manual first on title@start conflicts — retires the calendar duplicate.
+   */
   "POST /api/upcoming/tag"(p, body) {
-    const { id, project_id } = (body ?? {}) as { id?: number; project_id?: number | null };
-    if (!id || id < 0) return { error: "missing id" };
-    const row = db.prepare(`SELECT id FROM upcoming WHERE id = ?`).get(id);
-    if (!row) return { error: "not found" };
-    db.prepare(`UPDATE upcoming SET project_id = ? WHERE id = ?`).run(project_id ?? null, id);
-    return { ok: true, project_id: project_id ?? null };
+    const { id, project_id, adopt } = (body ?? {}) as {
+      id?: number; project_id?: number | null;
+      adopt?: { title?: string; at_ms?: number; end_ms?: number | null; participants?: string | null };
+    };
+    if (id && id > 0) {
+      const row = db.prepare(`SELECT id FROM upcoming WHERE id = ?`).get(id);
+      if (!row) return { error: "not found" };
+      db.prepare(`UPDATE upcoming SET project_id = ? WHERE id = ?`).run(project_id ?? null, id);
+      return { ok: true, project_id: project_id ?? null };
+    }
+    if (adopt?.title && adopt.at_ms) {
+      const existing = db.prepare(`SELECT id FROM upcoming WHERE title = ? AND at_ms = ?`).get(adopt.title, adopt.at_ms) as { id: number } | undefined;
+      if (existing) db.prepare(`UPDATE upcoming SET project_id = ? WHERE id = ?`).run(project_id ?? null, existing.id);
+      else db.prepare(`INSERT INTO upcoming (title, at_ms, participants, end_ms, project_id) VALUES (?, ?, ?, ?, ?)`)
+        .run(adopt.title, adopt.at_ms, adopt.participants ?? null, adopt.end_ms ?? null, project_id ?? null);
+      return { ok: true, project_id: project_id ?? null };
+    }
+    return { error: "missing id" };
   },
 
   /**

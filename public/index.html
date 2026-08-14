@@ -3865,17 +3865,18 @@ async function loadUpcoming() {
     // "10:30 – 11:00 AM" with the meridiem set small
     const ampm = (ms) => fmtClock(ms).replace(/\s*([AaPp])\.?[Mm]\.?$/, (_, x) => `<span class="ampm">${x.toUpperCase()}M</span>`);
     const range = u.end_ms ? `${fmtClock(u.at_ms).replace(/\s*[AaPp]\.?[Mm]\.?$/, "")} – ${ampm(u.end_ms)}` : ampm(u.at_ms);
-    // Calendar events aren't rows in `upcoming` (negative ids) — no local row
-    // to write a tag to, so they get no thread control rather than a fake one.
-    const local = Number(u.id) > 0;
+    // Calendar events (negative ids) have no local row — tagging one adopts
+    // it into `upcoming`, so the controls render for every row. The adopt
+    // payload rides on data attributes.
+    const adopt = `data-title="${esc(u.title)}" data-at="${u.at_ms}" data-end="${u.end_ms ?? ""}" data-ppl="${esc(u.participants ?? "")}"`;
     if (i > 0)
       return `<div class="up-slim" data-up="${u.id}">
         <span class="up-tick"></span>
         <span class="s-time">${running ? "Now" : fmtClock(u.at_ms)}${dayStart(u.at_ms) !== dayStart(now) ? " · " + fmtDate(u.at_ms) : ""}</span>
         <span class="s-title">${esc(u.title)}</span>
         ${u.participants ? `<span class="s-people">${esc(u.participants)}</span>` : ""}
-        ${local ? `<button class="up-thread-chip ${u.project_id ? "" : "off"}" data-upchip="${u.id}" data-pid="${u.project_id ?? ""}"
-            title="${u.project_name ? `Thread: ${esc(u.project_name)}` : "Tag this meeting to a thread"}">${u.project_name ? esc(u.project_name) : "＋ thread"}</button>` : ""}
+        <button class="up-thread-chip ${u.project_id ? "" : "off"}" data-upchip="${u.id}" data-pid="${u.project_id ?? ""}" ${adopt}
+            title="${u.project_name ? `Thread: ${esc(u.project_name)}` : "Tag this meeting to a thread"}">${u.project_name ? esc(u.project_name) : "＋ thread"}</button>
       </div>`;
     return `<div class="up-lead" data-up="${u.id}" data-people="${esc(u.participants ?? "")}" data-pid="${u.project_id ?? ""}">
       <div class="up-cal">
@@ -3891,7 +3892,7 @@ async function loadUpcoming() {
           ${durMin > 0 ? `<span class="up-chip">${icon("clock", 12)}${durMin} min</span>` : ""}
           ${running ? `<span class="up-chip now">Now</span>`
             : mins < 60 ? `<span class="up-chip soon">In ${mins} min</span>` : ""}
-          ${local ? `<select class="topic-select up-topic" data-upid="${u.id}" data-pid="${u.project_id ?? ""}" title="Thread"></select>` : ""}
+          <select class="topic-select up-topic" data-upid="${u.id}" data-pid="${u.project_id ?? ""}" ${adopt} title="Thread"></select>
         </div>
         ${u.participants ? `<div class="up-people">${esc(u.participants)}</div>` : ""}
         <div class="prep-slot"></div>
@@ -3923,13 +3924,16 @@ async function loadUpcoming() {
     sel.addEventListener("click", (e) => e.stopPropagation());
     sel.addEventListener("change", async () => {
       const upId = Number(sel.dataset.upid);
+      const payload = (tid) => JSON.stringify(upId > 0
+        ? { id: upId, project_id: tid }
+        : { project_id: tid, adopt: { title: sel.dataset.title, at_ms: Number(sel.dataset.at), end_ms: sel.dataset.end ? Number(sel.dataset.end) : null, participants: sel.dataset.ppl || null } });
       if (sel.value === "") {
-        await fetch("/api/upcoming/tag", { method: "POST", body: JSON.stringify({ id: upId, project_id: null }) });
+        await fetch("/api/upcoming/tag", { method: "POST", body: payload(null) });
         loadUpcoming();
         return;
       }
       await topicSelectChange(sel, async (tid) => {
-        await fetch("/api/upcoming/tag", { method: "POST", body: JSON.stringify({ id: upId, project_id: tid }) });
+        await fetch("/api/upcoming/tag", { method: "POST", body: payload(tid) });
         loadUpcoming();
       });
     });
@@ -3948,7 +3952,10 @@ async function loadUpcoming() {
         if (pid) sel.value = String(pid);
         sel.addEventListener("change", async () => {
           const tag = async (tid) => {
-            await fetch("/api/upcoming/tag", { method: "POST", body: JSON.stringify({ id: upId, project_id: tid }) });
+            const payload = upId > 0
+              ? { id: upId, project_id: tid }
+              : { project_id: tid, adopt: { title: chip.dataset.title, at_ms: Number(chip.dataset.at), end_ms: chip.dataset.end ? Number(chip.dataset.end) : null, participants: chip.dataset.ppl || null } };
+            await fetch("/api/upcoming/tag", { method: "POST", body: JSON.stringify(payload) });
             close(); loadUpcoming();
           };
           if (sel.value === "") return tag(null);
