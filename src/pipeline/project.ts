@@ -39,6 +39,18 @@ export function projectGraph(db: DatabaseSync, meetingIds?: string[]): StepRecor
     )
     .all(...ids) as MentionRow[];
 
+  // A topic earns a node only with real backing: >= 3 grounded mentions
+  // across the whole brain. Counted globally (not just these meetings), so
+  // reprocessing one meeting can't demote a topic other meetings support.
+  const TOPIC_MIN_MENTIONS = 3;
+  const topicCount = new Map(
+    (db.prepare(
+      `SELECT m.entity_id AS id, count(*) AS n FROM entity_mentions m
+       JOIN entities e ON e.id = m.entity_id
+       WHERE m.gate = 'passed' AND e.kind = 'topic' GROUP BY m.entity_id`,
+    ).all() as { id: string; n: number }[]).map((r) => [r.id, r.n]),
+  );
+
   db.exec("BEGIN");
   try {
     // Only the derived rows for these meetings are cleared, so `related` edges
@@ -52,6 +64,7 @@ export function projectGraph(db: DatabaseSync, meetingIds?: string[]): StepRecor
     }
 
     for (const m of mentions) {
+      if (m.kind === "topic" && (topicCount.get(m.entity_id) ?? 0) < TOPIC_MIN_MENTIONS) continue;
       // canonical: the entity's label is authoritative for its node.
       upsertNode(db, m.kind, m.label, { id: m.entity_id, canonical: true });
       if (m.kind === "person") addEdge(db, m.entity_id, m.meeting_id, "attended", m.meeting_id);
