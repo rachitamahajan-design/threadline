@@ -7,8 +7,17 @@
  * come from lib/grounding.ts and the pruning below.
  */
 import type { DatabaseSync } from "node:sqlite";
-import { NOTES_COMPOSE, promptRef } from "../lib/prompts.js";
-import { markNotesConfidence, validateNotes, type Failure, type GroundingContext } from "../lib/grounding.js";
+import { NOTES_COMPOSE, SUMMARY_BACKFILL, promptRef } from "../lib/prompts.js";
+import {
+  checkQuotes,
+  checkSources,
+  checkVerbatim,
+  markNotesConfidence,
+  validateNotes,
+  type Failure,
+  type GroundingContext,
+} from "../lib/grounding.js";
+import { chatJson } from "../lib/model.js";
 import {
   bulletAtPath,
   countLeaves,
@@ -24,7 +33,7 @@ import type { MeetingType } from "../lib/segments.js";
 import { because } from "../lib/reasons.js";
 import { compose, type GroundedOutput } from "./grounded.js";
 import type { Statement } from "./statements.js";
-import type { Budget } from "../lib/harness.js";
+import type { Budget, StepRecord } from "../lib/harness.js";
 
 /** Rules whose failure makes a LEAF unshippable. */
 const LEAF_KILLERS: Failure["rule"][] = [
@@ -59,10 +68,10 @@ export function notesSpec(opts: {
       const errors = validateNotesShape(raw);
       if (errors.length) return errors.slice(0, 6).join("; ");
       const r = raw as Notes;
-      // Sections are forced into the fixed readout order here rather than in
-      // finalize, so the section-scoped checks (owners under "Action items")
-      // judge the structure the reader will actually get.
-      return normalizeSections({ ...(r.summary?.text ? { summary: r.summary } : {}), themes: r.themes });
+      // Sections are forced into the mode's readout order here rather than in
+      // finalize, so the section-scoped checks judge the structure the reader
+      // will actually get.
+      return normalizeSections({ ...(r.summary?.text ? { summary: r.summary } : {}), themes: r.themes }, opts.type);
     },
     validate: (notes: Notes, ctx: GroundingContext) => validateNotes(notes, ctx),
     prune: (notes: Notes, failures: Failure[], _ctx: GroundingContext) => repairNotes(notes, failures),
@@ -139,7 +148,52 @@ export async function generateNotes(
         },
       ],
     };
-  return compose(notesSpec(opts), statements, ctx, { budget: opts.budget, refine: opts.refine });
+  const out = await compose(notesSpec(opts), statements, ctx, { budget: opts.budget, refine: opts.refine });
+  // A weak model under repair pressure sometimes ships the outline without its
+  // summary — deleting it is the cheapest way to satisfy a validator. The
+  // outline is still good, so the summary gets ONE targeted second chance,
+  // validated like everything else and abandoned (never invented) if it fails.
+  if (out.value && countLeaves(out.value) > 0 && !out.value.summary?.text) {
+    const b = await backfillSummary(out.value, ctx, opts.type, opts.budget);
+    out.steps.push(b.step);
+    if (b.summary) out.value = { ...out.value, summary: b.summary };
+  }
+  return out;
+}
+
+async function backfillSummary(
+  notes: Notes,
+  ctx: GroundingContext,
+  type: MeetingType,
+  budget?: Budget,
+): Promise<{ summary: Notes["summary"] | null; step: StepRecord }> {
+  const t0 = Date.now();
+  const step = (status: StepRecord["status"], reason?: Parameters<typeof because>[1]): StepRecord => ({
+    name: "compose:summary-backfill",
+    status,
+    attempts: 1,
+    ms: Date.now() - t0,
+    ...(reason ? { reason: because("grounding-blocked", reason) } : {}),
+  });
+  try {
+    budget?.spendUnits(1);
+    const raw = await chatJson({
+      purpose: "notes:summary-backfill",
+      system: SUMMARY_BACKFILL.build({ notes: JSON.stringify(notes.themes), type }),
+      user: 'Return {"summary": {"text": "...", "source": ["S..."]}} and nothing else.',
+      temperature: 0.1,
+    });
+    const s = (raw as { summary?: { text?: unknown; source?: unknown } } | null)?.summary;
+    const text = typeof s?.text === "string" ? s.text.trim() : "";
+    const source = Array.isArray(s?.source) ? (s.source as unknown[]).filter((x): x is string => typeof x === "string") : [];
+    if (!text) return { summary: null, step: step("failed", "the model returned no summary text") };
+    const failures = checkSources(source, "summary", ctx);
+    if (!failures.length) failures.push(...checkVerbatim(text, source, "summary", ctx), ...checkQuotes(text, source, "summary", ctx));
+    if (failures.length) return { summary: null, step: step("blocked", failures[0].detail) };
+    return { summary: { text, source }, step: step("ok") };
+  } catch (e) {
+    return { summary: null, step: step("failed", e instanceof Error ? e.message : String(e)) };
+  }
 }
 
 /**

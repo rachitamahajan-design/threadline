@@ -200,3 +200,9 @@ export function listRuns(db: DatabaseSync, meetingId: string, limit = 10): RunRe
     .all(meetingId, limit) as RunRow[];
   return rows.map(toRecord);
 }
+
+/** Every meeting, newest first — feeds the harness console on harness.html. */
+export function listRecentRuns(db: DatabaseSync, limit = 50): RunRecord[] {
+  const rows = db.prepare(`SELECT * FROM runs ORDER BY id DESC LIMIT ?`).all(limit) as RunRow[];
+  return rows.map(toRecord);
+}

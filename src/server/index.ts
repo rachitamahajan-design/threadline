@@ -40,7 +40,7 @@ import {
 import { handoffCatalog, matchHandoff } from "../handoffs/registry.js";
 import { transcriptFingerprint } from "../lib/segments.js";
 import { modelInfo } from "../lib/model.js";
-import { firstFailure, getRun, listRuns, recordRun, type RunRecord } from "../lib/runlog.js";
+import { firstFailure, getRun, listRecentRuns, listRuns, recordRun, type RunRecord } from "../lib/runlog.js";
 import { log } from "../lib/log.js";
 import { publicReason, reasonFrom, type Outcome } from "../lib/reasons.js";
 import { converse } from "../pipeline/needle.js";
@@ -1062,6 +1062,15 @@ const api: Record<string, Handler> = {
   },
 
   /**
+   * The harness console (harness.html): recent runs across every meeting.
+   * Same sealed projection as /api/runs — outcome, public failure text,
+   * spend — never codes, details or step logs.
+   */
+  "GET /api/runs/recent"(p) {
+    return { runs: listRecentRuns(db, Math.min(Number(p.get("limit") ?? 50) || 50, 200)).map(forUi) };
+  },
+
+  /**
    * The retry button. Every run record carries its kind and args, so any run
    * that didn't ship can be re-dispatched — same work, fresh budget, and the
    * new attempt leaves its own record.
@@ -1292,10 +1301,21 @@ const api: Record<string, Handler> = {
       (existing && !emptyStale) || !generate
         ? { outline: existing }
         : await (outlining.get(id) ?? track(id, ensureNotes(db, id, { force: emptyStale })));
+    // The transcript is the source of truth. An UNEDITED outline whose
+    // statements came from a different transcript (more audio recorded into
+    // this meeting, a line fixed) is reported stale so the UI can restructure
+    // it in the open — visibly, never as a silent overwrite. Edited outlines
+    // are never flagged: a human's version outranks the pipeline's.
+    const stale =
+      !!result.outline &&
+      !result.outline.edited &&
+      m.segments.length > 0 &&
+      readStatements(db, id)?.fingerprint !== transcriptFingerprint(m.segments);
     return {
       outline: result.outline,
       error: result.error,
       runId: (result as { runId?: number }).runId,
+      stale,
       meeting_type: m.type,
       participants: m.participants,
       catalog: handoffCatalog(m.type),
@@ -1448,6 +1468,7 @@ function forUi(r: RunRecord) {
     outcome: r.outcome,
     failureText: publicReason(r.failure),
     startedAt: r.startedAt,
+    durationMs: r.endedAt == null ? null : r.endedAt - r.startedAt,
     tokensIn: r.tokensIn,
     tokensOut: r.tokensOut,
     costUsd: r.costUsd,

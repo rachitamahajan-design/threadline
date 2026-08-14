@@ -148,36 +148,167 @@ export function rebuildNotes(
   return { notes: { themes: walk(notes.themes) }, dropped, flattened };
 }
 
-// ── The readout's fixed sections ────────────────────────────────────────────
+// ── The readout's sections, per meeting mode ────────────────────────────────
 
-/** The section order the notes always come back in. Empty ones are omitted. */
-export const SECTIONS = ["Discussion", "Decisions", "Action items", "Risks & concerns", "Open questions"] as const;
+/**
+ * One section of a mode's readout: the canonical name, the wordings a model
+ * might return that mean it, one line of guidance the prompt shows for it, and
+ * whether its bullets are commitments (owner-first).
+ */
+export type SectionSpec = { name: string; match: RegExp; guide: string; actions?: boolean };
 
-/** Wordings we accept as meaning one of the five. */
-const SECTION_ALIASES: { section: (typeof SECTIONS)[number]; match: RegExp }[] = [
-  { section: "Discussion", match: /^(discussion|topics?|what was discussed|notes)$/i },
-  { section: "Decisions", match: /^(decisions?|what was decided|agreements?)$/i },
-  { section: "Action items", match: /^(action items?|actions?|next steps?|commitments?|to-?dos?|follow[- ]?ups?)$/i },
-  { section: "Risks & concerns", match: /^(risks?( (&|and) concerns?)?|concerns?|blockers?|risks? raised)$/i },
-  { section: "Open questions", match: /^(open questions?|questions?|unanswered|unknowns?)$/i },
-];
+/** Shared by every mode: the catch-all where discussion topics land… */
+const DISCUSSION: SectionSpec = {
+  name: "Discussion",
+  match: /^(discussion|topics?|what was discussed|notes)$/i,
+  guide: "one sub-section per topic actually discussed, with the points under them",
+};
+/** …and the section for what was left hanging. */
+const OPEN_QUESTIONS: SectionSpec = {
+  name: "Open questions",
+  match: /^(open questions?|questions?|unanswered|unknowns?)$/i,
+  guide: "questions asked and left unanswered in this meeting",
+};
 
-function sectionOf(label: string): (typeof SECTIONS)[number] | null {
+/**
+ * The mode decides the readout's vocabulary: an investor call reports traction
+ * and asks, a vendor call reports pricing and scope. The FIRST spec is always
+ * Discussion — it is the bucket everything unrecognised falls into.
+ */
+export const MODE_SECTIONS: Record<string, SectionSpec[]> = {
+  team: [
+    DISCUSSION,
+    { name: "Decisions", match: /^(decisions?|what was decided|agreements?)$/i, guide: "things settled, not things considered" },
+    {
+      name: "Action items",
+      match: /^(action items?|actions?|next steps?|commitments?|to-?dos?|follow[- ]?ups?)$/i,
+      guide: "who does what next, and when if a time was said",
+      actions: true,
+    },
+    {
+      name: "Risks & concerns",
+      match: /^(risks?( (&|and) concerns?)?|concerns?|blockers?|risks? raised)$/i,
+      guide: "risks someone actually raised, kept attributed to their speaker",
+    },
+    OPEN_QUESTIONS,
+  ],
+  investor: [
+    DISCUSSION,
+    {
+      name: "Traction & metrics",
+      match: /^(traction( (&|and) metrics)?|metrics|numbers|kpis?|figures)$/i,
+      guide: "every figure reported — revenue, growth, churn, runway — exactly as spoken",
+    },
+    {
+      name: "Commitments & asks",
+      match: /^(commitments?( (&|and) asks?)?|asks?|action items?|next steps?|follow[- ]?ups?)$/i,
+      guide: "who owes what: intros, materials, decisions — including asks made of the investor",
+      actions: true,
+    },
+    {
+      name: "Risks raised",
+      match: /^(risks?( raised| (&|and) concerns?)?|concerns?)$/i,
+      guide: "risks the investor or founder actually raised",
+    },
+    OPEN_QUESTIONS,
+  ],
+  vendor: [
+    DISCUSSION,
+    {
+      name: "Pricing & terms",
+      match: /^(pricing( (&|and) terms)?|terms|prices?|quotes?|commercials?)$/i,
+      guide: "prices, units, terms and expiries exactly as quoted — verbatim or left out",
+    },
+    {
+      name: "Scope & integration",
+      match: /^(scope( (&|and) integration)?|integration|implementation|security( (&|and) compliance)?)$/i,
+      guide: "what is included, how it integrates, security and compliance points",
+    },
+    {
+      name: "Risks & concerns",
+      match: /^(risks?( (&|and) concerns?)?|concerns?|blockers?|risks? raised)$/i,
+      guide: "lock-ins, dependencies and conditions someone raised",
+    },
+    OPEN_QUESTIONS,
+  ],
+  customer: [
+    DISCUSSION,
+    {
+      name: "Needs & pain points",
+      match: /^(needs?( (&|and) pain points?)?|pain points?|requirements?|problems?)$/i,
+      guide: "what they need and the problem behind it, in their own framing",
+    },
+    {
+      name: "Objections & blockers",
+      match: /^(objections?( (&|and) blockers?)?|blockers?|pushback|concerns?)$/i,
+      guide: "what stands between them and a yes, as they said it",
+    },
+    {
+      name: "Next steps",
+      match: /^(next steps?|action items?|follow[- ]?ups?|commitments?)$/i,
+      guide: "who does what next — theirs and yours",
+      actions: true,
+    },
+    OPEN_QUESTIONS,
+  ],
+  one_on_one: [
+    DISCUSSION,
+    {
+      name: "Signals & examples",
+      match: /^(signals?( (&|and) examples?)?|observations?|examples?)$/i,
+      guide: "what they said or did, with the example — never a judgement without one",
+    },
+    {
+      name: "Concerns & gaps",
+      match: /^(concerns?( (&|and) gaps)?|gaps|worries|risks?)$/i,
+      guide: "concerns either side stated, in their own words",
+    },
+    {
+      name: "Growth & next steps",
+      match: /^(growth( (&|and) next steps?)?|next steps?|action items?|development|follow[- ]?ups?)$/i,
+      guide: "what was agreed to happen next",
+      actions: true,
+    },
+    OPEN_QUESTIONS,
+  ],
+};
+
+/** How the mode wants its 30-second summary to open. Outcome-first, never a
+ *  demand for figures — exact numbers live in the bullets, where each one is
+ *  cited; a summary that restates them has to pass the same verbatim check. */
+export const SUMMARY_GUIDE: Record<string, string> = {
+  team: "open with what was decided or what changed",
+  investor: "open with what was reported and what each side committed to or asked for",
+  vendor: "open with what is on the table and what is still unsettled",
+  customer: "open with what the customer needs and what was agreed to happen next",
+  one_on_one: "open with what was agreed and any concern that was raised",
+};
+
+export function sectionsFor(type?: string | null): SectionSpec[] {
+  return MODE_SECTIONS[type ?? "team"] ?? MODE_SECTIONS.team;
+}
+
+/** The team readout's names — the default vocabulary. */
+export const SECTIONS = MODE_SECTIONS.team.map((s) => s.name);
+
+function sectionOf(label: string, specs: SectionSpec[]): string | null {
   const clean = label.trim().replace(/[:.]+$/, "");
-  return SECTION_ALIASES.find((a) => a.match.test(clean))?.section ?? null;
+  return specs.find((a) => a.match.test(clean))?.name ?? null;
 }
 
 /**
- * Force the readout into its five sections.
+ * Force the readout into its mode's sections.
  *
  * The model is told to use exactly these and still returns a "Pricing" section
  * next to "Discussion". That is a structural mistake, not a factual one, so code
  * fixes it rather than the prompt asking again: anything that is not one of the
- * five becomes a topic *inside* Discussion, aliases are folded together, and the
- * order is fixed. Labels assert nothing, so moving them loses nothing — and every
- * bullet keeps its own receipts wherever it lands.
+ * mode's sections becomes a topic *inside* Discussion, aliases are folded
+ * together, and the order is fixed. Labels assert nothing, so moving them loses
+ * nothing — and every bullet keeps its own receipts wherever it lands.
  */
-export function normalizeSections(notes: Notes): Notes {
+export function normalizeSections(notes: Notes, type?: string | null): Notes {
+  const specs = sectionsFor(type);
+  const catchAll = specs[0].name; // Discussion, in every mode
   const buckets = new Map<string, NoteBullet[]>();
   const topics: NoteBullet[] = [];
 
@@ -185,7 +316,7 @@ export function normalizeSections(notes: Notes): Notes {
     buckets.set(section, [...(buckets.get(section) ?? []), ...kids]);
 
   for (const node of notes.themes) {
-    const section = sectionOf(node.text);
+    const section = sectionOf(node.text, specs);
     if (!section) {
       // A stray section is a discussion topic. A stray *leaf* is one too, but it
       // has no children to become a topic, so it goes in as a bare point.
@@ -196,26 +327,25 @@ export function normalizeSections(notes: Notes): Notes {
       add(section, [node]);
       continue;
     }
-    if (section !== "Discussion") {
+    if (section !== catchAll) {
       add(section, node.children!);
       continue;
     }
     // Inside Discussion, a topic named like one of the other sections is really
     // that section written in the wrong place ("Discussion → Risks → …").
     for (const child of node.children!) {
-      const nested = isLeaf(child) ? null : sectionOf(child.text);
-      if (nested && nested !== "Discussion") add(nested, child.children!);
+      const nested = isLeaf(child) ? null : sectionOf(child.text, specs);
+      if (nested && nested !== catchAll) add(nested, child.children!);
       else topics.push(child);
     }
   }
-  if (topics.length) buckets.set("Discussion", [...topics, ...(buckets.get("Discussion") ?? [])]);
+  if (topics.length) buckets.set(catchAll, [...topics, ...(buckets.get(catchAll) ?? [])]);
 
   return {
     ...(notes.summary ? { summary: notes.summary } : {}),
-    themes: SECTIONS.filter((s) => (buckets.get(s) ?? []).length > 0).map((s) => ({
-      text: s,
-      children: buckets.get(s)!,
-    })),
+    themes: specs
+      .filter((s) => (buckets.get(s.name) ?? []).length > 0)
+      .map((s) => ({ text: s.name, children: buckets.get(s.name)! })),
   };
 }
 

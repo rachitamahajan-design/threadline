@@ -258,8 +258,8 @@ test("the readout always comes back in its five sections", () => {
   // Nothing was lost and nothing lost its receipts.
   assert.equal(countLeaves(out), countLeaves(messy));
   assert.deepEqual(validateNotes(out, ctxFor(investor)), []);
-  // Already-canonical notes come back untouched.
-  assert.deepEqual(normalizeSections(investor.goldNotes), investor.goldNotes);
+  // Already-canonical notes come back untouched — in their own mode's vocabulary.
+  assert.deepEqual(normalizeSections(investor.goldNotes, "investor"), investor.goldNotes);
 
   // A section written in the wrong place — "Discussion → Risks → …" — is hoisted
   // out to its own section rather than left as a topic.
@@ -277,6 +277,28 @@ test("the readout always comes back in its five sections", () => {
   assert.deepEqual(nested.themes.map((t) => t.text), ["Discussion", "Risks & concerns"]);
   assert.deepEqual(nested.themes[0].children!.map((c) => c.text), ["Pricing"]);
   assert.deepEqual(nested.themes[1].children!.map((c) => c.text), ["Runway is fourteen months"]);
+});
+
+test("the mode picks the section vocabulary the notes normalise into", () => {
+  const themes: Notes = {
+    themes: [
+      { text: "Metrics", children: [{ text: "Revenue grew 40% month over month", source: ["S002"] }] },
+      { text: "Asks", children: [{ text: "Rachita: send the data room by Friday", source: ["S005"] }] },
+      { text: "Pricing", children: [{ text: "ANZ pricing moved to September", source: ["S001"] }] },
+    ],
+  };
+  // An investor meeting files metrics and asks under its own headers; the
+  // unrecognised "Pricing" section becomes a Discussion topic.
+  const inv = normalizeSections(themes, "investor");
+  assert.deepEqual(inv.themes.map((t) => t.text), ["Discussion", "Traction & metrics", "Commitments & asks"]);
+  assert.deepEqual(inv.themes[0].children!.map((c) => c.text), ["Pricing"]);
+  // The same tree normalised as a team meeting uses the team vocabulary:
+  // "Asks" isn't a team section, so it lands in Discussion too.
+  const team = normalizeSections(themes, "team");
+  assert.ok(team.themes.every((t) => ["Discussion", "Decisions", "Action items", "Risks & concerns", "Open questions"].includes(t.text)));
+  // No mode ever loses a leaf to renaming.
+  assert.equal(countLeaves(inv), countLeaves(themes));
+  assert.equal(countLeaves(team), countLeaves(themes));
 });
 
 test("a price with no named item still ships — nothing priced is dropped silently", () => {

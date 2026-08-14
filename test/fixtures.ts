@@ -75,6 +75,8 @@ export const investor: Fixture = {
       text: "ANZ pricing moved to September because enterprise prospects want usage based tiers instead of per seat pricing. Net burn is 180,000 a month with fourteen months of runway.",
       source: ["S001", "S003", "S007"],
     },
+    // Investor-mode vocabulary: the mode picks the sections the notes reach for
+    // (see MODE_SECTIONS in src/lib/outline.ts).
     themes: [
       {
         text: "Discussion",
@@ -84,23 +86,20 @@ export const investor: Fixture = {
             children: [
               { text: "ANZ pricing moved to September", source: ["S001"] },
               { text: "Enterprise prospects want usage based tiers instead of per seat pricing", source: ["S003"] },
-            ],
-          },
-          {
-            text: "Burn and runway",
-            children: [
-              { text: "Net burn is 180,000 a month", source: ["S007"] },
-              { text: "Runway is fourteen months", source: ["S007"] },
+              { text: "The tiers are being rebuilt rather than shipping the wrong model", source: ["S003"] },
             ],
           },
         ],
       },
       {
-        text: "Decisions",
-        children: [{ text: "The tiers are being rebuilt rather than shipping the wrong model", source: ["S003"] }],
+        text: "Traction & metrics",
+        children: [
+          { text: "Net burn is 180,000 a month", source: ["S007"] },
+          { text: "Runway is fourteen months", source: ["S007"] },
+        ],
       },
       {
-        text: "Action items",
+        text: "Commitments & asks",
         children: [
           { text: "Rachita: share the prospecting table of 250 companies and the updated tier model by end of month", source: ["S005"] },
           { text: "Prabhav: own the tier rebuild, three weeks from Monday", source: ["S008"] },
