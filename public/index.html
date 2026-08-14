@@ -5310,7 +5310,7 @@ async function renderGraph() {
     let summary = "";
     try {
       const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
-      summary = r?.summary || (r?.points ?? []).map((p) => p.text).join(" ");
+      summary = r?.summary || (r?.answer ?? r?.points ?? []).map((p) => p.text).join(" ");
     } catch {}
     if (!summary) {
       const mts = sub.filter((n) => n.kind === "meeting").map((n) => n.label);
