@@ -200,7 +200,11 @@ kind, meeting_id, started_at, ended_at, outcome, failure (JSON Reason),
 steps (JSON StepRecord[]), args (JSON), units_spent, tokens_in, tokens_out, cost_usd
 ```
 
-Read them via `GET /api/runs?meeting_id=…` (user-safe projection) or SQL.
+Read them via `GET /api/runs?meeting_id=…` (user-safe projection), SQL, or
+`GET /api/runs/recent` — the cross-meeting window (same sealed projection)
+that feeds the live console on `/harness.html`: outcome mix, cost per run,
+failure-label breakdown, and threshold signals, all computed client-side
+from the records.
 
 ## Gates
 

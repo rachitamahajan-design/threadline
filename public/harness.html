@@ -26,6 +26,14 @@
     --bad: #c94f4f;
     --term-bg: #1c1c22;
     --term-ink: #e8e8ee;
+    /* chart palette — validated (dataviz six checks) for both surfaces;
+       the stacked-bar segment order shipped→deadline→partial→failed is the
+       CVD-safety mechanism, not cosmetic */
+    --oc-shipped: #3f9d63;
+    --oc-deadline: #d9a13f;
+    --oc-partial: #5b74e0;
+    --oc-failed: #c94f4f;
+    --warn-text: #8a6207;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -44,6 +52,11 @@
       --ok: #5fbe84;
       --bad: #e07a7a;
       --term-bg: #101014;
+      --oc-shipped: #43a06b;
+      --oc-deadline: #c98500;
+      --oc-partial: #6d84e8;
+      --oc-failed: #d96565;
+      --warn-text: #d99a1e;
     }
   }
   :root[data-theme="dark"] {
@@ -62,6 +75,11 @@
     --ok: #5fbe84;
     --bad: #e07a7a;
     --term-bg: #101014;
+    --oc-shipped: #43a06b;
+    --oc-deadline: #c98500;
+    --oc-partial: #6d84e8;
+    --oc-failed: #d96565;
+    --warn-text: #d99a1e;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -356,6 +374,124 @@
     .stop-card { opacity: 1 !important; transform: none !important; transition: none; }
     .stop .dot { border-color: var(--thread); }
   }
+
+  /* ---------- the console: the record, made actionable ---------- */
+  .console { position: relative; z-index: 2; margin: 100px auto 0; width: min(1140px, calc(100vw - 48px)); scroll-margin-top: 84px; }
+  .console h2 { font-size: clamp(26px, 3.2vw, 38px); line-height: 1.15; margin-top: 14px; text-wrap: balance; }
+  .c-head { max-width: 660px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 16px; font-size: 12.5px; font-weight: 600;
+    border-radius: 999px; padding: 6px 14px;
+    border: 1px solid var(--line); background: var(--card-solid); color: var(--ink-2);
+  }
+  .badge i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
+  .badge.live i { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
+
+  .c-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; margin-top: 28px; }
+  .c-card {
+    grid-column: span 6;
+    background: var(--card);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: var(--shadow-soft);
+    padding: 20px 22px 22px;
+    min-width: 0;
+  }
+  .c-card h3 { font-size: 15.5px; font-weight: 650; letter-spacing: -0.01em; }
+  .c-card .sub { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+  .c-json {
+    grid-column: span 7; padding: 0; overflow: hidden;
+    background: var(--term-bg); color: var(--term-ink);
+    border-color: rgba(255, 255, 255, 0.08);
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  }
+  .c-aside { grid-column: span 5; display: flex; flex-direction: column; justify-content: center; }
+  .c-aside ul { list-style: none; margin-top: 12px; display: grid; gap: 12px; }
+  .c-aside li { font-size: 14.5px; color: var(--ink-2); padding-left: 24px; position: relative; }
+  .c-aside li::before { content: "→"; position: absolute; left: 0; color: var(--thread); font-weight: 600; }
+  .c-aside li b { color: var(--ink); font-weight: 600; }
+  .c-json .term-body { font-size: 12px; line-height: 1.7; }
+
+  .kpi { grid-column: span 3; }
+  .kpi .lab { font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  .kpi .val { font-size: 30px; font-weight: 650; letter-spacing: -0.02em; margin-top: 4px; }
+  .kpi .note { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; }
+
+  .viz { margin-top: 16px; }
+  .mix-bar { display: flex; gap: 2px; height: 22px; border-radius: 6px; overflow: hidden; }
+  .mix-bar span { display: block; min-width: 6px; cursor: default; }
+  .mix-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; }
+  .mix-legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+  .mix-legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--dot); flex: none; }
+  .mix-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  .fail-rows { display: grid; gap: 10px; margin-top: 16px; }
+  .fail-row { display: grid; grid-template-columns: minmax(0, 46%) 1fr auto; gap: 10px; align-items: center; }
+  .fail-row .fl { font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fail-row .ft { height: 12px; }
+  .fail-row .ft i { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--thread); }
+  .fail-row .fc { font-size: 12.5px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  .cost-svg { display: block; width: 100%; }
+  .cost-svg text { font: 600 10.5px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; fill: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .cost-svg .grid-line { stroke: var(--line); stroke-width: 1; }
+  .cost-svg .col { fill: var(--thread); }
+  .cost-svg .hover-band { fill: var(--thread-soft); opacity: 0; }
+
+  .sig-rows { display: grid; gap: 13px; margin-top: 16px; }
+  .sig-row { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: start; }
+  .sig {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 3px 0;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .sig.ok    { color: var(--ok);        background: color-mix(in srgb, var(--ok) 11%, transparent); }
+  .sig.watch { color: var(--warn-text); background: color-mix(in srgb, var(--oc-deadline) 14%, transparent); }
+  .sig.alert { color: var(--bad);       background: color-mix(in srgb, var(--bad) 12%, transparent); }
+  .sig.info  { color: var(--thread);    background: var(--thread-soft); }
+  .sig-row p { font-size: 13.5px; color: var(--ink); margin: 0; }
+  .sig-row small { display: block; font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+  .c-table { grid-column: span 12; }
+  .c-table summary {
+    cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--ink-2);
+    padding: 14px 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--card-solid);
+    list-style: none;
+  }
+  .c-table summary::-webkit-details-marker { display: none; }
+  .c-table summary::before { content: "▸ "; color: var(--thread); }
+  .c-table[open] summary::before { content: "▾ "; }
+  .c-table .tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 16px; margin-top: 8px; background: var(--card-solid); }
+  .c-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .c-table th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); padding: 12px 16px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .c-table td { padding: 9px 16px; border-bottom: 1px solid var(--line); color: var(--ink-2); white-space: nowrap; }
+  .c-table tr:last-child td { border-bottom: none; }
+  .c-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .c-table th.num { text-align: right; }
+  .c-table .oc { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; color: var(--ink); }
+  .c-table .oc i { width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
+
+  .empty { font-size: 13.5px; color: var(--ink-3); margin-top: 16px; }
+
+  #viz-tip {
+    position: fixed; z-index: 90; pointer-events: none;
+    background: var(--card-solid); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: var(--shadow-soft);
+    font-size: 12.5px; line-height: 1.5; padding: 8px 11px;
+    opacity: 0; transition: opacity .12s;
+    max-width: 260px;
+  }
+  #viz-tip b { font-variant-numeric: tabular-nums; }
+  #viz-tip .d { color: var(--ink-3); }
+
+  @media (max-width: 880px) {
+    .c-json, .c-aside, .c-card { grid-column: span 12; }
+    .kpi { grid-column: span 6; }
+  }
 </style>
 </head>
 <body>
@@ -387,6 +523,7 @@
     </svg>
     <span>Threadline</span></a>
   <a class="nlink" href="/landing.html">← Back to the tour</a>
+  <a class="nlink" href="#console">Console</a>
   <a class="nav-cta" href="/">Open the app</a>
 </nav>
 
@@ -521,6 +658,88 @@
     </div>
   </div>
 
+  <section class="console" id="console" aria-label="Harness console">
+    <div class="c-head">
+      <div class="kicker">The console</div>
+      <h2 class="serif">The record is a dataset. Read it like one.</h2>
+      <p class="lede">Every run leaves one row in the runs table. One row powers the retry button; fifty rows answer the operational questions — is it shipping, what is it costing, which gate is firing.</p>
+      <div class="badge" id="data-badge"><i></i><span>connecting…</span></div>
+    </div>
+
+    <div class="c-grid">
+      <div class="c-card c-json">
+        <div class="term-bar"><i></i><i></i><i></i><span>one row from the runs table · GET /api/runs</span></div>
+        <div class="term-body">{
+  <span class="k">"id"</span>: <span class="n">27</span>,
+  <span class="k">"kind"</span>: <span class="s">"notes"</span>,
+  <span class="k">"meeting_id"</span>: <span class="s">"m12"</span>,
+  <span class="k">"outcome"</span>: <span class="s">"partial"</span>,                <span class="c">// shipped | partial | deadline | failed — no fifth value</span>
+  <span class="k">"failure"</span>: {
+    <span class="k">"code"</span>: <span class="s">"grounding-blocked"</span>,       <span class="c">// fixed vocabulary — never a free string</span>
+    <span class="k">"detail"</span>: <span class="s">"[verbatim-number] …"</span>     <span class="c">// stays server-side; the UI gets only the label</span>
+  },
+  <span class="k">"steps"</span>: [
+    { <span class="k">"name"</span>: <span class="s">"compose:notes"</span>,   <span class="k">"status"</span>: <span class="s">"ok"</span>,      <span class="k">"attempts"</span>: <span class="n">2</span>, <span class="k">"ms"</span>: <span class="n">6113</span> },
+    { <span class="k">"name"</span>: <span class="s">"gate:grounding"</span>,  <span class="k">"status"</span>: <span class="s">"blocked"</span>, <span class="k">"attempts"</span>: <span class="n">1</span>, <span class="k">"ms"</span>: <span class="n">4</span> },
+    { <span class="k">"name"</span>: <span class="s">"gate:entailment"</span>, <span class="k">"status"</span>: <span class="s">"ok"</span>,      <span class="k">"attempts"</span>: <span class="n">1</span>, <span class="k">"ms"</span>: <span class="n">1290</span> }
+  ],
+  <span class="k">"args"</span>: { <span class="k">"meetingId"</span>: <span class="s">"m12"</span> },      <span class="c">// exactly what the retry button re-dispatches</span>
+  <span class="k">"units_spent"</span>: <span class="n">5</span>,                     <span class="c">// against budgets.workflows.notes in agents.json</span>
+  <span class="k">"tokens_in"</span>: <span class="n">20221</span>, <span class="k">"tokens_out"</span>: <span class="n">7428</span>,
+  <span class="k">"cost_usd"</span>: <span class="n">0.00749</span>,                  <span class="c">// priced from models.pricing</span>
+  <span class="k">"started_at"</span>: <span class="n">1786706851587</span>, <span class="k">"ended_at"</span>: <span class="n">1786706955479</span>
+}</div>
+      </div>
+
+      <div class="c-card c-aside">
+        <h3>What one row buys you</h3>
+        <ul>
+          <li><b>The retry button.</b> <code>args</code> holds exactly what to re-dispatch — same work, fresh budget, its own new record.</li>
+          <li><b>The bill.</b> Tokens and cost are attributed per run, priced from config — the charts below just add them up.</li>
+          <li><b>The audit.</b> Outcome plus a structured reason, written even for a <code>kill&nbsp;-9</code> mid-run.</li>
+          <li><b>This console.</b> Everything below is drawn live from rows like this one — no extra instrumentation.</li>
+        </ul>
+      </div>
+
+      <div class="c-card kpi"><div class="lab">Runs recorded</div><div class="val" id="kpi-runs">—</div><div class="note" id="kpi-runs-note"></div></div>
+      <div class="c-card kpi"><div class="lab">Ship rate</div><div class="val" id="kpi-ship">—</div><div class="note" id="kpi-ship-note"></div></div>
+      <div class="c-card kpi"><div class="lab">Spend, this window</div><div class="val" id="kpi-cost">—</div><div class="note" id="kpi-cost-note"></div></div>
+      <div class="c-card kpi"><div class="lab">Median run time</div><div class="val" id="kpi-dur">—</div><div class="note" id="kpi-dur-note"></div></div>
+
+      <div class="c-card" style="grid-column: span 5;">
+        <h3>How runs ended</h3>
+        <div class="sub">The four outcomes — there is no fifth value</div>
+        <div class="viz" id="viz-mix"></div>
+      </div>
+
+      <div class="c-card" style="grid-column: span 7;">
+        <h3>Why runs didn’t ship clean</h3>
+        <div class="sub">Public failure labels only — details stay in the record</div>
+        <div class="viz" id="viz-fail"></div>
+      </div>
+
+      <div class="c-card" style="grid-column: span 7;">
+        <h3>Cost per run</h3>
+        <div class="sub" id="cost-sub">oldest → newest</div>
+        <div class="viz" id="viz-cost"></div>
+      </div>
+
+      <div class="c-card" style="grid-column: span 5;">
+        <h3>Signals</h3>
+        <div class="sub">Plain-code rules over the window — the same philosophy as the gates</div>
+        <div class="sig-rows" id="viz-sig"></div>
+      </div>
+
+      <details class="c-table">
+        <summary>Table view — every run in this window</summary>
+        <div class="tw"><table>
+          <thead><tr><th>Run</th><th>Kind</th><th>Outcome</th><th>Why</th><th class="num">Cost</th><th class="num">Duration</th><th class="num">When</th></tr></thead>
+          <tbody id="runs-tbody"></tbody>
+        </table></div>
+      </details>
+    </div>
+  </section>
+
   <div class="knot">
     <div class="serif">…and only then does a line reach your notes.
       <svg viewBox="0 0 34 34" fill="none" aria-hidden="true">
@@ -622,6 +841,397 @@
   addEventListener("resize", build);
   build();
   setTimeout(build, 300); /* fonts settle */
+})();
+</script>
+
+<script>
+/* ── the console: recent runs, drawn from the runs table ─────────────────────
+   Live when the server answers /api/runs/recent; a realistic sample otherwise
+   (the page also works opened straight from disk). Same sealed edge as the
+   app: outcomes, public failure labels, spend — never codes or details. */
+(function () {
+  "use strict";
+
+  /* the four outcomes, in the stacked bar's order. This order (not the
+     doc order) is what the palette was validated in — shipped→deadline→
+     partial→failed keeps amber and red from ever touching. */
+  var ORDER = [
+    { key: "shipped",  varName: "--oc-shipped"  },
+    { key: "deadline", varName: "--oc-deadline" },
+    { key: "partial",  varName: "--oc-partial"  },
+    { key: "failed",   varName: "--oc-failed"   }
+  ];
+  var GATE_LABELS = ["the output failed the grounding gate", "the cited transcript does not support the claim"];
+  var CRASH_LABEL = "something went wrong";
+
+  // ── formatting ─────────────────────────────────────────────────────────
+  function fmtUsd(v) {
+    if (!v) return "$0";
+    if (v >= 1) return "$" + v.toFixed(2);
+    if (v >= 0.01) return "$" + v.toFixed(3);
+    return "$" + v.toFixed(4);
+  }
+  function fmtMs(ms) {
+    if (ms == null) return "—";
+    if (ms < 1000) return Math.round(ms) + "ms";
+    if (ms < 60000) return (ms / 1000).toFixed(1) + "s";
+    return Math.floor(ms / 60000) + "m " + Math.round((ms % 60000) / 1000) + "s";
+  }
+  function fmtWhen(t) {
+    var d = Date.now() - t;
+    if (d < 90e3) return "just now";
+    if (d < 3600e3) return Math.round(d / 60e3) + "m ago";
+    if (d < 86400e3) return Math.round(d / 3600e3) + "h ago";
+    return Math.round(d / 86400e3) + "d ago";
+  }
+  function pct(part, whole) { return whole ? Math.round((100 * part) / whole) : 0; }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  // ── tooltip (shared; enhances, never gates — the table view has it all) ──
+  var tip = el("div"); tip.id = "viz-tip";
+  document.body.appendChild(tip);
+  function tipShow(html, x, y) {
+    tip.innerHTML = html;
+    tip.style.opacity = "1";
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    var left = x + 14, top = y + 14;
+    if (left + w > innerWidth - 8) left = x - w - 14;
+    if (top + h > innerHeight - 8) top = y - h - 14;
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+  }
+  function tipHide() { tip.style.opacity = "0"; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+  // ── sample fallback: the shape /api/runs/recent returns, newest first ──
+  var SAMPLE = (function () {
+    var now = Date.now();
+    // [kind, outcome, failureText, costUsd, durationMs, minutesAgo]
+    var rows = [
+      ["notes", "shipped", "", 0.0029, 8412, 12],
+      ["notes", "partial", "the cited transcript does not support the claim", 0.0031, 9120, 26],
+      ["handoff", "shipped", "", 0.0018, 5230, 41],
+      ["notes", "shipped", "", 0.0054, 11804, 63],
+      ["ask", "shipped", "", 0.0006, 2410, 71],
+      ["notes", "partial", "the model's JSON did not match the schema", 0.0068, 14522, 88],
+      ["process-meeting", "shipped", "", 0.0052, 60930, 118],
+      ["notes", "shipped", "", 0.0057, 12660, 121],
+      ["handoff", "partial", "the output failed the grounding gate", 0.0044, 10930, 154],
+      ["notes", "partial", "the output failed the grounding gate", 0.0075, 17890, 190],
+      ["ask", "shipped", "", 0.0004, 1830, 224],
+      ["notes", "shipped", "", 0.0031, 7245, 262],
+      ["cross-handoff", "shipped", "", 0.0092, 22140, 300],
+      ["notes", "deadline", "the run's deadline passed", 0.0088, 151220, 341],
+      ["handoff", "shipped", "", 0.0021, 6110, 388],
+      ["process-meeting", "shipped", "", 0.0049, 54280, 419],
+      ["notes", "shipped", "", 0.0038, 9310, 466],
+      ["ask", "shipped", "", 0.0005, 2110, 512],
+      ["notes", "partial", "the cited transcript does not support the claim", 0.0041, 10240, 549],
+      ["handoff", "shipped", "", 0.0019, 5470, 590],
+      ["notes", "failed", "the model host returned an error", 0.0002, 3210, 633],
+      ["notes", "shipped", "", 0.0044, 9870, 671],
+      ["process-meeting", "shipped", "", 0.0061, 71410, 700],
+      ["cross-handoff", "partial", "the output failed the grounding gate", 0.0104, 26310, 742],
+      ["ask", "shipped", "", 0.0007, 2650, 781],
+      ["notes", "shipped", "", 0.0036, 8140, 823],
+      ["handoff", "shipped", "", 0.0023, 6890, 862],
+      ["notes", "partial", "the model's JSON did not match the schema", 0.0059, 13470, 897],
+      ["notes", "shipped", "", 0.0033, 7980, 941],
+      ["process-meeting", "shipped", "", 0.0047, 49830, 980]
+    ];
+    return rows.map(function (r, i) {
+      return { id: rows.length - i + 20, kind: r[0], outcome: r[1], failureText: r[2],
+               costUsd: r[3], durationMs: r[4], startedAt: now - r[5] * 60e3, tokensIn: 0, tokensOut: 0 };
+    });
+  })();
+
+  var RUNS = null;
+
+  // ── KPI tiles ───────────────────────────────────────────────────────────
+  function renderKpis(runs) {
+    var n = runs.length;
+    var shipped = runs.filter(function (r) { return r.outcome === "shipped"; }).length;
+    var partial = runs.filter(function (r) { return r.outcome === "partial"; }).length;
+    var total = runs.reduce(function (s, r) { return s + (r.costUsd || 0); }, 0);
+    var durs = runs.map(function (r) { return r.durationMs; }).filter(function (d) { return d != null; }).sort(function (a, b) { return a - b; });
+    var med = durs.length ? durs[Math.floor(durs.length / 2)] : null;
+    var p95 = durs.length ? durs[Math.min(durs.length - 1, Math.floor(durs.length * 0.95))] : null;
+
+    var byKind = {};
+    runs.forEach(function (r) { byKind[r.kind] = (byKind[r.kind] || 0) + 1; });
+    var kinds = Object.keys(byKind).sort(function (a, b) { return byKind[b] - byKind[a]; })
+      .slice(0, 3).map(function (k) { return byKind[k] + " " + k; }).join(" · ");
+
+    document.getElementById("kpi-runs").textContent = n;
+    document.getElementById("kpi-runs-note").textContent = kinds || "process a meeting to begin";
+    document.getElementById("kpi-ship").textContent = n ? pct(shipped, n) + "%" : "—";
+    document.getElementById("kpi-ship-note").textContent = n ? shipped + " of " + n + " shipped clean · " + partial + " partial" : "";
+    document.getElementById("kpi-cost").textContent = fmtUsd(total);
+    document.getElementById("kpi-cost-note").textContent = n ? "avg " + fmtUsd(total / n) + " per run" : "";
+    document.getElementById("kpi-dur").textContent = med == null ? "—" : fmtMs(med);
+    document.getElementById("kpi-dur-note").textContent = p95 == null ? "" : "p95 " + fmtMs(p95);
+  }
+
+  // ── outcome mix: one stacked bar + legend that carries the counts ──────
+  function renderMix(runs) {
+    var host = document.getElementById("viz-mix");
+    host.textContent = "";
+    if (!runs.length) { host.appendChild(el("div", "empty", "No runs yet — this fills in as the app works.")); return; }
+    var counts = {};
+    ORDER.forEach(function (o) { counts[o.key] = 0; });
+    runs.forEach(function (r) { if (counts[r.outcome] != null) counts[r.outcome]++; });
+
+    var bar = el("div", "mix-bar");
+    ORDER.forEach(function (o) {
+      if (!counts[o.key]) return;
+      var seg = el("span");
+      seg.style.flexGrow = counts[o.key];
+      seg.style.background = "var(" + o.varName + ")";
+      seg.addEventListener("mousemove", function (e) {
+        tipShow("<b>" + counts[o.key] + "</b> " + esc(o.key) + " <span class='d'>· " + pct(counts[o.key], runs.length) + "% of " + runs.length + " runs</span>", e.clientX, e.clientY);
+      });
+      seg.addEventListener("mouseleave", tipHide);
+      bar.appendChild(seg);
+    });
+    host.appendChild(bar);
+
+    var legend = el("div", "mix-legend");
+    ORDER.forEach(function (o) {
+      var chip = el("span");
+      chip.style.setProperty("--dot", "var(" + o.varName + ")");
+      chip.appendChild(el("i"));
+      chip.appendChild(document.createTextNode(o.key + " "));
+      chip.appendChild(el("b", null, String(counts[o.key])));
+      legend.appendChild(chip);
+    });
+    host.appendChild(legend);
+  }
+
+  // ── why runs didn't ship clean: public labels, counted ──────────────────
+  function renderFail(runs) {
+    var host = document.getElementById("viz-fail");
+    host.textContent = "";
+    var byLabel = {};
+    runs.forEach(function (r) {
+      if (r.outcome === "shipped" || !r.failureText) return;
+      byLabel[r.failureText] = (byLabel[r.failureText] || 0) + 1;
+    });
+    var labels = Object.keys(byLabel).sort(function (a, b) { return byLabel[b] - byLabel[a]; });
+    if (!labels.length) { host.appendChild(el("div", "empty", "Every run in this window shipped clean.")); return; }
+    var top = labels.slice(0, 5);
+    var rest = labels.slice(5).reduce(function (s, l) { return s + byLabel[l]; }, 0);
+    var rows = top.map(function (l) { return { label: l, count: byLabel[l] }; });
+    if (rest) rows.push({ label: "everything else", count: rest });
+    var max = rows[0].count;
+
+    var wrap = el("div", "fail-rows");
+    rows.forEach(function (r) {
+      var row = el("div", "fail-row");
+      var lab = el("div", "fl", r.label);
+      lab.title = r.label;
+      var track = el("div", "ft");
+      var fill = el("i");
+      fill.style.width = Math.max(4, (100 * r.count) / max) + "%";
+      track.appendChild(fill);
+      row.appendChild(lab);
+      row.appendChild(track);
+      row.appendChild(el("div", "fc", String(r.count)));
+      wrap.appendChild(row);
+    });
+    host.appendChild(wrap);
+  }
+
+  // ── cost per run: one series, one hue, hover for the rest ──────────────
+  function renderCost(runs) {
+    var host = document.getElementById("viz-cost");
+    host.textContent = "";
+    if (!runs.length) { host.appendChild(el("div", "empty", "No runs yet — this fills in as the app works.")); return; }
+    var data = runs.slice().reverse(); // oldest → newest
+    var W = Math.max(280, host.clientWidth || 500);
+    var H = 140, padT = 8, padL = 46, padR = 6, AXIS = 20;
+    var SVGNS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("class", "cost-svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + (padT + H + AXIS));
+    svg.setAttribute("height", padT + H + AXIS);
+    svg.setAttribute("aria-hidden", "true"); // the table view is the readable twin
+
+    function nice(v) {
+      var p = Math.pow(10, Math.floor(Math.log10(v)));
+      var m = v / p;
+      return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
+    }
+    var max = nice(Math.max.apply(null, data.map(function (r) { return r.costUsd || 0; })) || 0.001);
+    var y = function (v) { return padT + H - (H * v) / max; };
+
+    // hairline grid + clean tick labels
+    [0, max / 2, max].forEach(function (v) {
+      var line = document.createElementNS(SVGNS, "line");
+      line.setAttribute("class", "grid-line");
+      line.setAttribute("x1", padL); line.setAttribute("x2", W - padR);
+      line.setAttribute("y1", y(v)); line.setAttribute("y2", y(v));
+      svg.appendChild(line);
+      var t = document.createElementNS(SVGNS, "text");
+      t.setAttribute("x", padL - 6); t.setAttribute("y", y(v) + 3.5);
+      t.setAttribute("text-anchor", "end");
+      t.textContent = v ? "$" + Number(v.toFixed(4)) : "$0";
+      svg.appendChild(t);
+    });
+
+    var span = (W - padL - padR) / data.length;
+    var barW = Math.min(18, Math.max(2, span - 2));
+
+    var band = document.createElementNS(SVGNS, "rect"); // hover highlight
+    band.setAttribute("class", "hover-band");
+    band.setAttribute("y", padT); band.setAttribute("height", H);
+    band.setAttribute("width", span);
+    svg.appendChild(band);
+
+    data.forEach(function (r, i) {
+      if (!r.costUsd) return;
+      var h = Math.max(1.5, H * (r.costUsd / max));
+      var x = padL + i * span + (span - barW) / 2;
+      var top = padT + H - h;
+      var rad = Math.min(4, barW / 2, h);
+      var p = document.createElementNS(SVGNS, "path");
+      // rounded at the data end, square at the baseline
+      p.setAttribute("d", "M" + x + "," + (padT + H) + " L" + x + "," + (top + rad) +
+        " Q" + x + "," + top + " " + (x + rad) + "," + top +
+        " L" + (x + barW - rad) + "," + top +
+        " Q" + (x + barW) + "," + top + " " + (x + barW) + "," + (top + rad) +
+        " L" + (x + barW) + "," + (padT + H) + " Z");
+      p.setAttribute("class", "col");
+      svg.appendChild(p);
+    });
+
+    // first & last run under the axis
+    var t0 = document.createElementNS(SVGNS, "text");
+    t0.setAttribute("x", padL); t0.setAttribute("y", padT + H + 14);
+    t0.textContent = "run #" + data[0].id;
+    svg.appendChild(t0);
+    var t1 = document.createElementNS(SVGNS, "text");
+    t1.setAttribute("x", W - padR); t1.setAttribute("y", padT + H + 14);
+    t1.setAttribute("text-anchor", "end");
+    t1.textContent = "run #" + data[data.length - 1].id;
+    svg.appendChild(t1);
+
+    // nearest-band hover — no pinpoint targets
+    svg.addEventListener("mousemove", function (e) {
+      var box = svg.getBoundingClientRect();
+      var mx = ((e.clientX - box.left) / box.width) * W;
+      var i = Math.max(0, Math.min(data.length - 1, Math.floor((mx - padL) / span)));
+      var r = data[i];
+      band.setAttribute("x", padL + i * span);
+      band.style.opacity = "0.6";
+      tipShow("run <b>#" + r.id + "</b> · " + esc(r.kind) + "<br><b>" + fmtUsd(r.costUsd) + "</b> <span class='d'>· " + esc(r.outcome) + " · " + fmtMs(r.durationMs) + "</span>", e.clientX, e.clientY);
+    });
+    svg.addEventListener("mouseleave", function () { band.style.opacity = "0"; tipHide(); });
+
+    host.appendChild(svg);
+  }
+
+  // ── signals: plain-code rules with stated thresholds ────────────────────
+  function renderSig(runs) {
+    var host = document.getElementById("viz-sig");
+    host.textContent = "";
+    if (!runs.length) { host.appendChild(el("div", "empty", "No runs yet — signals compute once there is a window to judge.")); return; }
+    var SYM = { ok: "✓", watch: "!", alert: "✕", info: "i" };
+    function row(status, text, note) {
+      var r = el("div", "sig-row");
+      r.appendChild(el("span", "sig " + status, SYM[status] + " " + status));
+      var body = el("div");
+      body.appendChild(el("p", null, text));
+      if (note) body.appendChild(el("small", null, note));
+      r.appendChild(body);
+      host.appendChild(r);
+    }
+
+    var w = runs.slice(0, 20);
+    var non = w.filter(function (r) { return r.outcome !== "shipped"; }).length;
+    var rate = non / w.length;
+    row(rate < 0.10 ? "ok" : rate < 0.25 ? "watch" : "alert",
+      non + " of the last " + w.length + " runs didn’t ship clean (" + Math.round(rate * 100) + "%)",
+      "watch at 10% · alert at 25% — the chart on the left says which gate is firing");
+
+    var dl = runs.filter(function (r) { return r.outcome === "deadline"; }).length;
+    if (!dl) row("ok", "the budget governor never had to stop a run", "budgets.workflows in agents.json fit the work");
+    else row(dl >= 3 ? "alert" : "watch", "the governor stopped " + dl + " run" + (dl > 1 ? "s" : "") + " — time or units ran out",
+      "resize budgets.workflows in agents.json if this is expected work");
+
+    var gates = runs.filter(function (r) { return GATE_LABELS.indexOf(r.failureText) !== -1; }).length;
+    if (!gates) row("info", "gates caught nothing — no unsupported claim tried to ship", "gates.entailment: blocking · advisory · off");
+    else row(gates / runs.length > 0.3 ? "watch" : "info",
+      "gates caught " + gates + " run" + (gates > 1 ? "s" : "") + " and pruned or blocked the content",
+      gates / runs.length > 0.3 ? "that’s a lot — a prompt may be drifting; check its version stamp" : "the harness doing its job — nothing unsupported shipped");
+
+    var crashes = runs.filter(function (r) { return r.outcome === "failed" && r.failureText === CRASH_LABEL; }).length;
+    if (!crashes) row("ok", "no unclassified crashes — every failure carries a code", null);
+    else row("alert", crashes + " run" + (crashes > 1 ? "s" : "") + " died without a classified reason",
+      "read data/logs/threadline.log — the crash placeholder row is the pointer");
+
+    var total = runs.reduce(function (s, r) { return s + (r.costUsd || 0); }, 0);
+    var avg = total / runs.length;
+    row(avg < 0.01 ? "ok" : avg < 0.05 ? "watch" : "alert",
+      "averaging " + fmtUsd(avg) + " per run · " + fmtUsd(total) + " this window",
+      "priced from models.pricing — a $0 run means an unpriced model");
+  }
+
+  // ── the table view: the WCAG-clean twin of everything above ─────────────
+  function renderTable(runs) {
+    var tbody = document.getElementById("runs-tbody");
+    tbody.textContent = "";
+    var VAR = {}; ORDER.forEach(function (o) { VAR[o.key] = o.varName; });
+    runs.forEach(function (r) {
+      var tr = document.createElement("tr");
+      tr.appendChild(el("td", null, "#" + r.id));
+      tr.appendChild(el("td", null, r.kind));
+      var oc = el("td");
+      var chip = el("span", "oc");
+      chip.style.setProperty("--dot", "var(" + (VAR[r.outcome] || "--ink-3") + ")");
+      chip.appendChild(el("i"));
+      chip.appendChild(document.createTextNode(r.outcome));
+      oc.appendChild(chip);
+      tr.appendChild(oc);
+      tr.appendChild(el("td", null, r.failureText || "—"));
+      tr.appendChild(el("td", "num", fmtUsd(r.costUsd)));
+      tr.appendChild(el("td", "num", fmtMs(r.durationMs)));
+      tr.appendChild(el("td", "num", fmtWhen(r.startedAt)));
+      tbody.appendChild(tr);
+    });
+  }
+
+  function render(runs, live) {
+    RUNS = runs;
+    var badge = document.getElementById("data-badge");
+    badge.classList.toggle("live", live);
+    badge.querySelector("span").textContent = live
+      ? "live — reading your runs table, last " + runs.length + " runs"
+      : "sample data — run npm run dev and reopen to see your own runs";
+    renderKpis(runs);
+    renderMix(runs);
+    renderFail(runs);
+    renderCost(runs);
+    renderSig(runs);
+    renderTable(runs);
+    dispatchEvent(new Event("resize")); // the stitch path re-measures the page
+  }
+
+  var rt = null;
+  addEventListener("resize", function () {
+    if (!RUNS) return;
+    clearTimeout(rt);
+    rt = setTimeout(function () { renderCost(RUNS); }, 150);
+  });
+
+  fetch("/api/runs/recent?limit=50")
+    .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+    .then(function (d) { render(Array.isArray(d.runs) ? d.runs : [], true); })
+    .catch(function () { render(SAMPLE, false); });
 })();
 </script>
 </body>

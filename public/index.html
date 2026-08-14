@@ -4685,11 +4685,13 @@ const MODE_LABELS = {
   one_on_one: "1:1",
 };
 
-/** Header shared by every state of the notes card, so the chrome never jumps. */
-function notesHead(extra = "") {
+/** Header shared by every state of the notes card, so the chrome never jumps.
+ *  Once notes exist, the same button reads Restructure — it replaces, not adds. */
+function notesHead(extra = "", hasOutline = false) {
+  const verb = hasOutline ? "Restructure" : "Structure";
   return `<div class="out-head">
     <h2>Notes</h2>
-    <button class="hbtn" id="out-structure" title="Rebuild the notes from the transcript for this mode">☰ Structure my notes</button>
+    <button class="hbtn" id="out-structure" title="${hasOutline ? "Rebuild" : "Build"} the notes from the transcript — the mode picks the sections they reach for">☰ ${verb} my notes</button>
     <span class="spacer"></span>
     ${extra}
   </div>`;
@@ -4738,6 +4740,7 @@ function notesCard(data) {
         : `<span class="out-stamp">${outline.edited ? "<b>edited</b> · " : ""}${esc(outline.promptVersion)}</span>
        <button class="hbtn" id="out-copy">Copy</button>
        <button class="hbtn" id="out-edit">Edit</button>`,
+      true,
     )}
     ${empty
       ? `<div class="empty" style="padding:18px 0">No notes from this recording — there wasn't enough in the transcript to summarize. Keep recording, or edit the transcript and structure again.</div>`
@@ -4772,6 +4775,14 @@ async function renderOutlineSection(meetingId, opts = {}) {
   renderModeChip(meetingId, data);
   renderHandoffRow(meetingId, data.catalog ?? [], data.handoffs ?? []);
   for (const run of data.handoffs ?? []) appendHandoffCard(meetingId, run, { replay: true });
+  // The transcript grew since these notes were built — more audio recorded
+  // into this meeting, or a line fixed. Unedited notes follow the transcript,
+  // so they restructure themselves in the open (the button says so); edited
+  // notes are never touched without the confirm the restructure handler owns.
+  if (data.stale && data.outline && !data.outline.edited && opts.generate !== false) {
+    showToast("The transcript changed — restructuring notes");
+    $("#out-structure")?.click();
+  }
   return data;
 }
 
@@ -4810,14 +4821,16 @@ function wireOutline(meetingId, data) {
   }
 
   $("#out-structure")?.addEventListener("click", async (e) => {
-    if (outline?.edited && !(await tlConfirm("You've edited these notes. Structuring again replaces them with a fresh pass. Continue?", { okLabel: "Structure again" }))) return;
+    if (outline?.edited && !(await tlConfirm("You've edited these notes. Restructuring replaces them with a fresh pass. Continue?", { okLabel: "Restructure" }))) return;
     const btn = e.currentTarget;
     btn.disabled = true;
-    btn.textContent = "☰ Structuring…";
+    btn.textContent = outline ? "☰ Restructuring…" : "☰ Structuring…";
     const body = $("#outline .card");
-    // Rough notes steer the structure; they never become a citation.
+    // Rough notes steer the structure; they never become a citation. The mode
+    // is NOT sent: the meeting's stored type is authoritative (the picker set
+    // it) — a stale closure here must never write an old mode back.
     const hints = doc ? domToMd(doc) : "";
-    const out = await post("/api/outline/generate", { id: meetingId, force: true, mode: data.meeting_type, hints });
+    const out = await post("/api/outline/generate", { id: meetingId, force: true, hints });
     if (out.error && !out.outline) {
       // In-card failure + retry, never an alert. The run record has the rest.
       return showOutlineFailure(meetingId, box, { ...data, error: out.error, runId: out.runId });
@@ -4840,7 +4853,7 @@ function wireOutline(meetingId, data) {
 
   // The rough page is never lost when notes get structured — it is one click away.
   $("#out-rough")?.addEventListener("click", () => {
-    box.innerHTML = `<div class="card">${notesHead(`<button class="hbtn" id="out-back">‹ structured notes</button>`)}
+    box.innerHTML = `<div class="card">${notesHead(`<button class="hbtn" id="out-back">‹ structured notes</button>`, true)}
       <div id="notes-doc" contenteditable="true" data-ph="🧵 Your own notes…"></div></div>`;
     const raw = $("#notes-doc");
     raw.innerHTML = data.meeting?.my_notes ? mdToDom(data.meeting.my_notes) : "<p><br></p>";
@@ -4931,9 +4944,11 @@ function openModePicker(meetingId, data, anchor) {
       data.catalog = out.catalog ?? data.catalog;
       renderModeChip(meetingId, data);
       renderHandoffRow(meetingId, data.catalog ?? [], data.handoffs ?? []);
-      // The mode changes which sections the notes reach for, so offer the rebuild
-      // rather than silently spending a model call.
-      showToast(`Mode set to ${MODE_LABELS[data.meeting_type]}`, "Rebuild notes", () => $("#out-structure")?.click());
+      // The mode picks the sections and the summary's emphasis, so the notes
+      // rebuild right away. Edited notes still get their confirm (the
+      // restructure handler asks) — a mode change never silently eats an edit.
+      showToast(`Mode set to ${MODE_LABELS[data.meeting_type]} — restructuring notes`);
+      $("#out-structure")?.click();
     }));
 }
 
@@ -4950,7 +4965,7 @@ function openOutlineEditor(meetingId, data) {
   const box = $("#outline");
   const md = outlineToMarkdown(data.outline.notes, true);
   box.innerHTML = `<div class="card">
-    ${notesHead(`<span class="out-stamp">markdown · keep the <b>[S004]</b> receipts to keep the links</span>`)}
+    ${notesHead(`<span class="out-stamp">markdown · keep the <b>[S004]</b> receipts to keep the links</span>`, true)}
     <textarea class="hedit" id="out-md">${esc(md)}</textarea>
     <div class="hfoot"><span class="spacer"></span>
       <button class="hbtn" id="out-cancel">Cancel</button>

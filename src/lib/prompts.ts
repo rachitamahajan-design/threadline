@@ -16,6 +16,7 @@
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { SUMMARY_GUIDE, sectionsFor } from "./outline.js";
 
 export type PromptTemplate<V = Record<string, unknown>> = {
   id: string;
@@ -89,6 +90,30 @@ export type NotesVars = {
   hints?: string;
 };
 
+/** The mode's shape example, built from the same specs the normaliser enforces. */
+function sectionShape(type: string): string {
+  const specs = sectionsFor(type);
+  const lines = specs.map((s, i) => {
+    if (i === 0)
+      return `  {"text": "${s.name}", "children": [\n    {"text": "<a topic actually discussed>", "children": [{"text": "A point that was made, with its numbers", "source": ["S004"]}]}\n  ]}`;
+    const example = s.actions ? "Rachita: send the tier model by end of month" : "A point that belongs here, with its figures";
+    return `  {"text": "${s.name}", "children": [{"text": "${example}", "source": ["S00${i + 4}"]}]}`;
+  });
+  return `{"themes": [\n${lines.join(",\n")}\n ],\n "summary": {"text": "2-4 sentences on what this meeting was and what came of it.", "source": ["S001","S005"]}}`;
+}
+
+/** One rule line per mode section; commitment sections carry the owner rule. */
+function sectionRules(type: string): string {
+  return sectionsFor(type)
+    .slice(1)
+    .map((s) =>
+      s.actions
+        ? `- "${s.name}" is for ${s.guide}. Bullets start with the owner exactly as PARTICIPANTS names them, then what they will do and when if a time was said: "Rachita: send the tier model by end of month". If nobody took it, start with "Unassigned:". Never invent an owner.`
+        : `- "${s.name}" is for ${s.guide}.`,
+    )
+    .join("\n");
+}
+
 export const NOTES_COMPOSE: PromptTemplate<NotesVars> = {
   id: "notes.compose",
   ...pick("notes.compose"),
@@ -98,6 +123,12 @@ export const NOTES_COMPOSE: PromptTemplate<NotesVars> = {
       type,
       statements,
       groundingRules: GROUNDING_RULES,
+      // The mode's readout vocabulary — same specs normalizeSections enforces,
+      // so what the prompt promises is exactly what the reader gets.
+      sectionShape: sectionShape(type),
+      sectionNames: sectionsFor(type).map((s) => `"${s.name}"`).join(", "),
+      sectionRules: sectionRules(type),
+      summaryGuide: SUMMARY_GUIDE[type] ?? SUMMARY_GUIDE.team,
       // What each kind of meeting is usually *about* — theme-naming suggestions
       // only. A section with nothing behind it in the transcript must not
       // appear, so these can never become a checklist the model feels obliged
@@ -107,6 +138,23 @@ export const NOTES_COMPOSE: PromptTemplate<NotesVars> = {
       hintsBlock: hints
         ? `\nTHE FOUNDER'S OWN ROUGH NOTES (what they care about — use this to choose themes, ordering and emphasis ONLY. It is not a transcript and can never be cited or treated as fact):\n${hints}`
         : "",
+    }),
+};
+
+/**
+ * The summary's second chance. A weak model under repair pressure sometimes
+ * ships the outline without its summary — deleting it is the cheapest way to
+ * satisfy a validator. The outline is still good, so this small prompt writes
+ * only the summary, grounded in the notes' own segment ids.
+ */
+export const SUMMARY_BACKFILL: PromptTemplate<{ notes: string; type: string }> = {
+  id: "summary.backfill",
+  ...pick("summary.backfill"),
+  build: ({ notes, type }) =>
+    fill(template("summary.backfill").text, {
+      notes,
+      groundingRules: GROUNDING_RULES,
+      summaryGuide: SUMMARY_GUIDE[type] ?? SUMMARY_GUIDE.team,
     }),
 };
 

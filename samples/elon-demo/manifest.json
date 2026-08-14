@@ -1,0 +1,22 @@
+{
+  "dataset": "Threadline demo — Elon Musk meeting transcripts",
+  "meeting_count": 11,
+  "notes": [
+    "ALL MEETINGS, QUOTES, DECISIONS, DEALS AND NUMBERS ARE FICTIONAL demo data written for product demos.",
+    "Real public figures are depicted in invented conversations; nothing here is a record of a real meeting.",
+    "Recurring people and topics (Mars window, Optimus, X platform, AI compute) are intentional for testing Brain/graph linking."
+  ],
+  "meetings": [
+    { "id": "elon_01", "title": "Starship Mars Program Review", "date": "2026-07-20", "with": ["Gwynne Shotwell", "Mark Juncosa"], "topics": ["Starship", "Mars window", "Optimus", "Orbital refueling", "Raptor production"] },
+    { "id": "elon_02", "title": "Taylor Swift × X: Livestream Partnership", "date": "2026-08-03", "with": ["Taylor Swift", "Tree Paine"], "topics": ["X platform", "Live video", "Creator monetization", "Ticketing", "Content moderation"] },
+    { "id": "elon_03", "title": "White House Meeting: Space & AI Policy", "date": "2026-07-28", "with": ["Donald Trump", "Susie Wiles"], "topics": ["Mars window", "NASA", "AI policy", "Data center power", "Starlink", "Golden Dome"] },
+    { "id": "elon_04", "title": "Tesla FSD & Optimus Product Review", "date": "2026-08-06", "with": ["Ashok Elluswamy", "Franz von Holzhausen", "Vaibhav Taneja"], "topics": ["FSD", "Robotaxi", "Optimus", "Mars window", "Manufacturing", "AI training compute"] },
+    { "id": "elon_05", "title": "xAI × NVIDIA: Colossus 2 Compute Deal", "date": "2026-08-10", "with": ["Jensen Huang"], "topics": ["AI training compute", "GPU supply", "Data center power", "Grok", "Colossus", "Chip export policy"] },
+    { "id": "elon_06", "title": "MrBeast × X: Creator Video Deal", "date": "2026-08-12", "with": ["Jimmy Donaldson (MrBeast)"], "topics": ["X platform", "Creator monetization", "Live video", "Advertising", "Mars window"] },
+    { "id": "elon_07", "title": "Tim Cook × Starlink: iPhone Satellite Deal", "date": "2026-08-05", "with": ["Tim Cook", "Craig Federighi"], "topics": ["Starlink", "Direct-to-cell", "iPhone", "Privacy", "Spectrum"] },
+    { "id": "elon_08", "title": "Satya Nadella × xAI: Grok on Azure", "date": "2026-08-09", "with": ["Satya Nadella", "Scott Guthrie"], "topics": ["Grok", "Azure", "Enterprise AI", "AI training compute", "Data isolation"] },
+    { "id": "elon_09", "title": "Mars Window Go/No-Go Readiness Review", "date": "2026-08-13", "with": ["Gwynne Shotwell", "Mark Juncosa"], "topics": ["Mars window", "Starship", "Orbital refueling", "Optimus", "Pad B", "FAA"] },
+    { "id": "elon_10", "title": "Frontier AI Safety Standards Working Session", "date": "2026-08-11", "with": ["Sam Altman"], "topics": ["AI policy", "Safety evaluations", "Frontier models", "Chip export policy", "Incident reporting"] },
+    { "id": "elon_11", "title": "Joe Rogan: Mars Landing Episode Planning", "date": "2026-07-31", "with": ["Joe Rogan", "Jamie Vernon"], "topics": ["Mars window", "Podcast", "Starship", "Optimus", "Live coverage", "X platform"] }
+  ]
+}
