@@ -145,3 +145,58 @@ export async function awaitRecap(apiKey: string, callId: string, timeoutMs = 60_
   }
   throw new PyAIError(408, "recap_timeout", `Recap for ${callId} did not finish in ${timeoutMs}ms`);
 }
+
+// ── Batch transcription jobs (diarization) ────────────────────────────────
+
+export type DiarizedSegment = { id: number; start: number; end: number; text: string; speaker: string };
+
+/** Multipart WAV upload — `call()` hardcodes JSON, so this owns its fetch. */
+export async function submitTranscriptionJob(
+  apiKey: string,
+  wav: Buffer,
+  opts: { diarize?: boolean } = {},
+): Promise<string> {
+  const form = new FormData();
+  form.append("audio", new Blob([new Uint8Array(wav)], { type: "audio/wav" }), "audio.wav");
+  form.append("model", "pyai-hear");
+  if (opts.diarize) form.append("diarize", "true");
+  const res = await fetch(`${BASE}/transcription/jobs`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
+    throw new PyAIError(res.status, body?.error?.code ?? "job_submit_failed", body?.error?.message ?? `HTTP ${res.status}`);
+  }
+  const d = (await res.json()) as { job_id: string };
+  return d.job_id;
+}
+
+/** Poll a batch job to completion. Deadline scales with audio length. */
+export async function awaitTranscriptionJob(
+  apiKey: string,
+  jobId: string,
+  audioSeconds: number,
+): Promise<{ segments: DiarizedSegment[]; speakers: number }> {
+  const deadline = Date.now() + Math.max(120_000, audioSeconds * 2000);
+  let waitMs = 1000;
+  while (Date.now() < deadline) {
+    const r = await call<{ status: string; error?: string; result?: { segments?: DiarizedSegment[]; speakers?: number }; result_url?: string }>(
+      apiKey, `/transcription/jobs/${jobId}`, { method: "GET" },
+    );
+    if (r.status === "completed") {
+      let result = r.result;
+      if (!result && r.result_url) {
+        const big = await fetch(r.result_url);
+        result = (await big.json()) as typeof result;
+      }
+      return { segments: result?.segments ?? [], speakers: result?.speakers ?? 0 };
+    }
+    if (r.status === "failed" || r.status === "cancelled")
+      throw new PyAIError(500, "job_failed", r.error ?? `job ${r.status}`);
+    await new Promise((res) => setTimeout(res, waitMs));
+    waitMs = Math.min(waitMs * 1.5, 5000);
+  }
+  throw new PyAIError(408, "job_timeout", `job ${jobId} did not finish in time`);
+}

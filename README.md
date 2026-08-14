@@ -38,6 +38,12 @@ Meetings you never name are titled automatically from their own content, and a
 prompt lets you rename on the spot when you stop. Recordings under 15 seconds
 are discarded as accidental taps.
 
+Multi-party calls get automatic **speaker identification**: after each
+recording, the other side's audio is diarized (a PyAI batch job on the locally
+saved tape) and split into Speaker 1/2/3. Name each one once on the meeting
+page and it propagates everywhere — transcript, entities, graph, search.
+Resumed recordings aren't supported yet; too-short recordings are skipped.
+
 The floating companion window (pops up when recording starts) stays on top of
 every app with the timer, live line, and Stop — that's the everyday control
 surface; the hotkey is a bonus.

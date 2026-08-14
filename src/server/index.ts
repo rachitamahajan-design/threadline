@@ -42,6 +42,7 @@ import { publicReason, reasonFrom, type Outcome } from "../lib/reasons.js";
 import { converse } from "../pipeline/needle.js";
 import { indexMeeting } from "../pipeline/chunker.js";
 import { MCP_TOOLS } from "../mcp/meta.js";
+import { diarizeMeeting, rederiveMeeting } from "../pipeline/diarize.js";
 
 // tiny .env loader
 for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"); } catch { return []; } })()) {
@@ -115,7 +116,20 @@ async function stopRecording() {
   if (!live) return { error: "not recording" };
   const s = live;
   live = null;
-  return await s.stop();
+  const r = await s.stop();
+  // Speaker identification runs in the background — narrated over SSE,
+  // never blocking the stop response, never failing the meeting.
+  if (r.meetingId && r.exit !== "failed" && r.exit !== "discarded") {
+    const tell = (message: string) => { const e = { type: "status" as const, message }; recentEvents.push(e); for (const send of sseClients) send(e); };
+    (async () => {
+      tell("identifying speakers…");
+      await diarizeMeeting(db, apiKey, r.meetingId);
+      const run = db.prepare("SELECT status, speakers, reason FROM diarize_runs WHERE meeting_id = ?").get(r.meetingId) as { status: string; speakers: number | null; reason: string | null } | undefined;
+      if (run?.status === "done" && (run.speakers ?? 0) > 1) tell(`${run.speakers} speakers identified — name them on the meeting page`);
+      else if (run?.status === "failed") tell(`speaker ID failed: ${run.reason}`);
+    })().catch(() => {});
+  }
+  return r;
 }
 
 /**
@@ -829,6 +843,38 @@ const api: Record<string, Handler> = {
         return { outcome: exit === "budget" ? "deadline" : exit, steps: [], failure: null };
       },
     );
+  },
+
+  // ── Speaker identification ─────────────────────────────────────────────
+  "GET /api/speaker/status"(p) {
+    const id = p.get("id");
+    if (!id) return { error: "missing id" };
+    const run = db.prepare("SELECT * FROM diarize_runs WHERE meeting_id = ?").get(id) ?? null;
+    const speakers = db.prepare(
+      `SELECT speaker, count(*) AS lines, min(offset_s) AS first_at,
+        (SELECT text FROM utterances u2 WHERE u2.meeting_id = u.meeting_id AND u2.speaker = u.speaker ORDER BY idx LIMIT 1) AS first_line
+       FROM utterances u WHERE meeting_id = ? AND speaker IS NOT NULL GROUP BY speaker ORDER BY lines DESC`,
+    ).all(id);
+    return { run, speakers };
+  },
+
+  async "POST /api/speaker/retry"(p, body) {
+    const { id } = (body ?? {}) as { id?: string };
+    if (!id) return { error: "missing id" };
+    db.prepare("DELETE FROM diarize_runs WHERE meeting_id = ?").run(id);
+    await diarizeMeeting(db, apiKey, id);
+    return db.prepare("SELECT * FROM diarize_runs WHERE meeting_id = ?").get(id) ?? { error: "no run recorded" };
+  },
+
+  "POST /api/speaker/rename"(p, body) {
+    const { meeting_id, from, to } = (body ?? {}) as { meeting_id?: string; from?: string; to?: string };
+    if (!meeting_id || !from?.trim() || !to?.trim()) return { error: "missing meeting_id, from or to" };
+    const clean = to.trim().slice(0, 60);
+    const n = db.prepare("UPDATE utterances SET speaker = ? WHERE meeting_id = ? AND speaker = ?").run(clean, meeting_id, from.trim());
+    if (!n.changes) return { error: `no lines by "${from}" in this meeting` };
+    upsertPerson(clean);
+    rederiveMeeting(db, meeting_id); // entities/graph/search pick the name up — zero paid calls
+    return { ok: true, lines: n.changes };
   },
 
   "POST /api/meeting/rename"(p, body) {
