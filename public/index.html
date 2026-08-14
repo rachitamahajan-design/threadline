@@ -116,12 +116,8 @@
   #nav-toggle { display: none; }
 
   /* ── the record button: one component, everywhere ── */
-  /* the header pill hides at rest — recording starts via double-Fn or in-page
-     buttons; it surfaces only as the Stop control while a take is live */
-  #rec { display: none; }
-  #rec.on { display: inline-flex; }
-  #hotkey-help.rec-live { border-color: #e0443e; color: #e0443e; animation: recpulse 1.6s ease-in-out infinite; }
-  @keyframes recpulse { 0%,100% { box-shadow: 0 0 0 0 rgb(224 68 62 / .35); } 50% { box-shadow: 0 0 0 6px rgb(224 68 62 / 0); } }
+  /* the header pill is always visible: Record at rest, the red Stop control
+     while a take is live (however it was started) */
   .rec-btn {
     display: inline-flex; align-items: center; gap: 8px; flex: none;
     border: 1px solid var(--glass-border); border-radius: 999px;
@@ -1126,7 +1122,7 @@
     Threadline
   </div>
   <span class="hspacer"></span>
-  <button id="hotkey-help" class="icon-btn bordered" style="width:auto;padding:0 13px 0 10px;gap:7px" title="Global recording — double-tap Fn to record from any app (click for setup)" aria-label="Global recording guide"><svg class="ic" width="19" height="19"><use href="#i-needle-rec"/></svg><span style="font-size:13.5px;font-weight:600">Record</span></button>
+  <button id="hotkey-help" class="icon-btn bordered" style="width:auto;padding:0 13px 0 10px;gap:7px" title="Set up a global shortcut — record from any app via the macOS Shortcuts app" aria-label="Set up global recording shortcut"><svg class="ic" width="19" height="19"><use href="#i-needle-rec"/></svg><span style="font-size:13.5px;font-weight:600">Set-up Shortcut</span></button>
   <button id="pip-btn" class="icon-btn bordered" title="Pop out the floating companion" aria-label="Pop out the floating companion" style="display:none"><svg class="ic" width="17" height="17"><use href="#i-pip"/></svg></button>
   <button id="rec" class="rec-btn">Record</button>
 </header>
@@ -2433,7 +2429,6 @@ function setRecordingUI(on) {
   recBtn.classList.toggle("on", on);          // .rec-btn.on = red pill + pulsing dot
   recBtn.classList.toggle("recording", on);
   recBtn.disabled = false;
-  $("#hotkey-help")?.classList.toggle("rec-live", on);
 }
 
 /** Project tags on the meeting: add/remove, picked from the projects list.
@@ -4321,14 +4316,11 @@ recBtn.addEventListener("click", async () => {
   try {
   if (!recording) {
     // No pre-record dialog: naming happens at stop, prefilled from the
-    // conversation itself. Starting is one click / one hotkey.
+    // conversation itself. Starting is one click / one shortcut press.
     await startRecording();
   } else await stopRecording();
   } catch (err) {
-    recording = false;
-    recBtn.disabled = false;
-    recBtn.textContent = "Record";
-    recBtn.classList.remove("recording");
+    setRecordingUI(false);
     console.error("record click failed:", err);
     alert(`Recording failed: ${err.message}\n\nMake sure you opened http://localhost:4640 (served by \`npm run dev\`), not the file directly or another preview server.`);
   }
@@ -4339,10 +4331,8 @@ async function startRecording(title) {
   if (!resp.ok) throw new Error(`server responded ${resp.status}`);
   const r = await resp.json();
   if (r.error) { alert(r.error); return false; }
-  recording = true;
+  setRecordingUI(true);
   recTitle = title;
-  recBtn.textContent = "Stop & stitch";
-  recBtn.classList.add("recording");
   $("#pip-btn").style.display = "";
   state.meetingId = r.meetingId;
   renderMeeting(r.meetingId, { live: true });
@@ -4355,10 +4345,7 @@ async function stopRecording() {
   recBtn.textContent = "Stitching…";
   recBtn.disabled = true;
   const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
-  recording = false;
-  recBtn.disabled = false;
-  recBtn.textContent = "Record";
-  recBtn.classList.remove("recording");
+  setRecordingUI(false);
   $("#pip-btn").style.display = "none";
   evtSource?.close();
   try { pipWin?.close(); } catch (e) {}
@@ -4386,7 +4373,7 @@ async function openCompanion(title, manual) {
   } catch (e) {
     pipWin = null;
     if (manual) alert("Couldn't open the floating window: " + (e && e.message ? e.message : e));
-    const b = $("#popout-btn");
+    const b = $("#pip-btn");
     if (b) { b.style.color = "var(--thread)"; b.style.borderColor = "var(--thread)"; }
     return; // needs a fresh click — the Pop out button provides one
   }
@@ -4494,22 +4481,18 @@ async function checkUpcomingNotifications() {
 }
 setInterval(checkUpcomingNotifications, 30_000);
 
-// If a recording is started/stopped from outside (the double-Fn hotkey),
-// the page notices within a few seconds and syncs its UI.
+// If a recording is started/stopped from outside (the global Shortcut, the
+// native panel, another tab), the page notices within a few seconds and syncs.
 setInterval(async () => {
   const s = await api("/api/record/state").catch(() => null);
   if (!s) return;
   if (s.recording && !recording) {
-    recording = true;
+    setRecordingUI(true);
     recTitle = s.title ?? "Recording";
-    recBtn.textContent = "Stop";
-    recBtn.classList.add("recording");
     $("#pip-btn").style.display = "";
     if (s.meetingId) { state.meetingId = s.meetingId; renderMeeting(s.meetingId, { live: true }); liveMetaBar(); }
   } else if (!s.recording && recording && !recBtn.disabled) {
-    recording = false;
-    recBtn.textContent = "Record";
-    recBtn.classList.remove("recording");
+    setRecordingUI(false);
     $("#pip-btn").style.display = "none";
     evtSource?.close();
     try { pipWin?.close(); } catch (e) {}
@@ -4518,23 +4501,15 @@ setInterval(async () => {
   }
 }, 4000);
 
-// ── Hotkey guide (⌨ in the header): both record-from-anywhere methods ────
+// ── Shortcut guide (Set-up Shortcut in the header) ────
 $("#hotkey-help").addEventListener("click", async () => {
   const info = await api("/api/hotkey/info").catch(() => ({ script: "scripts/record-toggle.sh", daemon: false }));
   document.getElementById("hotkey-modal")?.remove();
   document.body.insertAdjacentHTML("beforeend", `
     <div class="tl-modal" id="hotkey-modal"><div class="box" style="max-width:560px">
-      <h2>Global recording</h2>
-      <div class="t-meta" style="margin-bottom:14px">Start or stop recording from any app — Zoom, Slack, anywhere — without switching to this window. Two ways to set it up; both show notifications for every step: ● Recording · ■ Stopped — stitching · ✓ Saved with the meeting's name.</div>
+      <h2>Global recording shortcut</h2>
+      <div class="t-meta" style="margin-bottom:14px">Start or stop recording from any app — Zoom, Slack, anywhere — without switching to this window. One key combo toggles it; notifications narrate every step: ● Recording · ■ Stopped — stitching · ✓ Saved with the meeting's name. While a take is live, a small floating panel${info.daemon ? "" : " <span class='pill block'>panel not built — run npm run build:capture</span>"} stays on top of every app with the timer and a Stop button.</div>
 
-      <div style="font-weight:650;margin-bottom:4px">1 · Double-tap the Fn key ${info.daemon ? "" : "<span class='pill block'>daemon not built</span>"}</div>
-      <div class="t-meta" style="margin-bottom:12px;line-height:1.7">
-        Zero setup if your machine cooperates. Two prerequisites:<br>
-        · <b>Accessibility</b> permission for the app that runs <code>npm run dev</code> (macOS prompts on first launch)<br>
-        · System Settings → Keyboard → “Press 🌐 key to” must be <b>Do Nothing</b> (default is often Show Emoji; a logout may be needed after changing)
-      </div>
-
-      <div style="font-weight:650;margin-bottom:4px">2 · Your own key combo (any key, any machine)</div>
       <ol style="margin:0 0 8px 18px;line-height:1.9;font-size:14px">
         <li>macOS <b>Shortcuts</b> app → <b>+</b> new Shortcut → add <b>Run Shell Script</b>, paste:
           <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
@@ -4553,7 +4528,7 @@ $("#hotkey-help").addEventListener("click", async () => {
   modal.addEventListener("mousedown", (e) => { if (e.target === modal) modal.remove(); });
 });
 
-// ── Post-stop naming (works for button, double-Fn hotkey, or another tab) ──
+// ── Post-stop naming (works for button, global Shortcut, or another tab) ──
 // The stopped SSE event fires AFTER processing, so the content-derived
 // auto-name already exists and becomes the prefill.
 function namedAlready(mid) {
