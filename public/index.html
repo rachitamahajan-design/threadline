@@ -1938,7 +1938,9 @@ async function onboardingModal(startStep = 0) {
   const steps = [
     { title: "Welcome to Threadline",
       body: () => `
-        <div class="t-meta" style="margin-bottom:12px">Threadline records your meetings locally and turns them into notes with receipts, a self-writing to-do list, and a searchable meeting brain. Audio goes to exactly one place — the speech API you configure — and everything else stays in a SQLite file on this machine.</div>
+        <div class="t-meta" style="margin-bottom:12px">${status.meetings > 0
+          ? `You've already got ${status.meetings} meeting${status.meetings === 1 ? "" : "s"} in the brain — this is a quick pass over everything Threadline can do, in case a step was skipped: keys, recording, calendar, and integrations.`
+          : "Threadline records your meetings locally and turns them into notes with receipts, a self-writing to-do list, and a searchable meeting brain. Audio goes to exactly one place — the speech API you configure — and everything else stays in a SQLite file on this machine."}</div>
         <div style="font-weight:650;margin-bottom:4px">Setup status</div>
         ${checklist()}
         <div class="t-meta" style="margin-top:10px">About 2 minutes. Every step can be skipped and re-run later from the profile menu.</div>` },
@@ -2139,16 +2141,17 @@ async function onboardingModal(startStep = 0) {
   draw();
 }
 
-/** Home-view nudge shown until the install has a key and at least one meeting. */
+/** Home-view nudge shown until onboarding has been completed once. */
 async function maybeShowOnboardPill() {
   if (sessionStorage.getItem("tl-onboard-pill-off")) return;
   const s = await api("/api/setup/status").catch(() => null);
-  if (!s || (s.pyai.configured && s.meetings > 0)) return;
+  if (!s || (s.onboarded && s.pyai.configured)) return;
   const sub = main.querySelector(".sub");
   if (!sub || state.view !== "today" || document.getElementById("onboard-pill")) return;
+  const label = s.meetings > 0 ? "✦ Review your setup — take the tour" : "✦ New to Threadline? Start onboarding";
   sub.insertAdjacentHTML("afterend", `
     <div id="onboard-pill">
-      <button class="copybtn" id="onboard-start" style="background:var(--ink);color:var(--bg)">✦ New to Threadline? Start onboarding</button>
+      <button class="copybtn" id="onboard-start" style="background:var(--ink);color:var(--bg)">${label}</button>
       <button class="icon-btn" id="onboard-off" title="Dismiss" aria-label="Dismiss" style="width:24px;height:24px">${icon("x", 13)}</button>
     </div>`);
   document.getElementById("onboard-start").addEventListener("click", () => onboardingModal());
@@ -6903,14 +6906,17 @@ palInput.addEventListener("keydown", async (e) => {
 
 loadProfile().finally(() => render()); // profile first, so the greeting carries the right name
 
-// ── First-run: open onboarding when the install clearly isn't set up ──
-// The localStorage flag is only a fast-path skip; a missing PyAI key reopens
-// the wizard regardless, because the app is unusable without one.
+// ── First-run: open onboarding until the install has completed it once ──
+// Existing installs (key + meetings already there) get it too — the checklist
+// renders their real state, so it reads as a setup review, and finishing or
+// leaving it sets the flag so it never auto-opens again. The localStorage flag
+// is only a fast-path skip; a missing PyAI key reopens the wizard regardless,
+// because the app is unusable without one.
 (async () => {
   const seen = localStorage.getItem("tl-onboarded");
   const s = await api("/api/setup/status").catch(() => null);
   if (!s) return;
-  if (!s.pyai.configured || (!seen && !s.onboarded && s.meetings === 0)) onboardingModal();
+  if (!s.pyai.configured || (!seen && !s.onboarded)) onboardingModal();
 })();
 </script>
 </body>
