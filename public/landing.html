@@ -173,6 +173,7 @@
     color: var(--ink-2);
     padding: 7px 12px;
     border-radius: 999px;
+    white-space: nowrap;
     transition: background .18s, color .18s;
   }
   nav .links a:hover, nav .links a:focus-visible { background: var(--thread-soft); color: var(--ink); outline: none; }
@@ -185,6 +186,7 @@
     padding: 8px 16px;
     border-radius: 999px;
     margin-left: 10px;
+    white-space: nowrap;
     transition: transform .18s, box-shadow .18s;
     box-shadow: 0 4px 14px -6px var(--thread);
     display: inline-block;
@@ -832,9 +834,6 @@
   <div class="links">
     <a href="#local">Local-first</a>
     <a href="#receipts">Receipts</a>
-    <a href="#type">Your notes</a>
-    <a href="#modes">Modes</a>
-    <a href="#todos">To-dos</a>
     <a href="#graph">Graph</a>
     <a href="#ask">Needle</a>
     <a href="/harness.html" target="_blank" rel="noopener">Harness</a>
@@ -851,8 +850,7 @@
       <div class="pin-inner" style="gap: 26px;">
         <div class="hero-eyebrow"><span class="dot"></span> Open source · MIT · runs on your laptop</div>
         <h1 class="hero-h serif">
-          <span class="strike" data-words data-stagger="0">Granola takes notes about your meeting.</span><br>
-          <span data-words data-stagger="1"><em>Threadline</em> takes your side in it.</span>
+          <span data-words data-stagger="0">Your meeting brain, <em>threaded</em> across every conversation.</span>
         </h1>
         <p class="hero-sub" data-words data-stagger="2">A local-first meeting brain. No bot in your call. Notes with receipts, a to-do list that writes itself, and a graph of everything you've ever discussed.</p>
         <div class="hero-ctas">
