@@ -39,8 +39,10 @@ prompt lets you rename on the spot when you stop. Recordings under 15 seconds
 are discarded as accidental taps.
 
 Multi-party calls get automatic **speaker identification**: after each
-recording, the other side's audio is diarized (a PyAI batch job on the locally
-saved tape) and split into Speaker 1/2/3. Name each one once on the meeting
+recording, the room's audio is diarized (a PyAI batch job on the locally saved
+tape) and split into Speaker 1/2/3 — the other side's channel on calls, or the
+mic channel for in-person meetings where everyone shares one microphone (name
+your own voice too; there's no voice recognition, so nobody is auto-identified). Name each one once on the meeting
 page and it propagates everywhere — transcript, entities, graph, search.
 Resumed recordings aren't supported yet; too-short recordings are skipped.
 

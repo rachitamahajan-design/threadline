@@ -82,6 +82,26 @@ export function rederiveMeeting(db: DatabaseSync, meetingId: string) {
   try { generateBrainMd(db); } catch { /* derived file only */ }
 }
 
+/**
+ * Pick which channel carries the room. Calls: ch0 (system audio) holds the
+ * other participants. In-person meetings: nobody comes through the speakers,
+ * the mic (ch1) hears everyone — so when ch0 is absent/near-silent and ch1 is
+ * substantial, diarize the mic and split "You" instead. PyAI has no voice
+ * recognition, so in-person mode can't know which voice is the owner's —
+ * every voice becomes Speaker N and gets named by a human, the owner included.
+ */
+function pickChannel(dir: string, meetingId: string): { tape: string; target: "Them" | "You"; bytes: number } | { reason: string } {
+  const size = (ch: number) => {
+    const t = `${dir}/${meetingId}-ch${ch}.pcm`;
+    return existsSync(t) ? statSync(t).size : 0;
+  };
+  const ch0 = size(0), ch1 = size(1);
+  if (ch0 >= MIN_TAPE_BYTES) return { tape: `${dir}/${meetingId}-ch0.pcm`, target: "Them", bytes: ch0 };
+  if (ch1 >= MIN_TAPE_BYTES) return { tape: `${dir}/${meetingId}-ch1.pcm`, target: "You", bytes: ch1 }; // in-person
+  if (!ch0 && !ch1) return { reason: "no tapes on disk" };
+  return { reason: `recording too short (${Math.round(Math.max(ch0, ch1) / 32_000)}s) to be worth a job` };
+}
+
 /** The full pipeline: guards → job → match → rewrite → re-derive. */
 export async function diarizeMeeting(db: DatabaseSync, apiKey: string, meetingId: string): Promise<void> {
   const done = db.prepare("SELECT status FROM diarize_runs WHERE meeting_id = ? AND status = 'done'").get(meetingId);
@@ -94,15 +114,15 @@ export async function diarizeMeeting(db: DatabaseSync, apiKey: string, meetingId
   if (existsSync(dir) && readdirSync(dir).some((f) => f.startsWith(`${meetingId}-s`)))
     return skip("resumed recordings aren't supported yet");
 
-  const tape = `${dir}/${meetingId}-ch0.pcm`;
-  if (!existsSync(tape)) return skip("no system-audio tape on disk");
-  const bytes = statSync(tape).size;
-  if (bytes < MIN_TAPE_BYTES) return skip(`recording too short (${Math.round(bytes / 32_000)}s) to be worth a job`);
+  const picked = pickChannel(dir, meetingId);
+  if ("reason" in picked) return skip(picked.reason);
+  const { tape, target, bytes } = picked;
 
-  const them = db
-    .prepare("SELECT idx, speaker, offset_s, duration_s FROM utterances WHERE meeting_id = ? AND speaker = 'Them' ORDER BY idx")
-    .all(meetingId) as UttRow[];
-  if (them.length < MIN_THEM_LINES) return skip(`only ${them.length} line(s) from other participants — nothing to split`);
+  const lines = db
+    .prepare("SELECT idx, speaker, offset_s, duration_s FROM utterances WHERE meeting_id = ? AND speaker = ? ORDER BY idx")
+    .all(meetingId, target) as UttRow[];
+  if (lines.length < MIN_THEM_LINES)
+    return skip(`only ${lines.length} ${target === "You" ? "mic" : "other-participant"} line(s) — nothing to split`);
 
   setRun(db, meetingId, { status: "running", reason: null });
   try {
@@ -110,9 +130,10 @@ export async function diarizeMeeting(db: DatabaseSync, apiKey: string, meetingId
     setRun(db, meetingId, { job_id: jobId });
     const { segments, speakers } = await awaitTranscriptionJob(apiKey, jobId, bytes / 32_000);
 
-    if (speakers <= 1) return setRun(db, meetingId, { status: "done", speakers, matched: 0, total: them.length, reason: "one voice — nothing to split" });
+    if (speakers <= 1)
+      return setRun(db, meetingId, { status: "done", speakers, matched: 0, total: lines.length, reason: "one voice — nothing to split" });
 
-    const matches = matchSegments(them, segments);
+    const matches = matchSegments(lines, segments);
     const upd = db.prepare("UPDATE utterances SET speaker = ? WHERE meeting_id = ? AND idx = ?");
     db.exec("BEGIN");
     try {
@@ -121,10 +142,12 @@ export async function diarizeMeeting(db: DatabaseSync, apiKey: string, meetingId
     } catch (e) { db.exec("ROLLBACK"); throw e; }
 
     rederiveMeeting(db, meetingId);
-    const rate = them.length ? matches.size / them.length : 0;
+    const rate = lines.length ? matches.size / lines.length : 0;
     setRun(db, meetingId, {
-      status: "done", speakers, matched: matches.size, total: them.length,
-      reason: rate < 0.7 ? "low match — offsets may have drifted (mid-call reconnects?)" : null,
+      status: "done", speakers, matched: matches.size, total: lines.length,
+      reason: rate < 0.7
+        ? "low match — offsets may have drifted (mid-call reconnects?)"
+        : target === "You" ? "in-person meeting — one of these speakers is you; name yourself too" : null,
     });
   } catch (e) {
     const msg = e instanceof PyAIError ? `${e.code}: ${e.message}` : e instanceof Error ? e.message : String(e);
