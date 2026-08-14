@@ -2510,6 +2510,8 @@ async function renderNeedle() {
         <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);padding-bottom:11px;margin-bottom:13px">
           <div style="flex:1;min-width:0;font-weight:650;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             ${active ? esc(convs.find((c) => c.id === active)?.title ?? "Thread") : `<span style="color:var(--ink-3);font-weight:500">No thread open</span>`}</div>
+          <button class="copybtn" id="needle-branch" style="margin:0" ${active ? "" : "disabled"}
+            title="Branch this thread — the original stays intact while the copy pulls in a new direction">⑂ Branch</button>
           <button class="copybtn" id="needle-share" style="margin:0" ${active ? "" : "disabled"}
             title="Share this whole thread as a branded card">${icon("share", 14)}Share thread</button>
         </div>
@@ -2568,6 +2570,13 @@ async function renderNeedle() {
       if (state.needleId === id) state.needleId = null;
       renderNeedle();
     }));
+  $("#needle-branch").addEventListener("click", async () => {
+    const r = await fetch("/api/needle/fork", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversation_id: active }) }).then((x) => x.json());
+    if (r.error) return showToast(r.error);
+    state.needleId = r.id;
+    renderNeedle();
+    showToast("Branched — pull this copy in a new direction; the original is untouched");
+  });
   $("#needle-share").addEventListener("click", (e) =>
     openNeedleShare(e.currentTarget, convs.find((c) => c.id === active)?.title ?? "Needle thread"));
   if (active) await needleLoad(active);
@@ -3208,22 +3217,54 @@ async function renderProject(id) {
     ...claims.filter((c) => c.kind === "action_item").map((c) => ({ c, manual: false })),
   ].sort((a, b) => (a.c.done ? 1 : 0) - (b.c.done ? 1 : 0));
 
+  // ── Decision lineage: cluster look-alike decisions across the thread's
+  // meetings into chains (token overlap, no model call). Each chain is one
+  // seam: the newest version is the standing call, older ones its re-stitches.
+  const when = Object.fromEntries(meetings.map((m) => [m.id, m.started_at]));
+  const chains = (() => {
+    const STOP = new Set("a an and are as at be but by for from has have in is it its of on or our that the their they this to was we will with".split(" "));
+    const toks = decisions.map((d) => new Set(String(d.body.text ?? "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w))));
+    const sim = (a, b) => {
+      if (!a.size || !b.size) return 0;
+      let hit = 0;
+      for (const w of a) if (b.has(w)) hit++;
+      return hit / (a.size + b.size - hit);
+    };
+    const grouped = decisions.map(() => false), out = [];
+    decisions.forEach((d, i) => {
+      if (grouped[i]) return;
+      grouped[i] = true;
+      const chain = [d];
+      decisions.forEach((o, j) => {
+        if (!grouped[j] && o.meeting_id !== d.meeting_id && sim(toks[i], toks[j]) >= 0.25) { grouped[j] = true; chain.push(o); }
+      });
+      out.push(chain.sort((a, b) => (when[a.meeting_id] ?? 0) - (when[b.meeting_id] ?? 0)));
+    });
+    // longest seams first, then newest
+    return out.sort((a, b) => (b.length - a.length) || ((when[b[b.length - 1].meeting_id] ?? 0) - (when[a[a.length - 1].meeting_id] ?? 0)));
+  })();
+
   main.innerHTML = `
     <h1>${esc(project.name)}</h1>
     <div class="proj-desc" id="proj-desc" title="Click to edit">${project.description ? esc(project.description) : `<span style="color:var(--ink-3)">What's this thread about? Click to add — it helps file meetings automatically.</span>`}</div>
     <div class="sub">${meetings.length} meeting${meetings.length === 1 ? "" : "s"} · ${docs.length} doc${docs.length === 1 ? "" : "s"} · ${actions.filter((a) => !a.c.done).length} open</div>
-    <div class="card">${projectMindmap(project, (() => {
-      const more = (arr, n) => (arr.length > n ? [{ label: `+ ${arr.length - n} more` }] : []);
-      const open = claims.filter((c) => c.kind === "action_item" && !c.done);
-      const who = people.length ? people.map((p) => ({ label: p.name })) : speakers.map((s) => ({ label: s.speaker }));
-      return [
-        { label: "Meetings", color: "var(--mm-meet)", items: [...meetings.slice(0, 5).map((m) => ({ label: m.title, mid: m.id })), ...more(meetings, 5)] },
-        { label: "People", color: "var(--mm-people)", items: who.slice(0, 5) },
-        { label: "Decisions", color: "var(--mm-dec)", items: [...decisions.slice(0, 4).map((d) => ({ label: d.body.text, mid: d.meeting_id })), ...more(decisions, 4)] },
-        { label: "Open items", color: "var(--mm-open)", items: [...open.slice(0, 4).map((o) => ({ label: o.body.task, mid: o.meeting_id })), ...more(open, 4)] },
-        { label: "Topics", color: "var(--mm-topic)", items: topics.slice(0, 5).map((t) => ({ label: t.label })) },
-      ].filter((g) => g.items.length);
-    })())}</div>
+    <div class="card"><h2>Decision lineage <span class="h2-note">every call this thread has made, and how each seam was re-stitched</span></h2>
+      ${chains.length ? chains.map((chain) => {
+        const cur = chain[chain.length - 1];
+        return `<div class="claim" style="padding:12px 0">
+          <div style="font-size:14.5px;font-weight:600;line-height:1.5">✓ ${esc(cur.body.text)}
+            ${chain.length > 1 ? `<span class="pill" title="This decision evolved across meetings">⑂ re-stitched ×${chain.length - 1}</span>` : ""}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px 22px;margin-top:8px">
+            ${chain.map((v, vi) => `
+              <div data-linmid="${esc(v.meeting_id)}" title="Open this meeting"
+                style="cursor:pointer;max-width:300px;padding:5px 0 5px 11px;border-left:2px ${vi === chain.length - 1 ? "solid var(--thread)" : "dashed var(--line)"}">
+                <div style="font-size:11.5px;color:var(--ink-3)">${when[v.meeting_id] ? fmtDate(when[v.meeting_id]) + " · " : ""}${esc(v.meeting_title ?? "")}${vi === chain.length - 1 ? " · standing" : ""}</div>
+                ${vi === chain.length - 1 ? "" : `<div style="font-size:12.5px;color:var(--ink-2);margin-top:2px;line-height:1.5">${esc(v.body.text)}</div>`}
+              </div>`).join("")}
+          </div>
+        </div>`;
+      }).join("") : `<div class="t-meta">No decisions in this thread yet — they'll gather here as meetings are filed.</div>`}
+    </div>
     <div class="proj-grid">
       <div class="card"><h2>People</h2>
         <div class="people-chips" id="proj-people">
@@ -3255,7 +3296,6 @@ async function renderProject(id) {
         </div>
       </div>
     </div>
-    ${decisions.length ? `<div class="card"><h2>Where this stands</h2>${decisions.slice(0, 4).map((d) => `<div class="claim">✓ ${esc(d.body.text)} <span class="t-meta">· ${esc(d.meeting_title)}</span></div>`).join("")}</div>` : ""}
     <div class="card"><h2>Action items</h2>
       ${actions.length ? actions.map(({ c, manual }) => actionRow(c, manual)).join("") : `<div class="t-meta">Nothing yet — file a meeting or add one below.</div>`}
       <div class="add-row" id="add-item-row">
@@ -3357,6 +3397,8 @@ function wireProject(id, project) {
   };
   $("#add-person-btn").addEventListener("click", addPerson);
   $("#add-person").addEventListener("keydown", (e) => { if (e.key === "Enter") addPerson(); });
+  main.querySelectorAll("[data-linmid]").forEach((el) =>
+    el.addEventListener("click", () => { state.meetingId = el.dataset.linmid; render(); window.scrollTo(0, 0); }));
   main.querySelectorAll("[data-unperson]").forEach((b) =>
     b.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -6388,7 +6430,10 @@ async function renderGraph() {
   }
 
   async function openPanel(id) {
-    const { meeting, claims } = await api(`/api/meeting?id=${encodeURIComponent(id)}`);
+    const [{ meeting, claims }, lineage] = await Promise.all([
+      api(`/api/meeting?id=${encodeURIComponent(id)}`),
+      api(`/api/decision/lineage?meeting_id=${encodeURIComponent(id)}`).catch(() => ({})),
+    ]);
     const open = claims.filter((c) => c.kind === "action_item" && c.gate === "passed" && !c.done);
     const decisions = claims.filter((c) => c.kind === "decision" && c.gate === "passed");
     const byOwner = {};
@@ -6419,7 +6464,18 @@ async function renderGraph() {
         </div>`).join("") : `<div style="font-size:13px;color:var(--ink-3)">Nothing outstanding from this one.</div>`}
       </div>
       ${decisions.length ? `<div style="margin-top:22px"><div class="gp-k">Decisions</div>
-        ${decisions.map((d) => `<div style="font-size:13px;line-height:1.55;padding:7px 0;border-top:1px solid var(--line)">✓ ${esc(d.body.text)}</div>`).join("")}</div>` : ""}
+        ${decisions.map((d) => {
+          const chain = lineage?.[d.id] ?? null; // this seam, every time it was stitched
+          return `<div style="font-size:13px;line-height:1.55;padding:7px 0;border-top:1px solid var(--line)">✓ ${esc(d.body.text)}
+            ${chain ? `<button data-lin="${d.id}" title="This decision evolved across meetings — see every version"
+                style="display:inline-flex;align-items:center;gap:4px;margin-left:6px;border:1px solid var(--line);border-radius:7px;background:var(--surface);padding:1px 8px;font:550 11px -apple-system,system-ui;color:var(--gold, #b98a2e);cursor:pointer">⑂ re-stitched ×${chain.length - 1}</button>
+              <div data-linbody="${d.id}" hidden style="margin-top:8px">
+                ${chain.map((v) => `<div class="gp-item" ${v.meeting_id !== id ? `data-linm="${esc(v.meeting_id)}" style="cursor:pointer"` : ""}>
+                  <div style="font-size:12.5px;${v.claim_id === d.id ? "font-weight:640" : "color:var(--ink-2)"}">${esc(v.text)}</div>
+                  <div style="font-size:11px;color:var(--ink-3);margin-top:1px">${fmtDate(v.started_at)} · ${esc(v.meeting_title)}${v.claim_id === d.id ? " · this version" : ""}</div>
+                </div>`).join("")}
+              </div>` : ""}</div>`;
+        }).join("")}</div>` : ""}
       ${meeting.my_notes ? `<div style="margin-top:22px"><div class="gp-k">Your notes</div>
         <div style="font-size:13px;line-height:1.6;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;white-space:pre-wrap">${esc(meeting.my_notes)}</div></div>` : ""}
       <button id="gp-open" style="margin-top:20px;width:100%;border:0;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;padding:10px 16px;border-radius:10px;color:#fff;background:var(--thread);text-align:left;box-shadow:0 1px 2px rgb(50 60 140 / 0.25)">Open the full meeting →</button>

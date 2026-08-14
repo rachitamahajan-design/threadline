@@ -1170,6 +1170,61 @@ const api: Record<string, Handler> = {
     return { ok: true };
   },
 
+  /** git-style branch: copy a thread so a new line of questioning can
+   *  diverge while the original stays intact. */
+  "POST /api/needle/fork"(p, body) {
+    const { conversation_id } = (body ?? {}) as { conversation_id?: number };
+    if (!conversation_id) return { error: "missing conversation_id" };
+    const src = db.prepare("SELECT title, project_id FROM conversations WHERE id = ?").get(conversation_id) as
+      | { title: string; project_id: number | null }
+      | undefined;
+    if (!src) return { error: "no such thread" };
+    db.prepare("INSERT INTO conversations (title, project_id, created_at) VALUES (?, ?, ?)")
+      .run(`⑂ ${src.title.replace(/^⑂ /, "")}`.slice(0, 80), src.project_id, Date.now());
+    const id = (db.prepare("SELECT last_insert_rowid() AS id").get() as { id: number }).id;
+    const msgs = db.prepare("SELECT role, content, payload FROM messages WHERE conversation_id = ? ORDER BY id")
+      .all(conversation_id) as { role: string; content: string; payload: string | null }[];
+    const ins = db.prepare("INSERT INTO messages (conversation_id, role, content, payload, created_at) VALUES (?, ?, ?, ?, ?)");
+    for (const m of msgs) ins.run(id, m.role, m.content, m.payload, Date.now());
+    return { id, copied: msgs.length };
+  },
+
+  /** Decision lineage: for each decision in this meeting, its look-alike
+   *  decisions from other meetings, oldest first — the seam's re-stitches.
+   *  Similarity is plain token Jaccard; no model call, instant. */
+  "GET /api/decision/lineage"(p) {
+    const meetingId = p.get("meeting_id");
+    if (!meetingId) return { error: "missing meeting_id" };
+    const rows = db.prepare(
+      `SELECT c.id, c.meeting_id, c.body, c.edited_body, m.title, m.started_at
+       FROM claims c JOIN meetings m ON m.id = c.meeting_id
+       WHERE c.kind = 'decision' AND c.gate = 'passed'`,
+    ).all() as { id: number; meeting_id: string; body: string; edited_body: string | null; title: string; started_at: number }[];
+    const STOP = new Set("a an and are as at be but by for from has have in is it its of on or our that the their they this to was we will with".split(" "));
+    const toks = rows.map((r) => {
+      let text = "";
+      try { text = String(JSON.parse(r.edited_body ?? r.body).text ?? ""); } catch { /* malformed body: no lineage */ }
+      const set = new Set(text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w)));
+      return { text, set };
+    });
+    const sim = (a: Set<string>, b: Set<string>) => {
+      if (!a.size || !b.size) return 0;
+      let hit = 0;
+      for (const w of a) if (b.has(w)) hit++;
+      return hit / (a.size + b.size - hit);
+    };
+    const out: Record<number, { claim_id: number; meeting_id: string; meeting_title: string; started_at: number; text: string }[]> = {};
+    rows.forEach((r, i) => {
+      if (r.meeting_id !== meetingId) return;
+      const chain = rows
+        .map((o, j) => ({ o, j, s: i === j ? 1 : sim(toks[i].set, toks[j].set) }))
+        .filter((x) => x.j === i || (x.s >= 0.25 && x.o.meeting_id !== r.meeting_id))
+        .map((x) => ({ claim_id: x.o.id, meeting_id: x.o.meeting_id, meeting_title: x.o.title, started_at: x.o.started_at, text: toks[x.j].text }));
+      if (chain.length > 1) out[r.id] = chain.sort((a, b) => a.started_at - b.started_at);
+    });
+    return out;
+  },
+
   /** Re-run the full pipeline over a stored meeting. Idempotent; keeps corrections. */
   async "POST /api/meeting/regenerate"(p, body) {
     const { id } = (body ?? {}) as { id?: string };
