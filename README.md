@@ -1,6 +1,6 @@
 # Threadline
 
-![Threadline — the meeting brain that never joins your call](docs/hero.png)
+![Threadline — your meeting brain, threaded across every conversation](docs/hero.png)
 
 **Granola takes notes about your meeting. Threadline takes your side in it.**
 
