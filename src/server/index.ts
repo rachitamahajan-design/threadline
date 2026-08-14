@@ -102,8 +102,20 @@ async function stopRecording() {
   return await s.stop();
 }
 
+/**
+ * A meeting's length in minutes when nobody has set one: the transcript's own
+ * last offset, rounded up, else the recorded wall duration. `+59)/60` is an
+ * integer ceiling — SQLite's `ceil()` needs a build flag we can't assume.
+ */
+const COMPUTED_MINUTES_SQL = `NULLIF(CAST(
+    COALESCE(
+      (SELECT (MAX(u.offset_s) + 59) / 60 FROM utterances u WHERE u.meeting_id = m.id),
+      (m.duration_s + 59) / 60
+    ) AS INTEGER), 0)`;
+
 const MEETING_LIST_SQL = `
   SELECT m.id, m.title, m.mode, m.started_at, m.duration_s, m.exit, m.headline,
+    COALESCE(m.duration_minutes, ${COMPUTED_MINUTES_SQL}) AS duration_minutes,
     (SELECT COUNT(*) FROM claims c WHERE c.meeting_id = m.id AND c.kind='decision' AND c.gate='passed') AS n_decisions,
     (SELECT COUNT(*) FROM claims c WHERE c.meeting_id = m.id AND c.kind='action_item' AND c.gate='passed') AS n_actions,
     (SELECT GROUP_CONCAT(DISTINCT speaker) FROM utterances u WHERE u.meeting_id = m.id AND speaker IS NOT NULL) AS participants
@@ -142,6 +154,11 @@ const api: Record<string, Handler> = {
       | ({ summary_json: string | null } & Record<string, unknown>)
       | undefined;
     if (!meeting) return { error: "not found" };
+    // Same fallback the list uses, so the detail header never shows a blank
+    // duration for a meeting nobody has timed by hand.
+    if (meeting.duration_minutes == null)
+      meeting.duration_minutes =
+        (db.prepare(`SELECT ${COMPUTED_MINUTES_SQL} AS mins FROM meetings m WHERE m.id = ?`).get(id) as { mins: number | null } | undefined)?.mins ?? null;
     if (meeting.summary_json) {
       try { meeting.summary_json = JSON.parse(meeting.summary_json); } catch { meeting.summary_json = null; }
     }
@@ -287,6 +304,23 @@ const api: Record<string, Handler> = {
     if (!live) return { error: "not recording" };
     const { mode, topic_id } = (body ?? {}) as { mode?: string; topic_id?: number };
     live.setMeta({ mode, topicId: topic_id });
+    return { ok: true };
+  },
+
+  /** Correct when a meeting happened and how long it ran. Absent fields stay. */
+  "POST /api/meeting/time"(p, body) {
+    const { id, started_at, duration_minutes } = (body ?? {}) as { id?: string; started_at?: number; duration_minutes?: number };
+    if (!id) return { error: "missing id" };
+    const exists = db.prepare(`SELECT id FROM meetings WHERE id = ?`).get(id);
+    if (!exists) return { error: "not found" };
+    if (started_at != null) {
+      if (!Number.isFinite(started_at)) return { error: "bad started_at" };
+      db.prepare(`UPDATE meetings SET started_at = ? WHERE id = ?`).run(Math.round(started_at), id);
+    }
+    if (duration_minutes != null) {
+      if (!Number.isFinite(duration_minutes) || duration_minutes < 0) return { error: "bad duration_minutes" };
+      db.prepare(`UPDATE meetings SET duration_minutes = ? WHERE id = ?`).run(Math.round(duration_minutes) || null, id);
+    }
     return { ok: true };
   },
 
@@ -670,10 +704,13 @@ const api: Record<string, Handler> = {
   },
 
   "POST /api/upcoming"(p, body) {
-    const { title, at_ms, participants, remove_id } = (body ?? {}) as { title?: string; at_ms?: number; participants?: string; remove_id?: number };
+    const { title, at_ms, participants, remove_id, duration_minutes } = (body ?? {}) as { title?: string; at_ms?: number; participants?: string; remove_id?: number; duration_minutes?: number };
     if (remove_id) { db.prepare(`DELETE FROM upcoming WHERE id = ?`).run(remove_id); return { ok: true }; }
     if (!title?.trim() || !at_ms) return { error: "missing fields" };
-    db.prepare(`INSERT INTO upcoming (title, at_ms, participants) VALUES (?, ?, ?)`).run(title.trim(), at_ms, participants ?? null);
+    const endMs = Number.isFinite(duration_minutes) && (duration_minutes as number) > 0
+      ? at_ms + Math.round(duration_minutes as number) * 60_000
+      : null;
+    db.prepare(`INSERT INTO upcoming (title, at_ms, participants, end_ms) VALUES (?, ?, ?, ?)`).run(title.trim(), at_ms, participants ?? null, endMs);
     return { ok: true };
   },
 
