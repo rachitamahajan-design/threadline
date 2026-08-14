@@ -19,6 +19,7 @@ import { candidates } from "./candidates.js";
 import { resolveCandidates, storeResolutions, relateEntities } from "./resolve.js";
 import { projectGraph } from "./project.js";
 import { indexMeeting } from "./chunker.js";
+import { generateBrainMd } from "./brain-md.js";
 import { hasOpenAI, openaiExtract } from "../lib/openai.js";
 import { modelConfigured } from "../lib/model.js";
 import { clearFacts } from "../lib/store.js";
@@ -283,6 +284,9 @@ async function processMeetingInner(db: DatabaseSync, apiKey: string, m: MeetingI
   // this function never gets here.
   const exit = decideExit(steps, budget);
   db.prepare("UPDATE meetings SET exit = ? WHERE id = ?").run(exit, m.id);
+
+  // Keep the agent primer fresh. A projection failure must never fail a run.
+  try { generateBrainMd(db); } catch { /* derived file only */ }
 
   return { exit, steps, stored };
 }

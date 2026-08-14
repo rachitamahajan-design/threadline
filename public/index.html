@@ -1144,6 +1144,7 @@
       <button class="side-link" data-view="meetings" title="Meetings"><svg class="ic" width="17" height="17"><use href="#i-doc"/></svg><span class="lbl">Meetings</span></button>
       <button class="side-link" data-view="graph" title="Brain"><svg class="ic" width="17" height="17"><use href="#i-brain"/></svg><span class="lbl">Brain</span></button>
       <button class="side-link" data-view="needle" title="Needle"><svg class="ic" width="17" height="17"><use href="#i-needle"/></svg><span class="lbl">Needle</span></button>
+      <button class="side-link" data-view="mcp" title="Connect your AI"><svg class="ic" width="17" height="17"><use href="#i-needle"/></svg><span class="lbl">MCP setup</span></button>
     </div>
     <div class="side-section">
       <div class="side-head"><span class="lbl">Topics</span> <button id="add-project" title="New topic" aria-label="New topic"><svg class="ic" width="15" height="15"><use href="#i-plus"/></svg></button></div>
@@ -1460,11 +1461,43 @@ async function render() {
   if (state.view === "meetings") return renderMeetings();
   if (state.view === "graph") return renderGraph();
   if (state.view === "needle") return renderNeedle();
+  if (state.view === "mcp") return renderMcp();
   if (state.view === "project") return renderProject(state.projectId);
   if (state.view === "doc") return renderDoc(state.docId);
 }
 
 // ── Needle: a conversation threaded through every meeting ────────────────
+// ── MCP setup: connect your AI to this brain ─────────────────────────────
+async function renderMcp() {
+  const info = await api("/api/mcp/info").catch(() => ({ server_path: "src/mcp/server.ts", tools: [] }));
+  const cmd = `claude mcp add threadline -- npx tsx ${info.server_path}`;
+  const desktopCfg = `{ "mcpServers": { "threadline": {\n    "command": "npx",\n    "args": ["tsx", "${info.server_path}"] } } }`;
+  const codeBox = (id, content) => `
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <pre style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:12px;overflow-x:auto;margin:0;white-space:pre-wrap">${esc(content)}</pre>
+      <button class="copybtn" data-copy="${id}">Copy</button>
+    </div>`;
+  main.innerHTML = `<h1>Connect your AI</h1>
+    <div class="sub">Give your AI — Claude, Cursor, any MCP client — live access to this brain — search, claims, entities, receipts. Runs locally over stdio, needs no API keys, and never exposes raw transcripts: evidence only.</div>
+    <div class="card"><h2>Claude Code</h2>
+      <div class="t-meta" style="margin-bottom:8px">Run once in any terminal, then ask Claude about your meetings in any session. Verify with <code>/mcp</code>.</div>
+      ${codeBox("cmd", cmd)}</div>
+    <div class="card"><h2>Claude Desktop</h2>
+      <div class="t-meta" style="margin-bottom:8px">Settings → Developer → Edit Config, add this, restart the app:</div>
+      ${codeBox("cfg", desktopCfg.replace(/\\n/g, "\n"))}</div>
+    <div class="card"><h2>What your AI can pull</h2>
+      ${info.tools.map((t) => `<div class="claim" style="padding:7px 0"><b style="font-family:ui-monospace,monospace;font-size:12.5px">${esc(t.name)}</b> — <span class="t-meta">${esc(t.desc)}</span></div>`).join("")}
+      <div class="t-meta" style="margin-top:10px">Also: <code>data/BRAIN.md</code> — a regenerated ~300-token index of everything the brain knows, for agents that don't speak MCP.</div></div>
+    <div class="card"><h2>Other MCP clients — Cursor, Windsurf, Zed, Cline…</h2>
+      <div class="t-meta" style="margin-bottom:8px">MCP is an open protocol; any client that launches local (stdio) servers works. Use the same command/args in that client's MCP config — e.g. Cursor: Settings → MCP → Add server, command <code>npx</code>, args <code>tsx ${esc(info.server_path)}</code>.</div>
+      <div class="t-meta"><b>ChatGPT:</b> supports MCP via remote connectors only — it can't launch local servers, and exposing this brain over the internet through a tunnel would break the local-first promise. If that trade ever becomes worth it, it's a deliberate decision, not a config line.</div></div>
+    <div class="card"><h2>What it can never pull</h2>
+      <div class="t-meta">Full transcripts. Every result carries its receipt (quote · meeting · timestamp), but bulk verbatim transcript access is not part of the tool surface — the same notes-with-receipts rule the rest of Threadline lives by.</div></div>`;
+  const copies = { cmd, cfg: desktopCfg.replace(/\\n/g, "\n") };
+  main.querySelectorAll("[data-copy]").forEach((b) =>
+    b.addEventListener("click", () => { navigator.clipboard.writeText(copies[b.dataset.copy]); b.textContent = "Copied ✓"; }));
+}
+
 async function renderNeedle() {
   const convs = await api("/api/needle/conversations");
   const active = state.needleId ?? convs[0]?.id ?? null;

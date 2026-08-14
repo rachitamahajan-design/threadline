@@ -49,6 +49,34 @@ often "Show Emoji & Symbols", which swallows the tap; a logout may be needed
 before the change takes effect). Capture itself needs Screen Recording +
 Microphone for the same app.
 
+## Give your Claude this brain (MCP)
+
+Threadline ships a local [MCP](https://modelcontextprotocol.io) server, so any
+Claude conversation can pull your meeting context live — search across every
+meeting, list open action items, read a topic's full history — with receipts
+on every result. Runs over stdio on your machine, needs **no API keys**, and
+never exposes bulk transcripts: evidence only (quotes + timestamps).
+
+**Claude Code:**
+
+```bash
+claude mcp add threadline -- npx tsx /path/to/threadline/src/mcp/server.ts
+```
+
+**Claude Desktop** — add to `claude_desktop_config.json`:
+
+```json
+{ "mcpServers": { "threadline": {
+    "command": "npx",
+    "args": ["tsx", "/path/to/threadline/src/mcp/server.ts"] } } }
+```
+
+Tools: `brain_info` (start here) · `search_brain` · `list_claims` ·
+`get_entity` · `get_meeting` · `list_meetings` · `get_evidence` ·
+`refresh_brain_md`. There is also `data/BRAIN.md` — a regenerated ~300-token
+index of everything the brain knows (`npm run brain-md`), the cheapest way for
+any agent to prime itself before querying.
+
 ## Local-first, actually
 
 Audio goes to exactly one place: the speech API you configured. Everything

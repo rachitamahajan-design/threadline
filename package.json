@@ -17,11 +17,15 @@
     "eval-grounding": "tsx src/cli/eval-grounding.ts",
     "typecheck": "tsc --noEmit",
     "build:capture": "swiftc -O capture/ThreadlineCapture.swift -o capture/threadline-capture && swiftc -O capture/ThreadlineHotkey.swift -o capture/threadline-hotkey",
-    "seed": "tsx src/cli/seed.ts"
+    "seed": "tsx src/cli/seed.ts",
+    "mcp": "tsx src/mcp/server.ts",
+    "brain-md": "tsx src/cli/brain-md.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "tsx": "^4.19.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
