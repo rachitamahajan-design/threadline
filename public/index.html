@@ -1168,6 +1168,15 @@
   }
   .hbtn:hover { color: var(--thread); border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); }
   .hbtn.tiny { font-size: 11px; padding: 1px 8px; }
+  /* Per-snippet "copy for Slack" — invisible until you hover the line it belongs to. */
+  .snip-copy {
+    display: inline; border: 0; background: none; color: var(--ink-3); cursor: pointer;
+    padding: 2px 4px; margin-left: 6px; vertical-align: baseline;
+    opacity: 0; transition: opacity .12s ease, color .12s ease;
+  }
+  .out-leaf:hover > .snip-copy, .out-theme:hover > .snip-copy, .out-sub:hover > .snip-copy,
+  .out-summary:hover .snip-copy { opacity: 1; }
+  .snip-copy:hover { color: var(--thread); }
   .hedit {
     width: 100%; min-height: 220px; border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px;
     font: inherit; font-size: 13px; line-height: 1.6; background: var(--bg); color: var(--ink); resize: vertical;
@@ -3378,7 +3387,7 @@ function jumpToSegments(ids) {
     el.classList.add("seg-hl");
     if (!first) first = el;
   }
-  if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (first) scrollTranscriptTo(first);
   else showToast("That line is no longer in this transcript.");
 }
 
@@ -3417,11 +3426,11 @@ function outlineTree(bullets, rc, prefix = "") {
       const isLeaf = !b.children || !b.children.length;
       if (isLeaf)
         return `<li class="out-leaf ${b.lowConfidence ? "low" : ""}">
-          <span class="out-text ${b.edited ? "edited" : ""}" data-path="${path}" title="Click to edit">${esc(b.text)}</span>${rc(b.source)}${
+          <span class="out-text ${b.edited ? "edited" : ""}" data-path="${path}" title="Click to edit">${esc(b.text)}</span><button class="snip-copy" data-snip="${path}" title="Copy for Slack">${icon("copy", 12)}</button>${rc(b.source)}${
             b.lowConfidence ? `<span class="low-flag" title="Every line this rests on was heard poorly — worth checking">heard poorly</span>` : ""
           }</li>`;
       return `<li class="${prefix ? "out-sub" : "out-theme"}">
-        <span class="out-label out-text ${b.edited ? "edited" : ""}" data-path="${path}" title="Click to rename this theme">${esc(b.text)}</span>
+        <span class="out-label out-text ${b.edited ? "edited" : ""}" data-path="${path}" title="Click to rename this theme">${esc(b.text)}</span><button class="snip-copy" data-snip="${path}" title="Copy for Slack">${icon("copy", 12)}</button>
         <ul>${outlineTree(b.children, rc, path)}</ul>
       </li>`;
     })
@@ -3493,7 +3502,7 @@ function notesCard(data) {
     ${empty
       ? `<div class="empty" style="padding:18px 0">No notes from this recording — there wasn't enough in the transcript to summarize. Keep recording, or edit the transcript and structure again.</div>`
       : `${summary?.text
-            ? `<p class="out-summary"><span class="out-text ${summary.edited ? "edited" : ""}" data-path="summary" title="Click to edit">${esc(summary.text)}</span>${rc(summary.source)}${
+            ? `<p class="out-summary"><span class="out-text ${summary.edited ? "edited" : ""}" data-path="summary" title="Click to edit">${esc(summary.text)}</span><button class="snip-copy" data-snip="summary" title="Copy for Slack">${icon("copy", 12)}</button>${rc(summary.source)}${
                 summary.lowConfidence ? `<span class="low-flag">heard poorly</span>` : ""
               }</p>`
             : ""}
@@ -3581,8 +3590,8 @@ function wireOutline(meetingId, data) {
   });
 
   $("#out-copy")?.addEventListener("click", async (e) => {
-    // Copy is the clean form: summary + nested bullets, no receipts.
-    await navigator.clipboard.writeText(outlineToMarkdown(outline.notes, false));
+    // Copy is the Slack-ready form: summary + bold themes + bullet lines, no receipts.
+    await navigator.clipboard.writeText(outlineToSlack(outline.notes));
     flashBtn(e.currentTarget, "Copied ✓");
   });
 
@@ -3602,6 +3611,25 @@ function wireOutline(meetingId, data) {
   });
 
   if (!outline) return;
+
+  // Per-snippet copy: one theme (with its children) or the summary, Slack-ready.
+  box.querySelectorAll(".snip-copy").forEach((btn) =>
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const p = btn.dataset.snip;
+      let text;
+      if (p === "summary") {
+        if (!outline.notes?.summary?.text) return;
+        text = outlineToSlack({ summary: outline.notes.summary, themes: [] });
+      } else {
+        const node = bulletAtPath(outline.notes, p);
+        if (!node) return;
+        text = outlineToSlack({ themes: [node] });
+      }
+      navigator.clipboard.writeText(text);
+      showToast("Copied for Slack ✓");
+    }));
+
   // Inline edit of one line, saved as the whole tree so the summary, labels and
   // leaves all travel the same path.
   box.querySelectorAll(".out-text[data-path]").forEach((el) =>
@@ -3722,6 +3750,33 @@ function outlineToMarkdown(notes, withSources) {
     }
   };
   walk(notes?.themes ?? [], 0);
+  return lines.join("\n");
+}
+
+/**
+ * Slack "mrkdwn" form of the outline (or of a subtree — pass `{themes:[node]}`).
+ * Slack renders no `#` headings and no nested `-` lists, so themes become bold
+ * lines and every leaf is a literal bullet character with literal indentation.
+ */
+function outlineToSlack(notes) {
+  const lines = [];
+  if (notes?.summary?.text) lines.push(notes.summary.text, "");
+  const walk = (bullets, depth) => {
+    for (const b of bullets ?? []) {
+      const hasKids = b.children && b.children.length;
+      if (hasKids && depth === 0) {
+        lines.push(`*${b.text}*`);
+      } else {
+        const indent = "    ".repeat(Math.max(0, depth - 1));
+        const mark = depth >= 2 ? "◦" : "•";
+        lines.push(`${indent}${mark} ${b.text}`);
+      }
+      if (hasKids) walk(b.children, depth + 1);
+    }
+  };
+  walk(notes?.themes ?? [], 0);
+  if (lines.length && lines[lines.length - 1] !== "") lines.push("");
+  lines.push("_Powered by Threadline 🪡_");
   return lines.join("\n");
 }
 
@@ -4331,6 +4386,18 @@ function wireTranscriptEdits(meetingId, body) {
     }));
 }
 
+/**
+ * Center a transcript row inside the side panel WITHOUT scrolling the page —
+ * scrollIntoView walks every scrollable ancestor, so it used to drag the whole
+ * window down and shove the meeting title off-screen.
+ */
+function scrollTranscriptTo(el) {
+  const body = document.getElementById("panel-body");
+  if (!body || !body.contains(el)) return;
+  const top = el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop;
+  body.scrollTo({ top: top - body.clientHeight / 2 + el.clientHeight / 2, behavior: "smooth" });
+}
+
 function jumpToOffset(off) {
   let best = null, bestD = Infinity;
   main.querySelectorAll(".utt[data-off]").forEach((u) => {
@@ -4338,7 +4405,7 @@ function jumpToOffset(off) {
     if (d < bestD) { bestD = d; best = u; }
   });
   if (best) {
-    best.scrollIntoView({ behavior: "smooth", block: "center" });
+    scrollTranscriptTo(best);
     best.classList.add("hl");
     setTimeout(() => best.classList.remove("hl"), 2500);
   }
