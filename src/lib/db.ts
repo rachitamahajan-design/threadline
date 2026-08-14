@@ -425,12 +425,21 @@ export function openDb(dir = "data"): DatabaseSync {
   } catch {
     /* fresh database, or already renamed */
   }
+  // Additive migration: the transcript fingerprint the statements were
+  // extracted from. NULL (pre-migration rows) reads as "unknown transcript",
+  // so those caches re-extract once and heal themselves.
+  try {
+    db.exec("ALTER TABLE meeting_statements ADD COLUMN fingerprint TEXT");
+  } catch {
+    /* column already exists */
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS meeting_statements (
       meeting_id TEXT PRIMARY KEY REFERENCES meetings(id),
       json TEXT NOT NULL,             -- Statement[]
       dropped TEXT,                   -- JSON: statements the sanitiser refused, with reasons
       prompt_version TEXT NOT NULL,
+      fingerprint TEXT,               -- transcript fingerprint the set was extracted from
       created_at INTEGER NOT NULL
     );
 

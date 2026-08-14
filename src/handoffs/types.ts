@@ -49,14 +49,24 @@ export type HandoffDef<T = unknown> = {
   blocks?: (value: T) => { label: string; markdown: string }[];
 };
 
-/** §3: type sets the default. Anything can still be run from chat. */
-export const DEFAULT_HANDOFF: Record<MeetingType, string> = {
-  investor: "team_actions",
-  vendor: "pricing_quote",
-  customer: "followup_email",
-  team: "summary_next_steps",
-  one_on_one: "candidate_feedback",
+/**
+ * §3: type sets the suggestions. Each meeting type leads with 2–3 handoffs
+ * built for it; the FIRST is the default the chip row leans on. Anything can
+ * still be run from chat or the slash menu — this list only decides what is
+ * offered unprompted.
+ */
+export const SUGGESTED_HANDOFFS: Record<MeetingType, string[]> = {
+  investor: ["team_actions", "investor_update", "followup_email"],
+  vendor: ["pricing_quote", "negotiation_brief", "followup_email"],
+  customer: ["followup_email", "crm_note", "collated_feedback"],
+  team: ["summary_next_steps", "team_actions", "slack_update"],
+  one_on_one: ["candidate_feedback", "one_on_one_recap"],
 };
+
+/** The lead suggestion per type — always the first of SUGGESTED_HANDOFFS. */
+export const DEFAULT_HANDOFF: Record<MeetingType, string> = Object.fromEntries(
+  (Object.entries(SUGGESTED_HANDOFFS) as [MeetingType, string[]][]).map(([t, ids]) => [t, ids[0]]),
+) as Record<MeetingType, string>;
 
 // ── Shared parsing helpers ──────────────────────────────────────────────────
 

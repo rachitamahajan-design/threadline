@@ -36,6 +36,7 @@ import {
   saveOutlineEdit,
 } from "../lib/store.js";
 import { handoffCatalog, matchHandoff } from "../handoffs/registry.js";
+import { transcriptFingerprint } from "../lib/segments.js";
 import { modelInfo } from "../lib/model.js";
 import { firstFailure, getRun, listRuns, recordRun, type RunRecord } from "../lib/runlog.js";
 import { log } from "../lib/log.js";
@@ -1236,12 +1237,24 @@ const api: Record<string, Handler> = {
     // and waits for "Structure my notes"; if the page is empty, we fill it.
     const rough = ((db.prepare(`SELECT my_notes FROM meetings WHERE id = ?`).get(id) as { my_notes: string | null } | undefined)?.my_notes ?? "").trim();
     const generate = p.get("generate") !== "0" && !rough;
+    // Self-heal: an EMPTY outline nobody edited, whose statements were
+    // extracted from a different transcript (it grew, or was near-blank at the
+    // time), is a stale artefact — regenerate rather than show it forever. A
+    // fresh extraction stores the current fingerprint, so a transcript that
+    // genuinely yields nothing re-runs once, not on every open.
+    const emptyStale =
+      !!existing &&
+      !existing.edited &&
+      !existing.notes?.themes?.length &&
+      !existing.notes?.summary?.text &&
+      m.segments.length > 0 &&
+      readStatements(db, id)?.fingerprint !== transcriptFingerprint(m.segments);
     // Two tabs opening the same meeting must not pay for two generations, so
     // in-flight work is shared rather than duplicated.
     const result =
-      existing || !generate
+      (existing && !emptyStale) || !generate
         ? { outline: existing }
-        : await (outlining.get(id) ?? track(id, ensureNotes(db, id)));
+        : await (outlining.get(id) ?? track(id, ensureNotes(db, id, { force: emptyStale })));
     return {
       outline: result.outline,
       error: result.error,

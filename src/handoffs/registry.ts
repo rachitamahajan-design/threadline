@@ -29,15 +29,22 @@ import {
 import { repairNotes } from "../pipeline/notes-outline.js";
 import type { MeetingType } from "../lib/segments.js";
 import { promptRef } from "../lib/prompts.js";
+import type { PromptTemplate } from "../lib/prompts.js";
 import {
   CANDIDATE_FEEDBACK,
   COLLATED_FEEDBACK,
+  CRM_NOTE,
   FOLLOWUP_EMAIL,
+  INVESTOR_UPDATE,
+  NEGOTIATION_BRIEF,
+  ONE_ON_ONE_RECAP,
   PRICING_QUOTE,
+  SLACK_UPDATE,
   SUMMARY_NEXT_STEPS,
   TEAM_ACTIONS,
 } from "./prompts.js";
 import {
+  SUGGESTED_HANDOFFS,
   asActionItems,
   asSourcedItems,
   asString,
@@ -50,6 +57,7 @@ import {
   mdItems,
   stripSourceMarkers,
   type HandoffDef,
+  type HandoffVars,
 } from "./types.js";
 
 // ── 6.1 Investor → team-specific action items ───────────────────────────────
@@ -421,7 +429,198 @@ const candidateFeedback: HandoffDef<CandidateFeedback> = {
       .join("\n"),
 };
 
-// ── 6.6 Cross-meeting → collated customer feedback ──────────────────────────
+// ── Sectioned handoffs: one shape, five artefacts ────────────────────────────
+// A run of sourced-item and action-item sections, optionally led by one
+// uncited prose line (a headline). Parsing, validation, pruning and rendering
+// are identical across them, so the definitions below are data.
+
+type SectionSpec = { key: string; kind: "items" | "actions"; heading: string };
+type Sectioned = Record<string, SourcedItem[] | ActionItem[] | string>;
+
+function sectionedHandoff(opts: {
+  id: string;
+  label: string;
+  appliesTo: MeetingType[];
+  blurb: string;
+  tone: string;
+  groundingRules: string[];
+  prompt: PromptTemplate<HandoffVars>;
+  temperature?: number;
+  sections: SectionSpec[];
+  /** An uncited one-liner (headline). Replaced with the fallback, never trimmed word by word. */
+  prose?: { key: string; fallback: string };
+}): HandoffDef<Sectioned> {
+  const { sections, prose } = opts;
+  const listOf = (v: Sectioned, s: SectionSpec) => v[s.key] as (SourcedItem[] & ActionItem[]);
+  return {
+    id: opts.id,
+    label: opts.label,
+    appliesTo: opts.appliesTo,
+    scope: "meeting",
+    blurb: opts.blurb,
+    tone: opts.tone,
+    groundingRules: opts.groundingRules,
+    prompt: opts.prompt,
+    temperature: opts.temperature,
+    parse: (raw) => {
+      const o = (raw ?? {}) as Record<string, unknown>;
+      const value: Sectioned = {};
+      for (const s of sections) value[s.key] = s.kind === "actions" ? asActionItems(o[s.key]) : asSourcedItems(o[s.key]);
+      if (prose) value[prose.key] = asString(o[prose.key]) || prose.fallback;
+      if (sections.every((s) => listOf(value, s).length === 0))
+        return `nothing in this conversation fits a ${opts.label.toLowerCase()} — no line qualified for any of its sections (${sections.map((s) => `"${s.key}"`).join(", ")})`;
+      return value;
+    },
+    validate: (v, ctx) => {
+      const out: Failure[] = prose ? checkUnsourcedProse(v[prose.key] as string, prose.key) : [];
+      for (const s of sections)
+        listOf(v, s).forEach((item, i) =>
+          out.push(
+            ...(s.kind === "actions"
+              ? checkActionItem(item as ActionItem, `${s.key}[${i}]`, ctx)
+              : checkSourcedLine(item.text, item.source, `${s.key}[${i}]`, ctx)),
+          ),
+        );
+      return out;
+    },
+    prune: (v, failures) => {
+      let dropped = 0;
+      const value: Sectioned = { ...v };
+      for (const s of sections) {
+        const { kept, dropped: d } = dropFailed(listOf(v, s), failures, s.key);
+        value[s.key] = kept;
+        dropped += d;
+      }
+      if (prose && failures.some((f) => f.path === prose.key)) {
+        value[prose.key] = prose.fallback;
+        dropped++;
+      }
+      return { value, dropped };
+    },
+    finalize: (v, ctx) => {
+      for (const s of sections) markLowConfidence(listOf(v, s), ctx);
+    },
+    toMarkdown: (v, meta) =>
+      [
+        `**${opts.label} — ${meta.title}** (${meta.when})`,
+        prose ? `\n${v[prose.key]}` : "",
+        ...sections.map((s) => {
+          const list = listOf(v, s);
+          if (!list.length) return "";
+          return `\n**${s.heading}**\n${s.kind === "actions" ? mdActions(list as ActionItem[]) : mdItems(list)}`;
+        }),
+      ]
+        .filter(Boolean)
+        .join("\n"),
+  };
+}
+
+// ── 6.6 Investor → investor-update material ──────────────────────────────────
+
+const investorUpdate = sectionedHandoff({
+  id: "investor_update",
+  label: "Investor update",
+  appliesTo: ["investor"],
+  blurb: "Traction, metrics, commitments and asks, paste-ready for your update",
+  tone: "Factual and compact. Numbers speak, adjectives don't.",
+  groundingRules: [
+    "Metrics are verbatim or absent — never rounded or annualised.",
+    "Asks are requests actually made of the investor in this meeting.",
+  ],
+  prompt: INVESTOR_UPDATE,
+  sections: [
+    { key: "highlights", kind: "items", heading: "Highlights" },
+    { key: "metrics", kind: "items", heading: "Metrics" },
+    { key: "commitments", kind: "actions", heading: "Commitments" },
+    { key: "asks", kind: "items", heading: "Asks" },
+  ],
+});
+
+// ── 6.7 Customer → CRM note ──────────────────────────────────────────────────
+
+const crmNote = sectionedHandoff({
+  id: "crm_note",
+  label: "CRM note",
+  appliesTo: ["customer"],
+  blurb: "Needs, objections, buying signals and next steps, in paste-into-CRM form",
+  tone: "Terse field notes. The customer's framing, not marketing's.",
+  groundingRules: [
+    "Signals are stated facts (budget, timeline, process) — never read enthusiasm.",
+    "Objections keep the customer's own framing.",
+  ],
+  prompt: CRM_NOTE,
+  sections: [
+    { key: "needs", kind: "items", heading: "Needs & pain points" },
+    { key: "objections", kind: "items", heading: "Objections" },
+    { key: "signals", kind: "items", heading: "Buying signals" },
+    { key: "nextSteps", kind: "actions", heading: "Next steps" },
+  ],
+});
+
+// ── 6.8 Vendor → negotiation brief ───────────────────────────────────────────
+
+const negotiationBrief = sectionedHandoff({
+  id: "negotiation_brief",
+  label: "Negotiation brief",
+  appliesTo: ["vendor"],
+  blurb: "What's settled, what's still open, and the risks before you sign",
+  tone: "A brief for your own side. Plain statements, no posturing.",
+  groundingRules: [
+    "Agreed means both sides settled it; a one-sided proposal stays open.",
+    "Terms and figures are verbatim or dropped.",
+    "Risks were raised in the room, never foreseen by the model.",
+  ],
+  prompt: NEGOTIATION_BRIEF,
+  temperature: 0,
+  sections: [
+    { key: "agreed", kind: "items", heading: "Agreed" },
+    { key: "open", kind: "items", heading: "Still open" },
+    { key: "risks", kind: "items", heading: "Risks raised" },
+    { key: "nextSteps", kind: "actions", heading: "Next steps" },
+  ],
+});
+
+// ── 6.9 Team → Slack update ──────────────────────────────────────────────────
+
+const slackUpdate = sectionedHandoff({
+  id: "slack_update",
+  label: "Slack update",
+  appliesTo: ["team"],
+  blurb: "A short post-to-channel update: headline, points, blockers",
+  tone: "Reads on a phone. Decisions first, no ceremony.",
+  groundingRules: [
+    "The headline carries no numbers, dates or quotes — cited points do.",
+    "Blockers only when someone said they were blocked.",
+  ],
+  prompt: SLACK_UPDATE,
+  sections: [
+    { key: "points", kind: "items", heading: "What moved" },
+    { key: "blockers", kind: "items", heading: "Blockers" },
+  ],
+  prose: { key: "headline", fallback: "Update from today's meeting" },
+});
+
+// ── 6.10 1:1 → private recap ─────────────────────────────────────────────────
+
+const oneOnOneRecap = sectionedHandoff({
+  id: "one_on_one_recap",
+  label: "1:1 recap",
+  appliesTo: ["one_on_one"],
+  blurb: "What you talked about, what was agreed, and anything to watch",
+  tone: "A private note to yourself. Their words, not your read of them.",
+  groundingRules: [
+    "Flags are concerns the person stated themselves — no mood-reading.",
+    "Commitments cover both sides, owner whitelisted.",
+  ],
+  prompt: ONE_ON_ONE_RECAP,
+  sections: [
+    { key: "discussed", kind: "items", heading: "Discussed" },
+    { key: "commitments", kind: "actions", heading: "Commitments" },
+    { key: "flags", kind: "items", heading: "Worth watching" },
+  ],
+});
+
+// ── 6.11 Cross-meeting → collated customer feedback ─────────────────────────
 
 export type FeedbackTheme = {
   theme: string;
@@ -552,6 +751,11 @@ export const HANDOFFS: HandoffDef<any>[] = [
   followupEmail,
   summaryNextSteps,
   candidateFeedback,
+  investorUpdate,
+  crmNote,
+  negotiationBrief,
+  slackUpdate,
+  oneOnOneRecap,
   collatedFeedback,
 ];
 
@@ -559,20 +763,28 @@ export function getHandoff(id: string): HandoffDef<any> | undefined {
   return HANDOFFS.find((h) => h.id === id);
 }
 
-/** The greyed-out suggestion for a meeting of this type. Suggested, never run. */
+/** The 2–3 handoffs a meeting of this type leads with, in suggestion order. */
+export function suggestedHandoffsFor(type: MeetingType): HandoffDef<any>[] {
+  return (SUGGESTED_HANDOFFS[type] ?? []).map((id) => getHandoff(id)).filter((h): h is HandoffDef<any> => !!h);
+}
+
+/** The lead suggestion — the first of the type's list. Suggested, never run. */
 export function defaultHandoffFor(type: MeetingType): HandoffDef<any> | undefined {
-  return HANDOFFS.find((h) => h.appliesTo.includes(type));
+  return suggestedHandoffsFor(type)[0];
 }
 
 /** What the UI needs to draw the slash menu and chips, with no prompts leaking. */
 export function handoffCatalog(type: MeetingType) {
-  const dflt = defaultHandoffFor(type);
+  const suggested = SUGGESTED_HANDOFFS[type] ?? [];
   return HANDOFFS.map((h) => ({
     id: h.id,
     label: h.label,
     blurb: h.blurb,
     scope: h.scope,
-    isDefault: h.id === dflt?.id,
+    suggested: suggested.includes(h.id),
+    /** Position in the type's suggestion list; -1 when not suggested. */
+    suggestedRank: suggested.indexOf(h.id),
+    isDefault: h.id === suggested[0],
     promptVersion: promptRef(h.prompt),
   }));
 }
@@ -596,6 +808,13 @@ const KEYWORDS: { id: string; words: RegExp }[] = [
     words: /\b(pricing|price|rate)[- ]?(quote|table|card|sheet|breakdown|extract)\b|\bquotes?\b|\bprices? (they|he|she|the vendor) (quoted|gave|said)\b/i,
   },
   { id: "team_actions", words: /\b(action items?|to-?dos?|commitments?)\b|\bwho owes\b|\bwho is doing what\b/i },
+  // The specific artefacts go before summary_next_steps: "1:1 summary" and
+  // "negotiation summary" name a deliverable of their own, not the readout.
+  { id: "investor_update", words: /\binvestor update\b|\bupdate (for|to) (the |my )?investors?\b/i },
+  { id: "crm_note", words: /\bcrm (note|notes|entry|update)\b|\b(log|put) (this|it|the call) in(to)? (the )?crm\b/i },
+  { id: "negotiation_brief", words: /\b(negotiation|vendor) (brief|summary|notes)\b|\bbefore (we|i) sign\b/i },
+  { id: "slack_update", words: /\bslack (update|post|message)\b|\bstandup update\b|\bpost (an? )?update\b/i },
+  { id: "one_on_one_recap", words: /\b(1:1|1on1|one[- ]on[- ]one)\s+(recap|notes?|summary)\b|\brecap (of |for )?(the |our )?(1:1|one[- ]on[- ]one)\b/i },
   { id: "summary_next_steps", words: /\b(summar(y|ise|ize)|readout|recap|next steps)\b/i },
   {
     id: "candidate_feedback",

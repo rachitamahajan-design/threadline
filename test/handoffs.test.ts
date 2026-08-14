@@ -9,11 +9,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   DEFAULT_HANDOFF,
+  SUGGESTED_HANDOFFS,
   aliasSegments,
   inlineSources,
   stripSourceMarkers,
 } from "../src/handoffs/types.js";
-import { HANDOFFS, defaultHandoffFor, getHandoff, handoffCatalog, matchHandoff } from "../src/handoffs/registry.js";
+import {
+  HANDOFFS,
+  defaultHandoffFor,
+  getHandoff,
+  handoffCatalog,
+  matchHandoff,
+  suggestedHandoffsFor,
+} from "../src/handoffs/registry.js";
 import { countLeaves, normalizeSections, type Notes } from "../src/lib/outline.js";
 import { groundingContext, validateNotes } from "../src/lib/grounding.js";
 import type { MeetingType } from "../src/lib/segments.js";
@@ -24,7 +32,7 @@ const META = { title: "Test meeting", when: "Aug 13, 2026" };
 
 // ── §3 taxonomy ─────────────────────────────────────────────────────────────
 
-test("each meeting type suggests exactly the handoff the taxonomy says", () => {
+test("each meeting type leads with the handoff the taxonomy says", () => {
   const expected: Record<MeetingType, string> = {
     investor: "team_actions",
     vendor: "pricing_quote",
@@ -38,12 +46,24 @@ test("each meeting type suggests exactly the handoff the taxonomy says", () => {
   }
 });
 
-test("the catalog marks one default and offers everything else", () => {
+test("every meeting type suggests 2-3 handoffs, all of which exist", () => {
+  for (const [type, ids] of Object.entries(SUGGESTED_HANDOFFS) as [MeetingType, string[]][]) {
+    assert.ok(ids.length >= 2 && ids.length <= 3, `${type} should suggest 2-3, got ${ids.length}`);
+    assert.equal(ids[0], DEFAULT_HANDOFF[type], `${type}'s first suggestion is its default`);
+    assert.deepEqual(suggestedHandoffsFor(type).map((h) => h.id), ids, `${type}'s suggestions must all resolve`);
+  }
+});
+
+test("the catalog marks the suggestions and offers everything else", () => {
   const catalog = handoffCatalog("vendor");
-  assert.equal(catalog.length, 6);
+  assert.equal(catalog.length, HANDOFFS.length);
   assert.deepEqual(catalog.filter((h) => h.isDefault).map((h) => h.id), ["pricing_quote"]);
-  // Non-defaults are still runnable — that is the point of the menu.
-  assert.ok(catalog.some((h) => h.id === "followup_email" && !h.isDefault));
+  assert.deepEqual(
+    catalog.filter((h) => h.suggested).map((h) => h.id).sort(),
+    [...SUGGESTED_HANDOFFS.vendor].sort(),
+  );
+  // Non-suggestions are still runnable — that is the point of the menu.
+  assert.ok(catalog.some((h) => h.id === "crm_note" && !h.suggested));
   // The stamp carries both the template version and the shared-rules version,
   // so one edit to GROUNDING_RULES is visible on every output.
   for (const h of catalog) assert.match(h.promptVersion, /^handoff\.\w+@v\d+\+r\d+$/);
@@ -57,6 +77,13 @@ test("natural language routes to a handoff, and unrelated questions do not", () 
   assert.equal(matchHandoff("summarise this for the team")?.id, "summary_next_steps");
   assert.equal(matchHandoff("write up the interview feedback")?.id, "candidate_feedback");
   assert.equal(matchHandoff("what keeps coming up across my customer calls")?.id, "collated_feedback");
+  assert.equal(matchHandoff("draft the investor update")?.id, "investor_update");
+  assert.equal(matchHandoff("write a crm note for this call")?.id, "crm_note");
+  assert.equal(matchHandoff("give me the negotiation brief")?.id, "negotiation_brief");
+  assert.equal(matchHandoff("write the slack update")?.id, "slack_update");
+  // "1:1 recap" names its own artefact — it must not fall through to the
+  // generic team readout just because "recap" appears in both.
+  assert.equal(matchHandoff("write the 1:1 recap")?.id, "one_on_one_recap");
   // Ordinary questions fall through to grounded Q&A.
   assert.equal(matchHandoff("why did we delay ANZ?"), undefined);
   assert.equal(matchHandoff("who was on this call?"), undefined);

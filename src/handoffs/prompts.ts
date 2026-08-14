@@ -131,6 +131,105 @@ Rules:
 - No sentiment reading. "Hesitated on the scaling question [S018]" is observable; "seemed nervous" is not.`,
 );
 
+export const INVESTOR_UPDATE = handoffPrompt(
+  "handoff.investor_update",
+  1,
+  "traction, metrics, commitments and asks, paste-ready for the update email",
+  () => `You pull the investor-update material out of an investor conversation: what was reported, the numbers behind it, what each side committed to, and what the investor was asked for.
+
+Shape:
+{"highlights": [{"text": "a concrete thing reported or decided", "source": ["S004"]}],
+ "metrics": [{"text": "the figure exactly as spoken, with what it measures", "source": ["S006"]}],
+ "commitments": [{"text": "what they committed to", "owner": "Name", "due": "as stated, else null", "source": ["S010"]}],
+ "asks": [{"text": "what was asked of the investor (intros, advice, participation)", "source": ["S012"]}]}
+
+Rules:
+- "metrics" holds every number that was actually said — revenue, growth, churn, runway, headcount — copied character-for-character. "40% month over month" stays exactly that. A metric you cannot cite does not exist.
+- "highlights" are wins and decisions stated in the meeting, one per line, no adjectives that the transcript does not carry.
+- "owner" must be a name from PARTICIPANTS spelled exactly as given, or "Unassigned". The owner is whoever DOES the work.
+- "asks" are requests made TO the investor in this conversation. Do not turn their questions into asks.
+- Empty arrays are correct when nothing qualifies. Never pad a section.`,
+);
+
+export const CRM_NOTE = handoffPrompt(
+  "handoff.crm_note",
+  1,
+  "needs, objections, buying signals and next steps in CRM-entry form",
+  () => `You write the CRM entry for a customer conversation: what they need, what they pushed back on, the signals that they will or won't buy, and what happens next.
+
+Shape:
+{"needs": [{"text": "the need or pain point as they described it", "source": ["S004"]}],
+ "objections": [{"text": "the concern or blocker they raised", "source": ["S007"]}],
+ "signals": [{"text": "an observable buying signal — budget named, timeline stated, stakeholders mentioned", "source": ["S009"]}],
+ "nextSteps": [{"text": "what happens next", "owner": "Name", "due": "as stated, else null", "source": ["S012"]}]}
+
+Rules:
+- Every line is something the customer or seller actually said. "Evaluating two other vendors" is a signal only if they said it.
+- "signals" are stated facts (budget, timeline, decision process, urgency), never your read of their enthusiasm.
+- "objections" keep the customer's framing: "too expensive for a team of four" — not "pricing concerns".
+- "owner" must be a name from PARTICIPANTS spelled exactly as given, or "Unassigned".
+- Keep every figure, date and name character-for-character as spoken.
+- Empty arrays are correct when nothing qualifies.`,
+);
+
+export const NEGOTIATION_BRIEF = handoffPrompt(
+  "handoff.negotiation_brief",
+  1,
+  "what's settled, what's open and what to resolve before signing",
+  () => `You produce the negotiation brief after a vendor conversation: what is already settled, what is still open, and the risks worth resolving before anything is signed.
+
+Shape:
+{"agreed": [{"text": "a term or point both sides settled", "source": ["S004"]}],
+ "open": [{"text": "a term still unresolved, and where each side stands if stated", "source": ["S007"]}],
+ "risks": [{"text": "a risk or condition someone actually raised", "source": ["S009"]}],
+ "nextSteps": [{"text": "what happens next", "owner": "Name", "due": "as stated, else null", "source": ["S011"]}]}
+
+Rules:
+- "agreed" means BOTH sides settled it in this conversation. One side proposing a number is "open", not "agreed".
+- Prices, terms, dates and notice periods are copied character-for-character as spoken — never rounded, converted or tidied.
+- "risks" holds only what was raised in the room: lock-in someone mentioned, a dependency they flagged, an expiry they stated. Never risks you can foresee yourself.
+- "owner" must be a name from PARTICIPANTS spelled exactly as given, or "Unassigned".
+- Empty arrays are correct when nothing qualifies.`,
+);
+
+export const SLACK_UPDATE = handoffPrompt(
+  "handoff.slack_update",
+  1,
+  "a short post-to-Slack update: headline, points, blockers",
+  () => `You write the short update a founder posts to the team channel after a team meeting. It gets read on a phone: a one-line headline, a handful of points, blockers if any were raised.
+
+Shape:
+{"headline": "one line saying what moved, no numbers or quotes",
+ "points": [{"text": "a decision or update, with its figures", "source": ["S004"]}],
+ "blockers": [{"text": "a blocker someone actually raised", "source": ["S008"]}]}
+
+Rules:
+- The headline carries no numbers, dates or quotes — those live in the points, where they are cited.
+- Three to six "points", each one a complete statement someone could act on. Decisions and owner-facing changes first.
+- Numbers, names and dates in points are copied character-for-character from the cited segments.
+- "blockers" only if someone said they were blocked or a risk was raised. An empty array is the normal case.
+- Plain language. No corporate filler, no "great meeting everyone".`,
+);
+
+export const ONE_ON_ONE_RECAP = handoffPrompt(
+  "handoff.one_on_one_recap",
+  1,
+  "what was discussed, what was agreed, and anything to watch",
+  () => `You write the private recap of a 1:1 conversation: the topics that came up, what each person agreed to do, and anything said that is worth keeping an eye on.
+
+Shape:
+{"discussed": [{"text": "a topic and what was actually said about it", "source": ["S004"]}],
+ "commitments": [{"text": "what they agreed to do", "owner": "Name", "due": "as stated, else null", "source": ["S008"]}],
+ "flags": [{"text": "a concern, frustration or risk the person stated themselves", "source": ["S011"]}]}
+
+Rules:
+- "discussed" lines say what was said, not that a topic came up: "Asked to move to the platform team after the migration ships" — never "career growth was discussed".
+- "commitments" cover BOTH people. "owner" must be a name from PARTICIPANTS spelled exactly as given, or "Unassigned".
+- "flags" are things the person stated in their own words — "I'm stretched thin", "the on-call load isn't sustainable" — cited. No mood-reading, no inference from tone.
+- This is a private note, but the grounding rules still hold: no line without its segment ids, figures verbatim.
+- Empty arrays are correct when nothing qualifies.`,
+);
+
 export const COLLATED_FEEDBACK = handoffPrompt(
   "handoff.collated_feedback",
   1,
