@@ -18,6 +18,7 @@ import { hasOpenAI, openaiModel, chatJSON } from "../lib/openai.js";
 import { extractDocText, summarizeDoc, EXTRACTABLE } from "../lib/docs.js";
 import type { Utterance } from "../lib/pyai.js";
 import { googleConfigured, googleConnected, authUrl, exchangeCode, upcomingEvents } from "./google.js";
+import { icsUrl, setIcsUrl, icsUpcomingEvents } from "./ics.js";
 import { ask } from "../pipeline/ask.js";
 import {
   customerMeetingIds,
@@ -829,9 +830,9 @@ const api: Record<string, Handler> = {
 
   async "GET /api/upcoming"() {
     const manual = db.prepare(`SELECT * FROM upcoming WHERE at_ms > ? ORDER BY at_ms ASC LIMIT 6`).all(Date.now() - 3600_000) as { title: string; at_ms: number }[];
-    if (!googleConnected()) return manual;
+    if (!googleConnected() && !icsUrl(db)) return manual;
     try {
-      const events = await upcomingEvents();
+      const events = googleConnected() ? await upcomingEvents() : await icsUpcomingEvents(db);
       // merge, manual entries first on conflicts (same title + start)
       const seen = new Set(manual.map((m) => `${m.title}@${m.at_ms}`));
       const merged = [...manual, ...events.filter((e) => !seen.has(`${e.title}@${e.at_ms}`)).map((e, i) => ({ id: -1 - i, ...e, source: "google" }))];
@@ -843,7 +844,24 @@ const api: Record<string, Handler> = {
   },
 
   "GET /api/google/status"() {
-    return { configured: googleConfigured(), connected: googleConnected() };
+    const via = googleConnected() ? "oauth" : icsUrl(db) ? "ics" : null;
+    return { configured: googleConfigured(), connected: !!via, via };
+  },
+
+  // Calendar link (ICS): save the secret address after a test fetch, so a bad
+  // paste fails here and not silently on Home. url: null/"" disconnects.
+  async "POST /api/google/ics"(p, body) {
+    const { url } = (body ?? {}) as { url?: string | null };
+    if (!url) { setIcsUrl(db, null); return { ok: true, connected: false }; }
+    if (!/^https:\/\//.test(url)) return { error: "that doesn't look like an https:// link" };
+    setIcsUrl(db, url.trim());
+    try {
+      const events = await icsUpcomingEvents(db);
+      return { ok: true, connected: true, upcoming_48h: events.length };
+    } catch (e) {
+      setIcsUrl(db, null);
+      return { error: `couldn't read that calendar link — ${e instanceof Error ? e.message : "fetch failed"}. Copy the "Secret address in iCal format" from Google Calendar settings.` };
+    }
   },
 
   "POST /api/upcoming"(p, body) {

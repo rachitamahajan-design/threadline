@@ -1771,9 +1771,9 @@ async function refreshGoogleButton() {
   const b = $("#google-btn");
   // the button holds an icon + a label span; only the label changes
   const label = (t) => { const l = b.querySelector(".gb-label"); if (l) l.textContent = t; else b.textContent = t; };
-  if (s.connected) { label("Connected ✓"); b.disabled = true; }
+  if (s.connected) { label("Connected ✓"); b.disabled = s.via === "oauth"; } // an ICS link stays clickable → manage/remove
   else if (s.configured) label("Connect Google");
-  b.dataset.state = s.connected ? "connected" : s.configured ? "ready" : "unconfigured";
+  b.dataset.state = s.connected ? (s.via === "ics" ? "connected-ics" : "connected") : s.configured ? "ready" : "unconfigured";
 }
 refreshGoogleButton();
 if (new URLSearchParams(location.search).get("google") === "connected") history.replaceState({}, "", "/");
@@ -1781,11 +1781,11 @@ if (new URLSearchParams(location.search).get("google") === "connected") history.
 $("#google-btn").addEventListener("click", () => {
   const state = $("#google-btn").dataset.state;
   if (state === "ready") location.href = "/api/google/connect";
-  else if (state === "unconfigured") googleSetupModal();
+  else if (state === "unconfigured" || state === "connected-ics") googleSetupModal(state === "connected-ics");
 });
 
-/** One-time Google Cloud setup, walked through in-app instead of "see README". */
-function googleSetupModal() {
+/** Connect Google Calendar: paste-a-link first, Google Cloud OAuth as the fallback. */
+function googleSetupModal(connectedViaLink = false) {
   document.getElementById("google-modal")?.remove();
   const REDIRECT = "http://localhost:4640/oauth2/callback";
   const ENV = "GOOGLE_CLIENT_ID=your-client-id\nGOOGLE_CLIENT_SECRET=your-client-secret";
@@ -1794,29 +1794,73 @@ function googleSetupModal() {
       <code style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px;overflow-x:auto;white-space:pre">${esc(content)}</code>
       <button class="copybtn" data-gcopy="${id}">Copy</button>
     </div>`;
+  const linkSection = connectedViaLink
+    ? `<div class="t-meta" style="margin-bottom:10px">✓ Connected via a calendar link. Paste a new secret address to replace it, or remove it below.</div>
+       <input type="text" id="gcal-url" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics">
+       <div style="display:flex;gap:8px;margin-top:10px">
+         <button class="copybtn" id="gcal-remove">Remove link</button>
+         <span style="flex:1"></span>
+         <button class="copybtn" id="gcal-save" style="background:var(--ink);color:#fff">Replace &amp; connect</button>
+       </div>`
+    : `<ol style="margin:0 0 8px 18px;line-height:1.9;font-size:14px">
+        <li>Open <a href="https://calendar.google.com" target="_blank" rel="noopener">Google Calendar</a> → ⚙ <b>Settings</b> → pick your calendar on the left</li>
+        <li>Scroll to <b>Integrate calendar</b> → copy the <b>Secret address in iCal format</b> (ends in <code>.ics</code>)</li>
+        <li>Paste it here:</li>
+      </ol>
+      <input type="text" id="gcal-url" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics">
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <span style="flex:1"></span>
+        <button class="copybtn" id="gcal-save" style="background:var(--ink);color:#fff">Save &amp; connect</button>
+      </div>
+      <div class="t-meta" style="margin:6px 0 0">The link is a private credential — it's stored only in the local database and read directly from this machine.</div>`;
   document.body.insertAdjacentHTML("beforeend", `
     <div class="tl-modal" id="google-modal"><div class="box" style="max-width:560px">
       <h2>Connect Google Calendar</h2>
-      <div class="t-meta" style="margin-bottom:14px">Powers the "Up next" meeting notifications. One-time setup, ~5 minutes: Threadline talks to Google directly from this machine — read-only calendar access, token stored locally, no middleman server.</div>
-      <ol style="margin:0 0 8px 18px;line-height:1.9;font-size:14px">
-        <li>Open <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a> → create (or pick) a project</li>
-        <li><b>APIs &amp; Services → Library</b> → enable <b>Google Calendar API</b></li>
-        <li><b>OAuth consent screen</b> → External → stay in <b>Testing</b> mode → add your own Google account as a test user</li>
-        <li><b>Credentials → Create credentials → OAuth client ID</b> → type <b>Web application</b> → add this authorized redirect URI:
-          ${codeBox("redirect", REDIRECT)}</li>
-        <li>Copy the client ID and secret into <code>.env</code> in the Threadline folder:
-          ${codeBox("env", ENV)}</li>
-        <li>Restart Threadline (<code>npm run dev</code>), then click <b>Connect Google</b> again</li>
-      </ol>
-      <div class="t-meta" style="margin-bottom:14px">Gmail and Drive are on the roadmap.</div>
+      <div class="t-meta" style="margin-bottom:14px">Powers the "Up next" meeting notifications. Read-only, local-first: calendar data comes straight from Google to this machine, no middleman server.</div>
+      <div style="font-weight:650;margin-bottom:4px">Option A · Calendar link — 1 minute, no setup</div>
+      ${linkSection}
+      <details style="margin-top:16px">
+        <summary style="font-weight:650;cursor:pointer">Option B · Google Cloud OAuth — full API access, ~5 minutes</summary>
+        <ol style="margin:10px 0 8px 18px;line-height:1.9;font-size:14px">
+          <li>Open <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a> → create (or pick) a project</li>
+          <li><b>APIs &amp; Services → Library</b> → enable <b>Google Calendar API</b></li>
+          <li><b>OAuth consent screen</b> → External → stay in <b>Testing</b> mode → add your own Google account as a test user</li>
+          <li><b>Credentials → Create credentials → OAuth client ID</b> → type <b>Web application</b> → add this authorized redirect URI:
+            ${codeBox("redirect", REDIRECT)}</li>
+          <li>Copy the client ID and secret into <code>.env</code> in the Threadline folder:
+            ${codeBox("env", ENV)}</li>
+          <li>Restart Threadline (<code>npm run dev</code>), then click <b>Connect Google</b> again</li>
+        </ol>
+      </details>
+      <div class="t-meta" style="margin:14px 0">Gmail and Drive are on the roadmap.</div>
       <div style="display:flex;justify-content:flex-end"><button class="copybtn" id="google-done">Done</button></div>
     </div></div>`);
   const modal = $("#google-modal");
   const copies = { redirect: REDIRECT, env: ENV };
   modal.querySelectorAll("[data-gcopy]").forEach((b) =>
     b.addEventListener("click", () => { navigator.clipboard.writeText(copies[b.dataset.gcopy]); b.textContent = "Copied ✓"; }));
+  const saveLink = async (url) => {
+    const btn = modal.querySelector("#gcal-save");
+    if (btn) { btn.disabled = true; btn.textContent = "Checking…"; }
+    const r = await fetch("/api/google/ics", { method: "POST", body: JSON.stringify({ url }) }).then((x) => x.json());
+    if (r.error) {
+      if (btn) { btn.disabled = false; btn.textContent = "Save & connect"; }
+      return tlAlert(r.error, "Calendar link");
+    }
+    modal.remove();
+    refreshGoogleButton();
+    loadUpcoming?.();
+    showToast(url ? `Calendar connected — ${r.upcoming_48h} event${r.upcoming_48h === 1 ? "" : "s"} in the next 48h` : "Calendar link removed");
+  };
+  modal.querySelector("#gcal-save")?.addEventListener("click", () => {
+    const url = modal.querySelector("#gcal-url").value.trim();
+    if (url) saveLink(url);
+  });
+  modal.querySelector("#gcal-url")?.addEventListener("keydown", (e) => { if (e.key === "Enter") { const url = e.target.value.trim(); if (url) saveLink(url); } });
+  modal.querySelector("#gcal-remove")?.addEventListener("click", () => saveLink(null));
   $("#google-done").addEventListener("click", () => modal.remove());
   modal.addEventListener("mousedown", (e) => { if (e.target === modal) modal.remove(); });
+  modal.querySelector("#gcal-url")?.focus();
 }
 
 $("#add-project").addEventListener("click", () => projectModal());
