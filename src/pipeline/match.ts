@@ -66,10 +66,10 @@ export async function suggestProjects(
       )
       .all(p.id) as { name: string }[]).map((r) => r.name),
     documents: (db
-      .prepare(`SELECT title, content FROM documents WHERE project_id = ? ORDER BY updated_at DESC LIMIT 5`)
-      .all(p.id) as { title: string; content: string | null }[]).map((d) => ({
+      .prepare(`SELECT title, content, summary FROM documents WHERE project_id = ? ORDER BY updated_at DESC LIMIT 5`)
+      .all(p.id) as { title: string; content: string | null; summary: string | null }[]).map((d) => ({
       title: d.title,
-      excerpt: d.content?.slice(0, 300) ?? undefined,
+      excerpt: d.summary ?? d.content?.slice(0, 300) ?? undefined,
     })),
     recent_decisions: (db
       .prepare(
