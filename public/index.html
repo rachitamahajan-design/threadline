@@ -1282,9 +1282,143 @@
   }
   img, svg, video, canvas { max-width: 100%; }
   main table, .draft, pre { max-width: 100%; overflow-x: auto; }
+  /* ── Boot splash: the mark threads itself, holds a beat, then fades to the app ── */
+  #splash {
+    position: fixed; inset: 0; z-index: 4000;
+    display: grid; place-items: center;
+    background: var(--bg);
+    transition: opacity .55s ease;
+  }
+  #splash.done { opacity: 0; pointer-events: none; }
+  #splash .mark { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  #splash svg { width: 96px; height: 96px; overflow: visible; }
+  #splash .sp-needle {
+    opacity: 0;
+    transform: translate(-10px, 10px);
+    animation: splash-needle .55s .1s cubic-bezier(.34,1.3,.64,1) forwards;
+  }
+  #splash .sp-thread {
+    stroke-dasharray: var(--len, 90);
+    stroke-dashoffset: var(--len, 90);
+    animation: splash-thread 1s .5s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  #splash .sp-wm {
+    font-family: ui-serif, "New York", Georgia, serif;
+    font-style: italic; font-weight: 600;
+    font-size: 27px; letter-spacing: -0.02em;
+    opacity: 0;
+    animation: splash-wm .55s 1.15s ease forwards;
+  }
+  @keyframes splash-needle { to { opacity: 1; transform: none; } }
+  @keyframes splash-thread { to { stroke-dashoffset: 0; } }
+  @keyframes splash-wm { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  /* the spool: tumbles in from above, bounces, rolls up beside the needle */
+  #splash .sp-stage { position: relative; }
+  #splash .sp-spool {
+    position: absolute; left: -80px; bottom: -2px;
+    width: 60px; height: 66px;
+    animation: spool-drop 1.3s .1s cubic-bezier(.3,.9,.4,1) both;
+  }
+  #splash .sp-spool svg { display: block; width: 100%; height: 100%; overflow: visible; animation: spool-roll 1.3s .1s cubic-bezier(.3,.9,.4,1) both; }
+  @keyframes spool-drop {
+    0%   { transform: translate(-46px, -190px); opacity: 0; }
+    12%  { opacity: 1; }
+    45%  { transform: translate(-46px, 0); }
+    58%  { transform: translate(-34px, -20px); }
+    70%  { transform: translate(-24px, 0); }
+    100% { transform: translate(0, 0); }
+  }
+  @keyframes spool-roll {
+    0%   { transform: rotate(-300deg); }
+    45%  { transform: rotate(-140deg); }
+    70%  { transform: rotate(-40deg); }
+    88%  { transform: rotate(7deg); }
+    100% { transform: rotate(0deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #splash .sp-needle, #splash .sp-thread, #splash .sp-wm, #splash .sp-spool, #splash .sp-spool svg { animation: none; opacity: 1; transform: none; stroke-dashoffset: 0; }
+  }
 </style>
 </head>
 <body>
+<!-- ── boot splash: needle lands, thread draws through the eye, wordmark, fade ── -->
+<div id="splash" aria-hidden="true">
+  <div class="mark">
+    <div class="sp-stage">
+      <!-- the spool rolls in beside the needle -->
+      <div class="sp-spool" aria-hidden="true">
+        <svg viewBox="0 0 64 68" fill="none">
+          <defs>
+            <linearGradient id="sp-spool-body" x1="15" y1="0" x2="49" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#3f66c8"/>
+              <stop offset="0.5" stop-color="#6f9bf0"/>
+              <stop offset="1" stop-color="#3a5cb4"/>
+            </linearGradient>
+          </defs>
+          <!-- loose thread tail -->
+          <path d="M49 31 C 57 28, 60 35, 54 38" stroke="#4a7ce8" stroke-width="1.7" stroke-linecap="round"/>
+          <!-- bottom flange -->
+          <rect x="11" y="51" width="42" height="6" rx="1.5" fill="#efe4c6" stroke="#c9b98f" stroke-width="0.8"/>
+          <ellipse cx="32" cy="57" rx="21" ry="5.5" fill="#efe4c6" stroke="#c9b98f" stroke-width="0.8"/>
+          <ellipse cx="32" cy="51" rx="21" ry="5.5" fill="#f7eeda" stroke="#c9b98f" stroke-width="0.8"/>
+          <!-- wound thread -->
+          <rect x="15" y="13" width="34" height="38" fill="url(#sp-spool-body)"/>
+          <g stroke="#33509e" stroke-width="0.9" opacity="0.45">
+            <line x1="15" y1="17" x2="49" y2="17"/><line x1="15" y1="21" x2="49" y2="21"/>
+            <line x1="15" y1="25" x2="49" y2="25"/><line x1="15" y1="29" x2="49" y2="29"/>
+            <line x1="15" y1="33" x2="49" y2="33"/><line x1="15" y1="37" x2="49" y2="37"/>
+            <line x1="15" y1="41" x2="49" y2="41"/><line x1="15" y1="45" x2="49" y2="45"/>
+          </g>
+          <g stroke="#8fb1f4" stroke-width="2.2" stroke-linecap="round" opacity="0.9">
+            <line x1="16.5" y1="44" x2="47.5" y2="22"/>
+            <line x1="16.5" y1="22" x2="47.5" y2="44"/>
+          </g>
+          <!-- top flange -->
+          <rect x="11" y="7" width="42" height="6" rx="1.5" fill="#efe4c6" stroke="#c9b98f" stroke-width="0.8"/>
+          <ellipse cx="32" cy="13" rx="21" ry="5.5" fill="#e6d8b4" stroke="#c9b98f" stroke-width="0.8"/>
+          <ellipse cx="32" cy="7" rx="21" ry="5.5" fill="#f7eeda" stroke="#c9b98f" stroke-width="0.8"/>
+          <ellipse cx="32" cy="7" rx="7.5" ry="2.1" fill="#d9c89e" stroke="#c9b98f" stroke-width="0.6"/>
+        </svg>
+      </div>
+      <svg viewBox="0 0 34 34" fill="none" width="96" height="96">
+        <defs>
+          <linearGradient id="sp-needle-grad" x1="8" y1="30" x2="26" y2="6" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#b9bec6"/>
+            <stop offset="0.45" stop-color="#eef0f3"/>
+            <stop offset="1" stop-color="#9aa0a9"/>
+          </linearGradient>
+        </defs>
+        <path class="sp-thread" d="M2.5 6.5 C 6.5 3, 12 3.5, 15.5 5.8
+                 C 18.5 7.7, 21.5 9.5, 23.8 10.2
+                 C 27.5 11.2, 29.8 13.8, 29 17
+                 C 28.2 20.5, 24.4 21.2, 23.2 18.6
+                 C 22.2 16.4, 24.6 14.4, 27.6 15.2"
+          stroke="#4a7ce8" stroke-width="1.7" stroke-linecap="round"/>
+        <g class="sp-needle">
+          <path d="M6.6 31.6 L 23.2 9.4 A 1.55 1.55 0 1 1 25.6 11.4 Z"
+            fill="url(#sp-needle-grad)" stroke="#7c828b" stroke-width="0.6" stroke-linejoin="round"/>
+          <ellipse cx="24.4" cy="10.4" rx="0.6" ry="1.35" transform="rotate(-50 24.4 10.4)" fill="var(--bg)" stroke="#7c828b" stroke-width="0.45"/>
+        </g>
+      </svg>
+    </div>
+    <div class="sp-wm">Threadline</div>
+  </div>
+</div>
+<script>
+(function () {
+  var splash = document.getElementById("splash");
+  if (!splash) return;
+  var thread = splash.querySelector(".sp-thread");
+  try { thread.style.setProperty("--len", thread.getTotalLength()); } catch (e) { /* fallback length in CSS */ }
+  var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // spool rolls in and the logo draws (~1.7s of animation), holds a beat,
+  // then the product fades in under it
+  setTimeout(function () {
+    splash.classList.add("done");
+    setTimeout(function () { splash.remove(); }, 650);
+  }, reduced ? 400 : 2300);
+})();
+</script>
 <!-- ── icon sprite: SF-Symbols-ish, 24 viewBox, stroke 1.8, round caps ── -->
 <svg style="display:none" aria-hidden="true" focusable="false">
   <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.5 20v-5.5h5V20"/></symbol>
@@ -1438,7 +1572,7 @@ async function liveMetaBar() {
   const { html } = await topicOptions([]);
   const bar = document.createElement("div");
   bar.id = "live-meta";
-  bar.style.cssText = "margin:-10px 0 18px;display:flex;gap:10px;align-items:center";
+  bar.style.cssText = "margin:8px 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap";
   bar.innerHTML = `
     <select class="topic-select" id="live-mode" title="Meeting mode">${MODES.map((m) => `<option ${m === "discovery" ? "selected" : ""}>${m}</option>`).join("")}</select>
     <select class="topic-select" id="live-topic" title="Thread">${html}</select>
@@ -2507,6 +2641,129 @@ function tlGif(frames, w, h, delayMs) {
   }
   out.push(0x3B);
   return new Blob([new Uint8Array(out)], { type: "image/gif" });
+}
+
+/**
+ * The snippet as a page you can twist: one self-contained HTML file — the
+ * subgraph, a tiny 3D viewer (drag to rotate, slow idle spin, gentle pulse),
+ * and the branded summary panel. Opens anywhere a browser lives; no server.
+ * `payload` is pre-serialized: { nodes, links, q, stats, summary }.
+ */
+function tlBrainHtml(payload) {
+  const data = JSON.stringify(payload).replace(/</g, "\\u003c");
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Threadline — ${esc(payload.q)}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #181512; color: #f1ece4; font: 15px/1.6 -apple-system, "SF Pro Text", system-ui, sans-serif; height: 100vh; display: flex; overflow: hidden; }
+  #stage { flex: 1; position: relative; min-width: 0; cursor: grab; }
+  #stage.drag { cursor: grabbing; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #hint { position: absolute; left: 22px; bottom: 18px; font-size: 12px; color: #8b8175; pointer-events: none; }
+  aside { width: 350px; flex: none; border-left: 1px solid rgba(255,246,235,.12); padding: 34px; display: flex; flex-direction: column; overflow-y: auto; }
+  .mark { display: flex; align-items: center; gap: 10px; font: 600 24px ui-serif, Georgia, serif; }
+  .kick { color: #e6b95e; font: 700 10.5px ui-monospace, SFMono-Regular, monospace; letter-spacing: .35em; margin: 26px 0 10px; }
+  h1 { font: 600 25px/1.2 ui-serif, Georgia, serif; letter-spacing: -.01em; }
+  .stats { color: #8b8175; font-size: 13px; margin: 6px 0 16px; }
+  .sum { color: #b4aa9c; font-size: 13.5px; }
+  footer { margin-top: auto; padding-top: 18px; border-top: 1px solid rgba(255,246,235,.10); }
+  footer a { color: #93a4f2; font-weight: 600; font-size: 14px; text-decoration: none; }
+  footer div { color: #8b8175; font-size: 12px; margin-top: 3px; }
+  @media (max-width: 760px) { body { flex-direction: column; overflow: auto; } #stage { min-height: 55vh; } aside { width: 100%; border-left: 0; border-top: 1px solid rgba(255,246,235,.12); } }
+</style></head>
+<body>
+<div id="stage"><canvas id="c"></canvas><div id="hint">Drag to twist · it keeps turning on its own</div></div>
+<aside>
+  <div class="mark">${TL_LOGO_SVG.replace("<svg ", '<svg style="width:30px;height:30px;flex:none" ')} Threadline</div>
+  <div class="kick">BRAIN SPOTLIGHT</div>
+  <h1>${esc(payload.q)}</h1>
+  <div class="stats">${esc(payload.stats)}</div>
+  <div class="sum">${esc(payload.summary)}</div>
+  <footer><a href="${TL_REPO_URL}">${TL_REPO_LABEL}</a><div>The meeting brain that stays on your laptop.</div></footer>
+</aside>
+<script>
+var D = ${data};
+var stage = document.getElementById("stage"), cv = document.getElementById("c"), x = cv.getContext("2d");
+var a = 0.6, b = -0.18, dragging = false, lx = 0, ly = 0, W = 0, H = 0, dpr = window.devicePixelRatio || 1;
+var FOV = 780, TAU = 6.2832;
+// rotate about the snippet's own center, not the whole brain's
+var cx = 0, cy = 0, cz = 0;
+D.nodes.forEach(function (n) { cx += n.x; cy += n.y; cz += n.z; });
+cx /= D.nodes.length; cy /= D.nodes.length; cz /= D.nodes.length;
+D.nodes.forEach(function (n) { n.x -= cx; n.y -= cy; n.z -= cz; });
+var R = 60;
+D.nodes.forEach(function (n) { R = Math.max(R, Math.hypot(n.x, n.y, n.z)); });
+function size() {
+  var r = stage.getBoundingClientRect();
+  W = r.width; H = r.height;
+  cv.width = W * dpr; cv.height = H * dpr;
+  x.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", size); size();
+function proj(n) {
+  var ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+  var X = n.x * ca + n.z * sa, Z0 = -n.x * sa + n.z * ca;
+  var Y = n.y * cb - Z0 * sb, Z = n.y * sb + Z0 * cb;
+  var p = FOV / (FOV + Z), f = (Math.min(W, H) / 2 - 85) / R;
+  return { x: W / 2 + X * p * f, y: H / 2 + Y * p * f, s: p, z: Z };
+}
+function dot(px, py, r, color, glow, alpha) {
+  x.save(); x.globalAlpha = alpha; x.shadowColor = color; x.shadowBlur = glow;
+  x.beginPath(); x.arc(px, py, r, 0, TAU); x.fillStyle = color; x.fill();
+  x.shadowBlur = 0;
+  x.beginPath(); x.arc(px, py, Math.max(0.6, r * 0.45), 0, TAU); x.fillStyle = "rgba(255,250,242,.92)"; x.fill();
+  x.restore();
+}
+function draw(t) {
+  x.clearRect(0, 0, W, H);
+  var g = x.createRadialGradient(W * 0.06, 0, 0, W * 0.06, 0, H * 0.9);
+  g.addColorStop(0, "rgba(147,164,242,.14)"); g.addColorStop(1, "rgba(147,164,242,0)");
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  g = x.createRadialGradient(W, H, 0, W, H, H * 0.9);
+  g.addColorStop(0, "rgba(230,185,94,.10)"); g.addColorStop(1, "rgba(230,185,94,0)");
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  var ps = D.nodes.map(proj);
+  x.lineCap = "round"; x.strokeStyle = "rgba(255,244,230,.17)"; x.lineWidth = 0.9;
+  D.links.forEach(function (l) {
+    var pa = ps[l[0]], pb = ps[l[1]];
+    x.beginPath(); x.moveTo(pa.x, pa.y); x.lineTo(pb.x, pb.y); x.stroke();
+  });
+  var order = ps.map(function (p, i) { return i; }).sort(function (i, j) { return ps[j].z - ps[i].z; });
+  order.forEach(function (i) {
+    var n = D.nodes[i], p = ps[i], k = 1 + 0.09 * Math.sin(t / 720 + n.s * 2.7);
+    if (n.k === "topic") dot(p.x, p.y, Math.max(3, n.r * 0.5 * p.s) * k, "#e6b95e", 16 * k, 1);
+    else if (n.k === "meeting") dot(p.x, p.y, 5.5 * p.s * k, "#93a4f2", 12 * k, 0.95);
+    else dot(p.x, p.y, 3 * p.s * k, "#9b9184", 6, 0.75);
+  });
+  x.textAlign = "center";
+  D.nodes.forEach(function (n, i) {
+    var p = ps[i];
+    if (n.k === "topic") {
+      x.font = "700 11px ui-monospace, SFMono-Regular, monospace"; x.fillStyle = "rgba(241,236,228,.88)";
+      x.fillText(n.l.toUpperCase().slice(0, 24), p.x, p.y - Math.max(8, n.r * 0.5) - 7);
+    } else {
+      x.font = "600 11px -apple-system, system-ui"; x.fillStyle = "rgba(241,236,228,.94)";
+      x.fillText(n.l.slice(0, 30), p.x, p.y + 19);
+    }
+  });
+  x.textAlign = "left";
+}
+(function loop(t) { if (!dragging) a += 0.0016; draw(t || 0); requestAnimationFrame(loop); })(0);
+stage.addEventListener("pointerdown", function (e) {
+  dragging = true; lx = e.clientX; ly = e.clientY;
+  stage.classList.add("drag"); stage.setPointerCapture(e.pointerId);
+});
+stage.addEventListener("pointermove", function (e) {
+  if (!dragging) return;
+  a += (e.clientX - lx) * 0.005;
+  b = Math.max(-0.9, Math.min(0.9, b + (e.clientY - ly) * 0.004));
+  lx = e.clientX; ly = e.clientY;
+});
+stage.addEventListener("pointerup", function () { dragging = false; stage.classList.remove("drag"); });
+stage.addEventListener("pointercancel", function () { dragging = false; stage.classList.remove("drag"); });
+<\/script>
+</body></html>`;
 }
 
 /**
@@ -5042,7 +5299,7 @@ async function renderGraph() {
   const visible = nodes.filter((n) => keptIds.has(n.id));
 
   main.innerHTML = `<h1>Threads</h1>
-    <div class="sub">${visible.filter((n) => n.kind === 'meeting').length} meetings · ${visible.filter((n) => n.kind === 'person').length} people · ${keptTopics.length} shared topic${keptTopics.length===1?'':'s'} (of ${totalTopics}). Drag to rotate · scroll to zoom · click a meeting to open it.</div>
+    <div class="sub">${visible.filter((n) => n.kind === 'meeting').length} meetings · ${visible.filter((n) => n.kind === 'person').length} people · ${keptTopics.length} shared topic${keptTopics.length===1?'':'s'} (of ${totalTopics}). Drag to rotate · scroll to zoom · click a meeting to open it · shift-click picks a few to share together.</div>
     <div class="card" id="graph-wrap">
       <canvas id="graph"></canvas>
       <div id="graph-tip"></div>
@@ -5089,15 +5346,23 @@ async function renderGraph() {
   const byId = Object.fromEntries(ns.map((n) => [n.id, n]));
   const es = edges.filter((e) => byId[e.src] && byId[e.dst]).map((e) => ({ a: byId[e.src], b: byId[e.dst], kind: e.kind }));
   let hover = null, selected = null, stopped = false;
+  const picked = new Set(); // shift-clicked nodes, shared together
   let spot = null; // Set of node ids under the spotlight, or null
   let qTimer;
   const shareBtn = $("#brain-share");
-  const shareIdle = () => { shareBtn.disabled = false; shareBtn.innerHTML = `${icon("share", 12)} Share`; };
+  const shareIdle = () => {
+    shareBtn.disabled = false;
+    shareBtn.innerHTML = `${icon("share", 12)} Share${picked.size ? ` ${picked.size} picked` : ""}`;
+  };
+  const syncShare = () => {
+    shareBtn.hidden = !picked.size && !(spot && !spot.has("__none__"));
+    if (!shareBtn.disabled) shareIdle();
+  };
   shareIdle();
   $("#brain-q").addEventListener("input", (e) => {
     clearTimeout(qTimer);
     const q = e.target.value.trim().toLowerCase();
-    if (!q) { spot = null; shareBtn.hidden = true; return; }
+    if (!q) { spot = null; syncShare(); return; }
     qTimer = setTimeout(async () => {
       const ids = new Set(ns.filter((n) => (n.label ?? "").toLowerCase().includes(q)).map((n) => n.id));
       try {
@@ -5111,7 +5376,7 @@ async function renderGraph() {
         if (bM && e2.a.kind === "meeting") ids.add(e2.a.id);
       }
       spot = ids.size ? ids : new Set(["__none__"]);
-      shareBtn.hidden = !ids.size;
+      syncShare();
     }, 220);
   });
 
@@ -5241,6 +5506,13 @@ async function renderGraph() {
       if (n.kind === "topic") glowDot(p.x, p.y, Math.max(3, n.r * 0.5 * p.s), PAL.topic, hot ? 24 : 13, (on ? 1 : 0.3) * da);
       else if (n.kind === "meeting") glowDot(p.x, p.y, 5 * p.s, hot ? PAL.meetingHot : PAL.meeting, hot ? 22 : 10, (on ? 0.95 : 0.3) * da);
       else glowDot(p.x, p.y, 2.5 * p.s, PAL.person, hot ? 12 : 4, (on ? 0.7 : 0.2) * da);
+      if (picked.has(n.id)) { // a dashed halo marks the picked few
+        const rr = (n.kind === "topic" ? Math.max(3, n.r * 0.5 * p.s) : n.kind === "meeting" ? 5 * p.s : 2.5 * p.s) + 5;
+        ctx.save(); ctx.globalAlpha = 0.9 * da;
+        ctx.strokeStyle = PAL.meetingHot; ctx.lineWidth = 1.4; ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, 6.2832); ctx.stroke();
+        ctx.restore();
+      }
     }
 
     // labels: topic hubs in caps; front hemisphere reads clearest
@@ -5333,8 +5605,14 @@ async function renderGraph() {
     if (moved > 6) return; // that was a rotate, not a click
     const r = canvas.getBoundingClientRect();
     const n = hitAt(ev.clientX - r.left, ev.clientY - r.top);
+    if (n && (ev.shiftKey || ev.metaKey)) { // shift-click: pick a few, share together
+      picked.has(n.id) ? picked.delete(n.id) : picked.add(n.id);
+      syncShare();
+      return;
+    }
     if (n?.kind === "meeting") { selected = n.id; await openPanel(n.id); return; }
     if (n) { selected = n.id; await openNodePanel(n); return; }
+    if (picked.size) { picked.clear(); syncShare(); return; } // empty cloth clears picks first
     if (selected) { selected = null; panel.classList.remove("open"); return; }
     setSpin(!autoSpin); // empty cloth: pause / resume the slow turn
   });
@@ -5350,7 +5628,7 @@ async function renderGraph() {
   // Left: just the lit subgraph, breathing gently (a slow wobble + per-node
   // pulse, both sine-locked to the loop length so it cycles seamlessly).
   // Right: Threadline branding and a grounded summary of the query.
-  async function brainSnippetGif(q, sub, summary, progress) {
+  async function brainSnippetGif(q, sub, summary, progress, stillOnly) {
     const GW = 960, GH = 540, VW = 566, N = 36, DELAY = 90;
     const c = document.createElement("canvas");
     c.width = GW; c.height = GH;
@@ -5476,6 +5754,8 @@ async function renderGraph() {
       g.fillText("The meeting brain that stays on your laptop.", PX, footTop + 45);
     }
 
+    if (stillOnly) { frame(0); return { canvas: c }; } // the card, no animation pass
+
     const frames = [];
     for (let t = 0; t < N; t++) {
       frame(t);
@@ -5490,37 +5770,57 @@ async function renderGraph() {
     return { blob, canvas: c };
   }
 
-  shareBtn.addEventListener("click", async () => {
-    const q = $("#brain-q").value.trim();
-    const sub = ns.filter((n) => spot?.has(n.id));
-    if (!q || !sub.length || shareBtn.disabled) return;
-    shareBtn.disabled = true;
-    const busy = (t) => { shareBtn.textContent = t; };
+  /** One node and everything threaded straight to it. */
+  const hood = (n) => {
+    const out = [n];
+    for (const e of es) {
+      if (e.a === n && !out.includes(e.b)) out.push(e.b);
+      else if (e.b === n && !out.includes(e.a)) out.push(e.a);
+    }
+    return out;
+  };
+
+  /** The shared weave: summarize, render the loop, offer the exports. */
+  async function weaveShare(anchor, q, sub, summaryHint, busy, done) {
     busy("Summarizing…");
-    let summary = "";
-    try {
-      const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
-      summary = r?.summary || (r?.answer ?? r?.points ?? []).map((p) => p.text).join(" ");
-    } catch {}
+    let summary = summaryHint || "";
+    if (!summary) {
+      try {
+        const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
+        summary = r?.summary || (r?.answer ?? r?.points ?? []).map((p) => p.text).join(" ");
+      } catch {}
+    }
     if (!summary) {
       const mts = sub.filter((n) => n.kind === "meeting").map((n) => n.label);
       summary = `Threads in this brain touching “${q}”: ${mts.join(" · ") || sub.map((n) => n.label).join(" · ")}.`;
     }
     try {
-      const { blob, canvas: still } = await brainSnippetGif(q, sub, summary, busy);
+      const { canvas: still } = await brainSnippetGif(q, sub, summary, busy, true);
       const slug = q.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "spotlight";
-      const url = URL.createObjectURL(blob);
-      openPopover(shareBtn, `
+      // the twistable page carries the same subgraph, serialized
+      const iOf = new Map(sub.map((n, i) => [n.id, i]));
+      const nM = sub.filter((n) => n.kind === "meeting").length,
+        nP = sub.filter((n) => n.kind === "person").length,
+        nT = sub.filter((n) => n.kind === "topic").length;
+      const payload = {
+        q: q.charAt(0).toUpperCase() + q.slice(1), summary,
+        stats: [
+          nM && `${nM} meeting${nM === 1 ? "" : "s"}`,
+          nP && `${nP} ${nP === 1 ? "person" : "people"}`,
+          nT && `${nT} topic${nT === 1 ? "" : "s"}`,
+        ].filter(Boolean).join(" · "),
+        nodes: sub.map((n) => ({ l: n.label, k: n.kind, x: +n.px.toFixed(1), y: +n.py.toFixed(1), z: +n.pz.toFixed(1), r: +n.r.toFixed(1), s: +n.seed.toFixed(2) })),
+        links: es.filter((e) => iOf.has(e.a.id) && iOf.has(e.b.id)).map((e) => [iOf.get(e.a.id), iOf.get(e.b.id)]),
+      };
+      openPopover(anchor, `
         <div class="pop-title">${icon("share", 13)}Share this spotlight</div>
         <div style="width:300px;border-radius:12px;border:1px solid var(--glass-border);overflow:hidden">
-          <img src="${url}" alt="Animated brain snippet" style="display:block;width:100%"></div>
-        <div class="t-meta" style="margin:8px 3px 8px">Loops forever · ${(blob.size / 1048576).toFixed(1)} MB GIF</div>
-        <button class="menu-row" data-act="gif">${icon("download", 15)}Download GIF</button>
-        <button class="menu-row" data-act="png">${icon("download", 15)}Download PNG still</button>
+          <img src="${still.toDataURL("image/png")}" alt="Brain snippet" style="display:block;width:100%"></div>
+        <div class="t-meta" style="margin:8px 3px 8px">${payload.stats} · woven locally</div>
+        <button class="menu-row" data-act="html">${icon("doc", 15)}Download interactive page</button>
         <button class="menu-row" data-act="copy">${icon("copy", 15)}Copy still image</button>`, (pop, close) => {
         const run = {
-          gif: () => tlDownload(blob, `threadline-brain-${slug}.gif`),
-          png: () => still.toBlob((b) => tlDownload(b, `threadline-brain-${slug}.png`), "image/png"),
+          html: () => tlDownload(new Blob([tlBrainHtml(payload)], { type: "text/html" }), `threadline-brain-${slug}.html`),
           copy: async () => {
             try {
               await navigator.clipboard.write([new ClipboardItem({
@@ -5538,8 +5838,35 @@ async function renderGraph() {
     } catch (err) {
       showToast("Couldn't weave the snippet — try again?");
       console.error(err);
-    } finally { shareIdle(); }
+    } finally { done(); }
+  }
+
+  shareBtn.addEventListener("click", () => {
+    if (shareBtn.disabled) return;
+    let q, sub;
+    if (picked.size) { // the picked few, each with its own neighborhood
+      const chosen = ns.filter((n) => picked.has(n.id));
+      sub = [...new Set(chosen.flatMap(hood))];
+      q = chosen.map((n) => n.label).join(" + ");
+    } else {
+      q = $("#brain-q").value.trim();
+      sub = ns.filter((n) => spot?.has(n.id));
+    }
+    if (!q || !sub.length) return;
+    weaveShare(shareBtn, q, sub, "",
+      (t) => { shareBtn.disabled = true; shareBtn.textContent = t; }, shareIdle);
   });
+
+  /** Panel buttons share a node's own neighborhood. */
+  function wirePanelShare(node, summaryHint) {
+    const btn = $("#gp-share");
+    if (!btn || !node) return;
+    const orig = btn.innerHTML; // keep the icon when the label is restored
+    btn.addEventListener("click", () =>
+      weaveShare(btn, node.label, hood(node), summaryHint,
+        (t) => { btn.disabled = true; btn.textContent = t; },
+        () => { btn.disabled = false; btn.innerHTML = orig; }));
+  }
 
   async function ctxActions(nodeId) {
     const r = await api(`/api/node/context?id=${encodeURIComponent(nodeId)}`);
@@ -5574,7 +5901,8 @@ async function renderGraph() {
         </div>
         <button id="gp-close" style="margin-left:auto;flex:none;border:1px solid var(--line);background:var(--surface);width:26px;height:26px;border-radius:8px;cursor:pointer;color:var(--ink-3);font-size:14px;line-height:1">✕</button>
       </div>
-      <pre style="white-space:pre-wrap;font:12px/1.55 ui-monospace,monospace;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:16px;max-height:52vh;overflow-y:auto">${esc(r.markdown)}</pre>
+      <button class="copybtn" style="margin:12px 0 0" id="gp-share">${icon("share", 13)} Share brain</button>
+      <pre style="white-space:pre-wrap;font:12px/1.55 ui-monospace,monospace;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:14px;max-height:52vh;overflow-y:auto">${esc(r.markdown)}</pre>
       <div style="display:flex;gap:8px;margin-top:14px">
         <button class="copybtn" style="margin:0" id="gp-copy">Copy .md for your LLM</button>
         <button class="copybtn" style="margin:0" id="gp-dl">Download</button>
@@ -5583,6 +5911,7 @@ async function renderGraph() {
     $("#gp-close").addEventListener("click", () => { selected = null; panel.classList.remove("open"); });
     $("#gp-copy").addEventListener("click", (e) => window.__brainCtxCopy(n.id, e.currentTarget));
     $("#gp-dl").addEventListener("click", () => window.__brainCtxDownload(n.id));
+    wirePanelShare(n, "");
   }
 
   async function openPanel(id) {
@@ -5600,6 +5929,7 @@ async function renderGraph() {
         </div>
         <button id="gp-close" style="margin-left:auto;flex:none;border:1px solid var(--line);background:var(--surface);width:26px;height:26px;border-radius:8px;cursor:pointer;color:var(--ink-3);font-size:14px;line-height:1">✕</button>
       </div>
+      <button class="copybtn" style="margin:12px 0 0" id="gp-share">${icon("share", 13)} Share brain</button>
       ${meeting.summary ? `<div style="margin-top:20px"><div class="gp-k">Summary</div><div style="font-size:13.5px;line-height:1.6">${esc(meeting.summary)}</div></div>` : ""}
       <div style="margin-top:22px"><div class="gp-k">Pending · by stakeholder</div>
       ${Object.keys(byOwner).length ? Object.entries(byOwner).map(([owner, items]) => `
@@ -5629,6 +5959,7 @@ async function renderGraph() {
     $("#gp-open").addEventListener("click", () => { state.meetingId = id; render(); });
     $("#gp-copy").addEventListener("click", (e) => window.__brainCtxCopy(id, e.currentTarget));
     $("#gp-dl").addEventListener("click", () => window.__brainCtxDownload(id));
+    wirePanelShare(byId[id], meeting.summary ?? "");
   }
 
   $("#ctx-md").addEventListener("click", (e) => {
