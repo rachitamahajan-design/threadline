@@ -21,6 +21,8 @@ import { groundedIn, type StepRecord } from "../lib/harness.js";
 import { recordRun } from "../lib/runlog.js";
 import { because } from "../lib/reasons.js";
 import { generateBrainMd } from "./brain-md.js";
+import { clearFacts } from "../lib/store.js";
+import { ensureNotes } from "./handoff.js";
 import type { RecapRecord } from "../lib/pyai.js";
 
 const MIN_TAPE_BYTES = 960_000; // ~30s @ 32KB/s — shorter isn't worth a job
@@ -212,7 +214,16 @@ async function diarizeInner(db: DatabaseSync, apiKey: string, meetingId: string,
       if (plan.target === "You") notes.push("one of the Room voices is you — name yourself too");
     }
 
-    if (anyRewrite) rederiveMeeting(db, meetingId);
+    if (anyRewrite) {
+      rederiveMeeting(db, meetingId);
+      // The outline's [S###] receipts are positional — substitution renumbered
+      // every line, so the old notes now cite the WRONG segments. Facts are
+      // cleared and notes regenerate against the diarized transcript (one paid
+      // notes call; guarded — a notes failure never fails the diarize run).
+      clearFacts(db, meetingId);
+      await ensureNotes(db, meetingId, { force: true }).catch(() => {});
+      notes.push("notes rebuilt against the diarized transcript");
+    }
     const rate = totalLines ? totalMatched / totalLines : 0;
     if (anyRewrite && rate < 0.7) notes.unshift("low match — offsets may have drifted (mid-call reconnects?)");
     setRun(db, meetingId, {
