@@ -90,14 +90,25 @@ export function rederiveMeeting(db: DatabaseSync, meetingId: string) {
  * recognition, so in-person mode can't know which voice is the owner's —
  * every voice becomes Speaker N and gets named by a human, the owner included.
  */
-function pickChannel(dir: string, meetingId: string): { tape: string; target: "Them" | "You"; bytes: number } | { reason: string } {
+type ChannelPlan = { tape: string; target: "Them" | "You"; prefix: string; bytes: number };
+
+/**
+ * Every substantial channel gets diarized — covering all three meeting shapes:
+ * pure call (ch0 only), in-person (ch1 only, nobody through the speakers),
+ * and HYBRID (on a call with several people sharing your room mic): both
+ * channels run, with distinct label namespaces so the naming chips say where
+ * each voice sat — call side "Speaker N", your room "Room N".
+ */
+function planChannels(dir: string, meetingId: string): ChannelPlan[] | { reason: string } {
   const size = (ch: number) => {
     const t = `${dir}/${meetingId}-ch${ch}.pcm`;
     return existsSync(t) ? statSync(t).size : 0;
   };
   const ch0 = size(0), ch1 = size(1);
-  if (ch0 >= MIN_TAPE_BYTES) return { tape: `${dir}/${meetingId}-ch0.pcm`, target: "Them", bytes: ch0 };
-  if (ch1 >= MIN_TAPE_BYTES) return { tape: `${dir}/${meetingId}-ch1.pcm`, target: "You", bytes: ch1 }; // in-person
+  const plans: ChannelPlan[] = [];
+  if (ch0 >= MIN_TAPE_BYTES) plans.push({ tape: `${dir}/${meetingId}-ch0.pcm`, target: "Them", prefix: "Speaker", bytes: ch0 });
+  if (ch1 >= MIN_TAPE_BYTES) plans.push({ tape: `${dir}/${meetingId}-ch1.pcm`, target: "You", prefix: "Room", bytes: ch1 });
+  if (plans.length) return plans;
   if (!ch0 && !ch1) return { reason: "no tapes on disk" };
   return { reason: `recording too short (${Math.round(Math.max(ch0, ch1) / 32_000)}s) to be worth a job` };
 }
@@ -114,40 +125,47 @@ export async function diarizeMeeting(db: DatabaseSync, apiKey: string, meetingId
   if (existsSync(dir) && readdirSync(dir).some((f) => f.startsWith(`${meetingId}-s`)))
     return skip("resumed recordings aren't supported yet");
 
-  const picked = pickChannel(dir, meetingId);
-  if ("reason" in picked) return skip(picked.reason);
-  const { tape, target, bytes } = picked;
-
-  const lines = db
-    .prepare("SELECT idx, speaker, offset_s, duration_s FROM utterances WHERE meeting_id = ? AND speaker = ? ORDER BY idx")
-    .all(meetingId, target) as UttRow[];
-  if (lines.length < MIN_THEM_LINES)
-    return skip(`only ${lines.length} ${target === "You" ? "mic" : "other-participant"} line(s) — nothing to split`);
+  const plans = planChannels(dir, meetingId);
+  if ("reason" in plans) return skip(plans.reason);
 
   setRun(db, meetingId, { status: "running", reason: null });
+  let totalSpeakers = 0, totalMatched = 0, totalLines = 0, anyRewrite = false;
+  const notes: string[] = [];
   try {
-    const jobId = await submitTranscriptionJob(apiKey, pcm16ToWav(readFileSync(tape)), { diarize: true });
-    setRun(db, meetingId, { job_id: jobId });
-    const { segments, speakers } = await awaitTranscriptionJob(apiKey, jobId, bytes / 32_000);
+    for (const plan of plans) {
+      const lines = db
+        .prepare("SELECT idx, speaker, offset_s, duration_s FROM utterances WHERE meeting_id = ? AND speaker = ? ORDER BY idx")
+        .all(meetingId, plan.target) as UttRow[];
+      if (lines.length < MIN_THEM_LINES) { notes.push(`${plan.target}: too few lines to split`); continue; }
+      totalLines += lines.length;
 
-    if (speakers <= 1)
-      return setRun(db, meetingId, { status: "done", speakers, matched: 0, total: lines.length, reason: "one voice — nothing to split" });
+      const jobId = await submitTranscriptionJob(apiKey, pcm16ToWav(readFileSync(plan.tape)), { diarize: true });
+      setRun(db, meetingId, { job_id: jobId });
+      const { segments, speakers } = await awaitTranscriptionJob(apiKey, jobId, plan.bytes / 32_000);
+      if (speakers <= 1) { notes.push(`${plan.target}: one voice`); continue; }
+      totalSpeakers += speakers;
 
-    const matches = matchSegments(lines, segments);
-    const upd = db.prepare("UPDATE utterances SET speaker = ? WHERE meeting_id = ? AND idx = ?");
-    db.exec("BEGIN");
-    try {
-      for (const [idx, speaker] of matches) upd.run(speaker, meetingId, idx);
-      db.exec("COMMIT");
-    } catch (e) { db.exec("ROLLBACK"); throw e; }
+      // Distinct namespace per channel: job labels are "Speaker K" — the mic
+      // channel's become "Room K" so hybrid meetings stay legible.
+      const matches = matchSegments(lines, segments);
+      const upd = db.prepare("UPDATE utterances SET speaker = ? WHERE meeting_id = ? AND idx = ?");
+      db.exec("BEGIN");
+      try {
+        for (const [idx, label] of matches)
+          upd.run(plan.prefix === "Speaker" ? label : label.replace(/^Speaker/, plan.prefix), meetingId, idx);
+        db.exec("COMMIT");
+      } catch (e) { db.exec("ROLLBACK"); throw e; }
+      totalMatched += matches.size;
+      anyRewrite = true;
+      if (plan.target === "You") notes.push("one of the Room voices is you — name yourself too");
+    }
 
-    rederiveMeeting(db, meetingId);
-    const rate = lines.length ? matches.size / lines.length : 0;
+    if (anyRewrite) rederiveMeeting(db, meetingId);
+    const rate = totalLines ? totalMatched / totalLines : 0;
+    if (anyRewrite && rate < 0.7) notes.unshift("low match — offsets may have drifted (mid-call reconnects?)");
     setRun(db, meetingId, {
-      status: "done", speakers, matched: matches.size, total: lines.length,
-      reason: rate < 0.7
-        ? "low match — offsets may have drifted (mid-call reconnects?)"
-        : target === "You" ? "in-person meeting — one of these speakers is you; name yourself too" : null,
+      status: "done", speakers: totalSpeakers, matched: totalMatched, total: totalLines,
+      reason: notes.length ? notes.join("; ") : null,
     });
   } catch (e) {
     const msg = e instanceof PyAIError ? `${e.code}: ${e.message}` : e instanceof Error ? e.message : String(e);

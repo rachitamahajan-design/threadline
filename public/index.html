@@ -1503,7 +1503,7 @@ async function loadSpeakerChips(meetingId) {
   const host = document.getElementById("speaker-chips");
   if (!host) return;
   const { run, speakers } = await api(`/api/speaker/status?id=${encodeURIComponent(meetingId)}`).catch(() => ({ run: null, speakers: [] }));
-  const unnamed = (speakers ?? []).filter((s) => /^Speaker \d+$/.test(s.speaker));
+  const unnamed = (speakers ?? []).filter((s) => /^(Speaker|Room) \d+$/.test(s.speaker));
   let html = "";
   if (run?.status === "running") html = `<span class="up-chip">🎙 identifying speakers…</span>`;
   else if (run?.status === "failed") html = `<button class="up-chip" id="diar-retry" title="${esc(run.reason ?? "")}">🎙 speaker ID failed — retry</button>`;

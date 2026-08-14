@@ -90,7 +90,7 @@ export function anchors(a: string, b: string): string[] {
   return toks(a).filter((w) => B.has(w));
 }
 
-const PLACEHOLDER = /^(you|them|me|myself|agent|customer|speaker ?\d*|unknown)$/;
+const PLACEHOLDER = /^(you|them|me|myself|agent|customer|speaker ?\d*|room ?\d*|unknown)$/;
 
 /**
  * The gate. Returns null to pass, or the reason it was blocked — matching the
