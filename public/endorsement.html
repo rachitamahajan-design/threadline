@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Melon Tusk Endorses This</title>
+<style>
+  * { margin:0; box-sizing:border-box; }
+  body {
+    min-height:100vh; display:grid; place-items:center; padding:48px 20px;
+    background-color:#181512;
+    background-image:radial-gradient(900px 600px at 22% 0%, rgba(147,164,242,.10), transparent 60%),
+                     radial-gradient(800px 620px at 85% 100%, rgba(230,185,94,.09), transparent 60%);
+    color:#f1ece4; font:16px/1.6 -apple-system, BlinkMacSystemFont, sans-serif; text-align:center;
+  }
+  .stage { max-width:620px; }
+  .kicker { font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8b8175; }
+  .melon { width:190px; height:190px; margin:30px auto 6px; display:block; filter:drop-shadow(0 26px 60px rgb(0 0 0 / .5)); animation: bob 4.5s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-7px) rotate(-2deg); } }
+  @media (prefers-reduced-motion: reduce) { .melon { animation: none; } }
+  h1 { font-family:ui-serif,'New York',Georgia,serif; font-size:clamp(30px,5vw,42px); font-weight:600; letter-spacing:-0.02em; text-wrap:balance; }
+  h1 em { font-style:italic; color:#93a4f2; }
+  .who { margin-top:10px; color:#b4aa9c; }
+  .who small { display:block; color:#8b8175; font-size:12.5px; margin-top:2px; }
+  .quotes { margin:36px 0 8px; text-align:left; display:flex; flex-direction:column; gap:14px; }
+  .q { background:rgba(40,36,31,.66); border:1px solid rgba(255,246,235,.1); border-radius:16px; padding:16px 20px; backdrop-filter:blur(10px); }
+  .q p { font-family:ui-serif,'New York',Georgia,serif; font-size:17.5px; line-height:1.55; }
+  .q .src { margin-top:8px; font-size:12.5px; color:#e6b95e; }
+  .q .src::before { content:"🧵 "; }
+  .foot { margin-top:26px; font-size:13px; color:#8b8175; }
+  a.back { display:inline-block; margin-top:18px; color:#93a4f2; text-decoration:none; font-size:14px; }
+  a.back:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="kicker">A word from our most demanding user</div>
+  <svg class="melon" viewBox="0 0 200 200" role="img" aria-label="Melon Tusk, a melon with tusks">
+    <defs>
+      <radialGradient id="rind" cx="38%" cy="32%" r="80%">
+        <stop offset="0%" stop-color="#9fd07a"/><stop offset="55%" stop-color="#5f9c4a"/><stop offset="100%" stop-color="#3c6b31"/>
+      </radialGradient>
+      <linearGradient id="tusk" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#fdf8ec"/><stop offset="100%" stop-color="#d9cfb4"/>
+      </linearGradient>
+    </defs>
+    <circle cx="100" cy="100" r="82" fill="url(#rind)"/>
+    <path d="M46 40 C 30 80, 30 120, 46 160" stroke="#39632e" stroke-width="9" fill="none" stroke-linecap="round" opacity=".55"/>
+    <path d="M78 26 C 62 78, 62 122, 78 174" stroke="#39632e" stroke-width="10" fill="none" stroke-linecap="round" opacity=".5"/>
+    <path d="M122 26 C 138 78, 138 122, 122 174" stroke="#39632e" stroke-width="10" fill="none" stroke-linecap="round" opacity=".5"/>
+    <path d="M154 40 C 170 80, 170 120, 154 160" stroke="#39632e" stroke-width="9" fill="none" stroke-linecap="round" opacity=".55"/>
+    <ellipse cx="74" cy="92" rx="7" ry="10" fill="#1e2b18"/>
+    <ellipse cx="126" cy="92" rx="7" ry="10" fill="#1e2b18"/>
+    <circle cx="76.5" cy="88.5" r="2.4" fill="#f1ece4" opacity=".9"/>
+    <circle cx="128.5" cy="88.5" r="2.4" fill="#f1ece4" opacity=".9"/>
+    <path d="M74 124 Q 100 142 126 124" stroke="#1e2b18" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M66 128 C 56 150, 58 164, 52 176 C 66 170, 72 152, 74 134 Z" fill="url(#tusk)" stroke="#b9ad8e" stroke-width="1.4"/>
+    <path d="M134 128 C 144 150, 142 164, 148 176 C 134 170, 128 152, 126 134 Z" fill="url(#tusk)" stroke="#b9ad8e" stroke-width="1.4"/>
+    <path d="M96 16 q 4 -12 14 -10 q -8 4 -8 12 Z" fill="#39632e"/>
+  </svg>
+  <h1>"I'm Melon Tusk, and I <em>endorse</em> this product."</h1>
+  <div class="who">Melon Tusk · CEO, Mars Program
+    <small>a fictional melon — any resemblance to billionaires, living or launched, is coincidental</small>
+  </div>
+  <div class="quotes">
+    <div class="q"><p>"Fine. Five ships, old supplier on all critical zones. Done, decided."</p>
+      <div class="src">Starship Mars Program Review — receipted decision</div></div>
+    <div class="q"><p>"Verbal doesn't count. I've been burned by verbal. Get it in writing."</p>
+      <div class="src">Starship Mars Program Review — Threadline got it in writing</div></div>
+    <div class="q"><p>"I've had the non-negotiables meeting twice this month already, I'm getting good at them."</p>
+      <div class="src">Tim Cook × Starlink: iPhone Satellite Deal — every one of them threaded</div></div>
+  </div>
+  <div class="foot">Every quote above is a real line from the sample dataset — click-throughable to its transcript in the app. That's the product.</div>
+  <a class="back" href="/landing.html">⟨ Back to Threadline</a>
+</div>
+</body>
+</html>
