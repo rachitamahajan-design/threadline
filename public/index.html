@@ -719,6 +719,14 @@
     padding: 6px 11px; font: 12.5px -apple-system, system-ui; color: var(--ink); outline: none;
   }
   #brain-q:focus { border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); }
+  #brain-share {
+    position: absolute; left: 236px; top: 14px; z-index: 2; display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--surface) 92%, transparent);
+    padding: 6px 12px; font: 550 12.5px -apple-system, system-ui; color: var(--ink-2); cursor: pointer;
+  }
+  #brain-share:hover { border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); color: var(--thread); }
+  #brain-share[hidden] { display: none; }
+  #brain-share:disabled { opacity: .65; cursor: default; }
   #graph-ctl {
     position: absolute; right: 14px; bottom: 14px; z-index: 2;
     display: flex; flex-direction: column; gap: 6px;
@@ -952,7 +960,7 @@
     max-width: 1560px; height: calc(100vh - 62px); overflow: hidden;
     display: flex; flex-direction: column; padding: 28px 36px 0;
   }
-  main.wide .workspace { flex: 1; min-height: 0; align-items: stretch; }
+  main.wide .workspace { flex: 1; min-height: 0; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
   .ws-main {
     display: flex; flex-direction: column; min-height: 0; position: relative;
     overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 0 2px;
@@ -1257,7 +1265,9 @@
     backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   }
   #notes-doc, #doc-editor, #side-panel, #chat-bar, #correct-modal .box, .tl-modal .box { border-radius: var(--radius); }
-  #side-panel { top: calc(var(--hdr-h) + 18px); height: calc(100vh - var(--hdr-h) - 38px); }
+  /* Inside the fixed-height workspace the grid row sizes the panel; a viewport
+     height here inflated the row and clipped the sticky chat dock below the fold. */
+  main.wide #side-panel { top: auto; height: auto; }
   .panel-tabs { background: transparent; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border-radius: var(--radius) var(--radius) 0 0; }
   textarea.notes, .draft, .add-row input, .add-row select { background: var(--sunk); border-color: var(--line); border-radius: var(--radius-sm); }
   .topic-select { background: var(--card); }
@@ -2212,6 +2222,100 @@ async function openNeedleShare(anchor, title) {
     pop.querySelectorAll("[data-act]").forEach((b) =>
       b.addEventListener("click", () => { close(); run[b.dataset.act](); }));
   });
+}
+
+// ── Growth loop 2: a Brain spotlight becomes a looping GIF card ──────────
+// A hand-rolled GIF89a encoder: popularity palette over 5-bit color bins,
+// classic LZW, NETSCAPE loop-forever. Nothing leaves the laptop.
+
+/** GIF-flavoured LZW over 8-bit palette indices. Returns raw code bytes. */
+function tlLzw(minCodeSize, indices) {
+  const out = [];
+  const clearCode = 1 << minCodeSize, eofCode = clearCode + 1;
+  let nBits = minCodeSize + 1, maxcode = (1 << nBits) - 1;
+  let freeEnt = eofCode + 1, curAccum = 0, curBits = 0;
+  let dict = new Map();
+  const output = (code) => {
+    curAccum |= code << curBits; curBits += nBits;
+    while (curBits >= 8) { out.push(curAccum & 255); curAccum >>= 8; curBits -= 8; }
+    if (freeEnt > maxcode) {
+      if (nBits < 12) { nBits++; maxcode = (1 << nBits) - 1; }
+      else maxcode = 1 << 12;
+    }
+  };
+  output(clearCode);
+  let ent = indices[0];
+  for (let i = 1; i < indices.length; i++) {
+    const c = indices[i], key = (c << 12) | ent;
+    const hit = dict.get(key);
+    if (hit !== undefined) { ent = hit; continue; }
+    output(ent);
+    if (freeEnt < 4096) dict.set(key, freeEnt++);
+    else {
+      output(clearCode);
+      dict = new Map(); freeEnt = eofCode + 1;
+      nBits = minCodeSize + 1; maxcode = (1 << nBits) - 1;
+    }
+    ent = c;
+  }
+  output(ent); output(eofCode);
+  if (curBits > 0) out.push(curAccum & 255);
+  return out;
+}
+
+/** frames: ImageData[], all w×h. Returns an animated, infinitely-looping GIF. */
+function tlGif(frames, w, h, delayMs) {
+  // global palette: the most popular 5-bit-per-channel bins across two frames
+  const hist = new Map();
+  for (const f of [frames[0], frames[Math.floor(frames.length / 2)]]) {
+    const d = f.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const k = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3);
+      hist.set(k, (hist.get(k) ?? 0) + 1);
+    }
+  }
+  const top = [...hist.entries()].sort((a, b) => b[1] - a[1]).slice(0, 256).map(([k]) => k);
+  const pr = new Uint8Array(256), pg = new Uint8Array(256), pb = new Uint8Array(256);
+  top.forEach((k, i) => {
+    pr[i] = ((k >> 10) << 3) | 4; pg[i] = (((k >> 5) & 31) << 3) | 4; pb[i] = ((k & 31) << 3) | 4;
+  });
+  const nPal = top.length, cache = new Map();
+  const indexOf = (k) => {
+    let idx = cache.get(k);
+    if (idx !== undefined) return idx;
+    const r = ((k >> 10) << 3) | 4, g = (((k >> 5) & 31) << 3) | 4, b = ((k & 31) << 3) | 4;
+    let bd = 1e9; idx = 0;
+    for (let i = 0; i < nPal; i++) {
+      const d = (pr[i] - r) ** 2 + (pg[i] - g) ** 2 + (pb[i] - b) ** 2;
+      if (d < bd) { bd = d; idx = i; }
+    }
+    cache.set(k, idx);
+    return idx;
+  };
+
+  const out = [];
+  const str = (s) => { for (let i = 0; i < s.length; i++) out.push(s.charCodeAt(i)); };
+  const u16 = (v) => { out.push(v & 255, (v >> 8) & 255); };
+  str("GIF89a"); u16(w); u16(h); out.push(0xF7, 0, 0);
+  for (let i = 0; i < 256; i++) out.push(pr[i], pg[i], pb[i]);
+  out.push(0x21, 0xFF, 11); str("NETSCAPE2.0"); out.push(3, 1, 0, 0, 0); // loop forever
+  const delay = Math.max(2, Math.round(delayMs / 10));
+  for (const f of frames) {
+    const d = f.data, px = new Uint8Array(w * h);
+    for (let i = 0, p = 0; i < d.length; i += 4, p++)
+      px[p] = indexOf(((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3));
+    out.push(0x21, 0xF9, 4, 0x04); u16(delay); out.push(0, 0); // GCE: keep previous frame
+    out.push(0x2C); u16(0); u16(0); u16(w); u16(h); out.push(0); // image descriptor
+    out.push(8); // LZW min code size
+    const lzw = tlLzw(8, px);
+    for (let i = 0; i < lzw.length; i += 255) {
+      const chunk = lzw.slice(i, i + 255);
+      out.push(chunk.length, ...chunk);
+    }
+    out.push(0);
+  }
+  out.push(0x3B);
+  return new Blob([new Uint8Array(out)], { type: "image/gif" });
 }
 
 /**
@@ -4753,6 +4857,7 @@ async function renderGraph() {
       <canvas id="graph"></canvas>
       <div id="graph-tip"></div>
       <input id="brain-q" placeholder="Spotlight… (word or name)" autocomplete="off">
+      <button id="brain-share" hidden title="Share this spotlight as a looping GIF card"></button>
       <div id="graph-ctl">
         <button id="gz-in" title="Zoom in">+</button>
         <button id="gz-out" title="Zoom out">−</button>
@@ -4796,10 +4901,13 @@ async function renderGraph() {
   let hover = null, selected = null, stopped = false;
   let spot = null; // Set of node ids under the spotlight, or null
   let qTimer;
+  const shareBtn = $("#brain-share");
+  const shareIdle = () => { shareBtn.disabled = false; shareBtn.innerHTML = `${icon("share", 12)} Share`; };
+  shareIdle();
   $("#brain-q").addEventListener("input", (e) => {
     clearTimeout(qTimer);
     const q = e.target.value.trim().toLowerCase();
-    if (!q) { spot = null; return; }
+    if (!q) { spot = null; shareBtn.hidden = true; return; }
     qTimer = setTimeout(async () => {
       const ids = new Set(ns.filter((n) => (n.label ?? "").toLowerCase().includes(q)).map((n) => n.id));
       try {
@@ -4813,6 +4921,7 @@ async function renderGraph() {
         if (bM && e2.a.kind === "meeting") ids.add(e2.a.id);
       }
       spot = ids.size ? ids : new Set(["__none__"]);
+      shareBtn.hidden = !ids.size;
     }, 220);
   });
 
@@ -5046,6 +5155,201 @@ async function renderGraph() {
     ev.preventDefault();
     zoom = Math.max(0.55, Math.min(2, zoom * (ev.deltaY > 0 ? 0.94 : 1.06)));
   }, { passive: false });
+
+  // ── Growth loop: the spotlight view becomes a looping GIF card ──
+  // Left: just the lit subgraph, breathing gently (a slow wobble + per-node
+  // pulse, both sine-locked to the loop length so it cycles seamlessly).
+  // Right: Threadline branding and a grounded summary of the query.
+  async function brainSnippetGif(q, sub, summary, progress) {
+    const GW = 960, GH = 540, VW = 566, N = 36, DELAY = 90;
+    const c = document.createElement("canvas");
+    c.width = GW; c.height = GH;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    const P = PAL_DARK, C = TL_CARD;
+    const logo = await tlLogoImage();
+    const subIds = new Set(sub.map((n) => n.id));
+    const subEdges = es.filter((e) => subIds.has(e.a.id) && subIds.has(e.b.id));
+
+    const proj3 = (n, a, b) => {
+      const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+      const X = n.px * ca + n.pz * sa;
+      const Z0 = -n.px * sa + n.pz * ca;
+      const Y = n.py * cb - Z0 * sb;
+      const Z = n.py * sb + Z0 * cb;
+      const p = FOV / (FOV + Z);
+      return { x: X * p, y: Y * p, s: p, z: Z };
+    };
+    // fit once, from the resting frame, so the loop breathes in place
+    const p0 = sub.map((n) => proj3(n, angA, angB));
+    const minX = Math.min(...p0.map((p) => p.x)), maxX = Math.max(...p0.map((p) => p.x));
+    const minY = Math.min(...p0.map((p) => p.y)), maxY = Math.max(...p0.map((p) => p.y));
+    const fit = Math.min((VW - 190) / Math.max(maxX - minX, 60), (GH - 200) / Math.max(maxY - minY, 60), 1.7);
+    const cx0 = (minX + maxX) / 2, cy0 = (minY + maxY) / 2;
+    const place = (p) => ({ x: VW / 2 + (p.x - cx0) * fit, y: GH / 2 + (p.y - cy0) * fit, s: p.s, z: p.z });
+
+    const dots = Array.from({ length: 60 }, (_, i) => {
+      const a = (i * 2.399963) % 6.2832, rr = 0.08 + ((i * 0.6180339) % 1) * 0.42;
+      return { x: VW / 2 + Math.cos(a) * VW * rr, y: GH / 2 + Math.sin(a) * GH * rr * 0.92, s: 0.5 + ((i * 0.414) % 1) * 1, o: 0.05 + ((i * 0.271) % 1) * 0.1 };
+    });
+
+    // static right-panel copy, laid out once
+    const PX = VW + 34, PW = GW - PX - 34;
+    g.font = TL_FONT.title;
+    const titleLines = tlWrap(g, q.charAt(0).toUpperCase() + q.slice(1), PW).slice(0, 2);
+    const nM = sub.filter((n) => n.kind === "meeting").length,
+      nP = sub.filter((n) => n.kind === "person").length,
+      nT = sub.filter((n) => n.kind === "topic").length;
+    const stats = [
+      nM && `${nM} meeting${nM === 1 ? "" : "s"}`,
+      nP && `${nP} ${nP === 1 ? "person" : "people"}`,
+      nT && `${nT} topic${nT === 1 ? "" : "s"}`,
+    ].filter(Boolean).join(" · ");
+    const bodyTop = 118 + titleLines.length * 30 + 30, bodyLH = 21, footTop = GH - 64;
+    g.font = TL_FONT.small;
+    let bodyLines = tlWrap(g, summary, PW);
+    const maxLines = Math.max(3, Math.floor((footTop - 16 - bodyTop) / bodyLH));
+    if (bodyLines.length > maxLines) bodyLines = [...bodyLines.slice(0, maxLines - 1), bodyLines[maxLines - 1].replace(/\s*\S*$/, " …")];
+
+    function frame(t) {
+      g.fillStyle = C.bg; g.fillRect(0, 0, GW, GH);
+      const glowBg = (cx, cy, r, color, a) => {
+        const gr = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+        gr.addColorStop(0, `rgba(${color},${a})`); gr.addColorStop(1, `rgba(${color},0)`);
+        g.fillStyle = gr; g.fillRect(0, 0, GW, GH);
+      };
+      glowBg(GW * 0.04, -40, 560, "147,164,242", 0.2);
+      glowBg(GW, GH + 40, 620, "230,185,94", 0.13);
+      for (const s of dots) {
+        g.globalAlpha = s.o; g.fillStyle = P.star;
+        g.beginPath(); g.arc(s.x, s.y, s.s, 0, 6.2832); g.fill();
+      }
+      g.globalAlpha = 1;
+
+      const a = angA + 0.05 * Math.sin((t / N) * 6.2832);
+      const b = angB + 0.028 * Math.sin((t / N) * 6.2832 + 1.9);
+      const pts = new Map(sub.map((n) => [n, place(proj3(n, a, b))]));
+      const beat = (n) => 1 + 0.09 * Math.sin((t / N) * 12.5664 + n.seed * 2.7);
+
+      g.lineCap = "round";
+      for (const e of subEdges) {
+        const pa = pts.get(e.a), pb = pts.get(e.b);
+        g.strokeStyle = "rgba(255,244,230,0.17)"; g.lineWidth = 0.9;
+        g.beginPath(); g.moveTo(pa.x, pa.y); g.lineTo(pb.x, pb.y); g.stroke();
+      }
+      const dot = (x, y, r, color, glow, alpha) => {
+        g.save();
+        g.globalAlpha = alpha;
+        g.shadowColor = color; g.shadowBlur = glow;
+        g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.fillStyle = color; g.fill();
+        g.shadowBlur = 0;
+        g.beginPath(); g.arc(x, y, Math.max(0.6, r * 0.45), 0, 6.2832); g.fillStyle = P.core; g.fill();
+        g.restore();
+      };
+      for (const n of [...sub].sort((x, y) => pts.get(y).z - pts.get(x).z)) {
+        const p = pts.get(n), k = beat(n);
+        if (n.kind === "topic") dot(p.x, p.y, Math.max(3, n.r * 0.5 * p.s * fit) * k, P.topic, 16 * k, 1);
+        else if (n.kind === "meeting") dot(p.x, p.y, 5.5 * p.s * k, P.meeting, 12 * k, 0.95);
+        else dot(p.x, p.y, 3 * p.s * k, P.person, 6, 0.75);
+      }
+      g.textAlign = "center";
+      for (const n of sub) {
+        const p = pts.get(n);
+        if (n.kind === "topic") {
+          g.font = "700 11px ui-monospace, SFMono-Regular, monospace"; g.fillStyle = P.labelDim;
+          g.fillText(n.label.toUpperCase().slice(0, 24), p.x, p.y - Math.max(8, n.r * 0.5 * fit) - 7);
+        } else {
+          g.font = "600 11px -apple-system, system-ui"; g.fillStyle = P.label;
+          g.fillText(n.label.slice(0, 30), p.x, p.y + 19);
+        }
+      }
+      g.textAlign = "left";
+
+      // the branded panel
+      g.strokeStyle = "rgba(255,246,235,0.12)"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(VW + 0.5, 26); g.lineTo(VW + 0.5, GH - 26); g.stroke();
+      if (logo) g.drawImage(logo, PX, 34, 30, 30);
+      g.fillStyle = C.ink; g.font = '600 24px ui-serif, Georgia, "Times New Roman", serif';
+      g.fillText("Threadline", PX + 40, 56);
+      g.fillStyle = C.gold; g.font = "700 10.5px ui-monospace, SFMono-Regular, monospace";
+      g.fillText("B R A I N   S P O T L I G H T", PX, 96);
+      g.fillStyle = C.ink; g.font = TL_FONT.title;
+      titleLines.forEach((l, i) => g.fillText(l, PX, 128 + i * 30));
+      g.fillStyle = C.ink3; g.font = TL_FONT.small;
+      g.fillText(stats, PX, 128 + (titleLines.length - 1) * 30 + 24);
+      g.fillStyle = C.ink2; g.font = TL_FONT.small;
+      bodyLines.forEach((l, i) => g.fillText(l, PX, bodyTop + i * bodyLH));
+      g.strokeStyle = "rgba(255,246,235,0.10)";
+      g.beginPath(); g.moveTo(PX, footTop + 0.5); g.lineTo(GW - 34, footTop + 0.5); g.stroke();
+      g.fillStyle = C.thread; g.font = TL_FONT.url;
+      g.fillText(TL_REPO_LABEL, PX, footTop + 26);
+      g.fillStyle = C.ink3; g.font = "12px -apple-system, system-ui";
+      g.fillText("The meeting brain that stays on your laptop.", PX, footTop + 45);
+    }
+
+    const frames = [];
+    for (let t = 0; t < N; t++) {
+      frame(t);
+      frames.push(g.getImageData(0, 0, GW, GH));
+      progress(`Weaving ${t + 1}/${N}…`);
+      if (t % 6 === 5) await new Promise((r) => setTimeout(r));
+    }
+    progress("Stitching GIF…");
+    await new Promise((r) => setTimeout(r));
+    const blob = tlGif(frames, GW, GH, DELAY);
+    frame(0); // leave the canvas on the resting frame for the PNG still
+    return { blob, canvas: c };
+  }
+
+  shareBtn.addEventListener("click", async () => {
+    const q = $("#brain-q").value.trim();
+    const sub = ns.filter((n) => spot?.has(n.id));
+    if (!q || !sub.length || shareBtn.disabled) return;
+    shareBtn.disabled = true;
+    const busy = (t) => { shareBtn.textContent = t; };
+    busy("Summarizing…");
+    let summary = "";
+    try {
+      const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
+      summary = r?.summary || (r?.points ?? []).map((p) => p.text).join(" ");
+    } catch {}
+    if (!summary) {
+      const mts = sub.filter((n) => n.kind === "meeting").map((n) => n.label);
+      summary = `Threads in this brain touching “${q}”: ${mts.join(" · ") || sub.map((n) => n.label).join(" · ")}.`;
+    }
+    try {
+      const { blob, canvas: still } = await brainSnippetGif(q, sub, summary, busy);
+      const slug = q.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "spotlight";
+      const url = URL.createObjectURL(blob);
+      openPopover(shareBtn, `
+        <div class="pop-title">${icon("share", 13)}Share this spotlight</div>
+        <div style="width:300px;border-radius:12px;border:1px solid var(--glass-border);overflow:hidden">
+          <img src="${url}" alt="Animated brain snippet" style="display:block;width:100%"></div>
+        <div class="t-meta" style="margin:8px 3px 8px">Loops forever · ${(blob.size / 1048576).toFixed(1)} MB GIF</div>
+        <button class="menu-row" data-act="gif">${icon("download", 15)}Download GIF</button>
+        <button class="menu-row" data-act="png">${icon("download", 15)}Download PNG still</button>
+        <button class="menu-row" data-act="copy">${icon("copy", 15)}Copy still image</button>`, (pop, close) => {
+        const run = {
+          gif: () => tlDownload(blob, `threadline-brain-${slug}.gif`),
+          png: () => still.toBlob((b) => tlDownload(b, `threadline-brain-${slug}.png`), "image/png"),
+          copy: async () => {
+            try {
+              await navigator.clipboard.write([new ClipboardItem({
+                "image/png": new Promise((res) => still.toBlob(res, "image/png")),
+              })]);
+              showToast("Still copied — paste it anywhere");
+            } catch {
+              showToast("Couldn't reach the clipboard — download instead");
+            }
+          },
+        };
+        pop.querySelectorAll("[data-act]").forEach((btn) =>
+          btn.addEventListener("click", () => { close(); run[btn.dataset.act](); }));
+      });
+    } catch (err) {
+      showToast("Couldn't weave the snippet — try again?");
+      console.error(err);
+    } finally { shareIdle(); }
+  });
 
   async function ctxActions(nodeId) {
     const r = await api(`/api/node/context?id=${encodeURIComponent(nodeId)}`);
