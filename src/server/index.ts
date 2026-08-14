@@ -1226,57 +1226,6 @@ const api: Record<string, Handler> = {
     return { id, copied: msgs.length };
   },
 
-  /** Decision lineage: for each decision in this meeting, its look-alike
-   *  decisions from other meetings, oldest first — the seam's re-stitches.
-   *  Similarity is plain token Jaccard; no model call, instant. */
-  "GET /api/decision/lineage"(p) {
-    const meetingId = p.get("meeting_id");
-    const rows = db.prepare(
-      `SELECT c.id, c.meeting_id, c.body, c.edited_body, m.title, m.started_at
-       FROM claims c JOIN meetings m ON m.id = c.meeting_id
-       WHERE c.kind = 'decision' AND c.gate = 'passed'`,
-    ).all() as { id: number; meeting_id: string; body: string; edited_body: string | null; title: string; started_at: number }[];
-    const STOP = new Set("a an and are as at be but by for from has have in is it its of on or our that the their they this to was we will with".split(" "));
-    const toks = rows.map((r) => {
-      let text = "";
-      try { text = String(JSON.parse(r.edited_body ?? r.body).text ?? ""); } catch { /* malformed body: no lineage */ }
-      const set = new Set(text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w)));
-      return { text, set };
-    });
-    const sim = (a: Set<string>, b: Set<string>) => {
-      if (!a.size || !b.size) return 0;
-      let hit = 0;
-      for (const w of a) if (b.has(w)) hit++;
-      return hit / (a.size + b.size - hit);
-    };
-    const item = (k: number) => ({ claim_id: rows[k].id, meeting_id: rows[k].meeting_id, meeting_title: rows[k].title, started_at: rows[k].started_at, text: toks[k].text });
-    // No meeting_id: every chain in the whole brain, for thread pages —
-    // lineage follows a decision wherever it was made, across threads.
-    if (!meetingId) {
-      const grouped = rows.map(() => false);
-      const chains: ReturnType<typeof item>[][] = [];
-      rows.forEach((r, i) => {
-        if (grouped[i]) return;
-        grouped[i] = true;
-        const chain = [i];
-        rows.forEach((o, j) => {
-          if (!grouped[j] && o.meeting_id !== r.meeting_id && sim(toks[i].set, toks[j].set) >= 0.25) { grouped[j] = true; chain.push(j); }
-        });
-        if (chain.length > 1) chains.push(chain.map(item).sort((a, b) => a.started_at - b.started_at));
-      });
-      return { chains };
-    }
-    const out: Record<number, ReturnType<typeof item>[]> = {};
-    rows.forEach((r, i) => {
-      if (r.meeting_id !== meetingId) return;
-      const chain = rows
-        .map((o, j) => ({ o, j, s: i === j ? 1 : sim(toks[i].set, toks[j].set) }))
-        .filter((x) => x.j === i || (x.s >= 0.25 && x.o.meeting_id !== r.meeting_id))
-        .map((x) => item(x.j));
-      if (chain.length > 1) out[r.id] = chain.sort((a, b) => a.started_at - b.started_at);
-    });
-    return out;
-  },
 
   /** Re-run the full pipeline over a stored meeting. Idempotent; keeps corrections. */
   async "POST /api/meeting/regenerate"(p, body) {
