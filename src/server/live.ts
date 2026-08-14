@@ -34,7 +34,8 @@ export class LiveSession {
   private lastStreamError: string | null = null;
   private listeners = new Set<(e: LiveEvent) => void>();
   private finals: Utterance[] = [];
-  private startedAt = 0;
+  /** Epoch ms of capture start — surfaced via /api/record/state for elapsed timers. */
+  startedAt = 0;
   private stopping = false;
   readonly meetingId: string;
 
