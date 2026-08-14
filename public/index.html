@@ -4596,6 +4596,9 @@ async function showNamingModal(meetingId) {
   src.onmessage = (ev) => {
     let e; try { e = JSON.parse(ev.data); } catch { return; }
     if (e.type === "stopped" && e.exit !== "failed" && e.exit !== "discarded") showNamingModal(e.meetingId);
+    // Diarization lands ~a minute after stop — re-render so the speaker
+    // chips and the substituted transcript appear without a manual refresh.
+    else if (e.type === "status" && /speakers identified|speaker ID failed/.test(e.message ?? "") && state.meetingId) render();
   };
 })();
 
