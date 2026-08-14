@@ -6566,6 +6566,8 @@ async function openCompanion(title, manual) {
     <div id="pipbar">
       <select id="pmode" title="Meeting mode"></select>
       <span class="modelbl">mode</span>
+      <select id="ptopic" title="Thread — tags this meeting and scopes Ask to the thread's repo"><option value="">no thread</option></select>
+      <span class="modelbl">thread</span>
     </div>
     <div id="feed"></div>
     <div id="askrow"><input id="pq" placeholder="Ask your brain — this meeting &amp; past ones"><button id="pgo">Ask</button></div>`;
@@ -6583,6 +6585,19 @@ async function openCompanion(title, manual) {
     fetch("/api/record/meta", { method: "POST", body: JSON.stringify({ mode: pm.value }) });
     const lm = document.getElementById("live-mode");
     if (lm) lm.value = pm.value;
+  });
+  // Thread select: tagging the live meeting AND scoping Ask to that thread's
+  // repo (its past meetings, decisions, docs) via /api/project/ask.
+  const pt = doc.getElementById("ptopic");
+  api("/api/projects").then((ps) => {
+    pt.insertAdjacentHTML("beforeend", ps.map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join(""));
+    const lt = document.getElementById("live-topic");
+    if (lt?.value) pt.value = lt.value;
+  }).catch(() => {});
+  pt.addEventListener("change", () => {
+    if (pt.value) fetch("/api/record/meta", { method: "POST", body: JSON.stringify({ topic_id: Number(pt.value) }) });
+    const lt = document.getElementById("live-topic");
+    if (lt) lt.value = pt.value;
   });
   const feedEl = doc.getElementById("feed");
   // Live transcript into the companion: its own SSE tap — the server fans out
@@ -6621,14 +6636,23 @@ async function openCompanion(title, manual) {
     box.innerHTML = `<b>${esc(q)}</b><div class="a" style="margin-top:3px">thinking…</div>`;
     feedEl.appendChild(box); feedEl.scrollTop = 1e9;
     try {
-      const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
-      const pts = (r.answer ?? []).slice(0, 3);
-      const srcs = [...new Set(pts.map((p) => p.meeting_title))];
-      box.querySelector(".a").innerHTML =
-        (r.summary ? esc(r.summary) : pts.map((p) => esc(p.text)).join(" ")) || "Nothing solid in the brain for that yet.";
-      if (srcs.length) box.insertAdjacentHTML("beforeend", `<div class="src">from: ${srcs.map(esc).join(" · ")}</div>`);
+      if (pt.value) {
+        // scoped to the selected thread: answers come from that thread's repo
+        const r = await fetch("/api/project/ask", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: Number(pt.value), question: q }) }).then((x) => x.json());
+        if (r.error) throw new Error(r.error);
+        box.querySelector(".a").textContent = r.answer || "Nothing in this thread's repo for that yet.";
+        if (r.sources?.length) box.insertAdjacentHTML("beforeend", `<div class="src">from ${esc(pt.options[pt.selectedIndex].text)}: ${r.sources.map(esc).join(" · ")}</div>`);
+      } else {
+        const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
+        const pts = (r.answer ?? []).slice(0, 3);
+        const srcs = [...new Set(pts.map((p) => p.meeting_title))];
+        box.querySelector(".a").innerHTML =
+          (r.summary ? esc(r.summary) : pts.map((p) => esc(p.text)).join(" ")) || "Nothing solid in the brain for that yet.";
+        if (srcs.length) box.insertAdjacentHTML("beforeend", `<div class="src">from: ${srcs.map(esc).join(" · ")}</div>`);
+      }
     } catch (e) {
-      box.querySelector(".a").textContent = "Ask failed — is the brain busy?";
+      box.querySelector(".a").textContent = e.message?.includes("OPENAI") ? e.message : "Ask failed — is the brain busy?";
     }
     feedEl.scrollTop = 1e9;
   };
