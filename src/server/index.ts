@@ -41,6 +41,7 @@ import { log } from "../lib/log.js";
 import { publicReason, reasonFrom, type Outcome } from "../lib/reasons.js";
 import { converse } from "../pipeline/needle.js";
 import { indexMeeting } from "../pipeline/chunker.js";
+import { MCP_TOOLS } from "../mcp/meta.js";
 
 // tiny .env loader
 for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"); } catch { return []; } })()) {
@@ -433,6 +434,11 @@ const api: Record<string, Handler> = {
 
   "GET /api/record/state"() {
     return { recording: !!live, meetingId: live?.meetingId ?? null, title: live?.title ?? null };
+  },
+
+  // The MCP setup page needs this machine's absolute server path + tool list.
+  "GET /api/mcp/info"() {
+    return { server_path: path.resolve("src/mcp/server.ts"), tools: MCP_TOOLS };
   },
 
   // The in-app hotkey guide needs this machine's absolute script path and
