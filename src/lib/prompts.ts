@@ -72,10 +72,10 @@ export function promptRef(t: PromptTemplate<never> | PromptTemplate<any>): strin
 
 export type ExtractVars = { transcript: string; participants: string; type: string };
 
-export const EXTRACT_FACTS: PromptTemplate<ExtractVars> = {
-  id: "facts.extract",
-  ...pick("facts.extract"),
-  build: (vars) => fill(template("facts.extract").text, vars),
+export const EXTRACT_STATEMENTS: PromptTemplate<ExtractVars> = {
+  id: "statements.extract",
+  ...pick("statements.extract"),
+  build: (vars) => fill(template("statements.extract").text, vars),
 };
 
 // ── Pass 2: the notes outline (§5) ──────────────────────────────────────────
@@ -83,7 +83,7 @@ export const EXTRACT_FACTS: PromptTemplate<ExtractVars> = {
 export type NotesVars = {
   participants: string;
   type: string;
-  facts: string;
+  statements: string;
   memory?: string;
   /** The founder's own rough notes. Steering only — never a source. */
   hints?: string;
@@ -92,11 +92,11 @@ export type NotesVars = {
 export const NOTES_COMPOSE: PromptTemplate<NotesVars> = {
   id: "notes.compose",
   ...pick("notes.compose"),
-  build: ({ participants, type, facts, memory, hints }) =>
+  build: ({ participants, type, statements, memory, hints }) =>
     fill(template("notes.compose").text, {
       participants,
       type,
-      facts,
+      statements,
       groundingRules: GROUNDING_RULES,
       // What each kind of meeting is usually *about* — theme-naming suggestions
       // only. A section with nothing behind it in the transcript must not

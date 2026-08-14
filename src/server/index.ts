@@ -29,7 +29,7 @@ import {
   deleteHandoffRun,
   listCrossMeetingRuns,
   listHandoffRuns,
-  readFacts,
+  readStatements,
   readOutline,
   saveHandoffEdit,
   saveOutlineEdit,
@@ -1177,17 +1177,17 @@ const api: Record<string, Handler> = {
 
   /**
    * Why an output looks the way it does: prompt version, validator failures,
-   * and the facts extraction refused. Local debugging surface, no model call.
+   * and the statements extraction refused. Local debugging surface, no model call.
    */
   "GET /api/grounding/debug"(p) {
     const id = p.get("id");
     if (!id) return { error: "missing id" };
-    const facts = readFacts(db, id);
+    const statements = readStatements(db, id);
     const outline = readOutline(db, id);
     return {
       model: modelInfo(),
-      facts: facts
-        ? { count: facts.facts.length, promptVersion: facts.promptVersion, dropped: facts.dropped, items: facts.facts }
+      statements: statements
+        ? { count: statements.statements.length, promptVersion: statements.promptVersion, dropped: statements.dropped, items: statements.statements }
         : null,
       outline: outline
         ? {

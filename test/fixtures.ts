@@ -1,7 +1,7 @@
 /**
  * Golden transcripts: one per meeting type, plus an adversarial one.
  *
- * Each fixture is hand-labeled with the facts a correct extraction must find and
+ * Each fixture is hand-labeled with the statements a correct extraction must find and
  * the themes a correct outline should carry, so a prompt change can be scored
  * (see src/cli/eval-grounding.ts) instead of eyeballed. `goldNotes` is a
  * known-good compose response — every leaf in it must pass every validator, and
@@ -32,8 +32,8 @@ export type Fixture = {
   type: MeetingType;
   participants: string[];
   segments: Segment[];
-  /** Hand-labeled facts, matched loosely (content words) by the eval script. */
-  expectedFacts: { text: string; source: string[] }[];
+  /** Hand-labeled statements, matched loosely (content words) by the eval script. */
+  expectedStatements: { text: string; source: string[] }[];
   /** Hand-labeled top-level themes, matched loosely. */
   expectedThemes: string[];
   /** A known-good compose response. Must validate clean. */
@@ -60,7 +60,7 @@ export const investor: Fixture = {
     seg("Rachita", "Net burn is one hundred eighty thousand a month and runway is fourteen months."),
     seg("Prabhav", "I can own the tier rebuild. Three weeks from Monday."),
   ],
-  expectedFacts: [
+  expectedStatements: [
     { text: "ANZ pricing moved to September", source: ["S001"] },
     { text: "enterprise prospects want usage based tiers instead of per seat", source: ["S003"] },
     { text: "send prospecting table and updated tier model by end of month", source: ["S004", "S005"] },
@@ -145,7 +145,7 @@ export const vendor: Fixture = {
     seg("Dev", "Onboarding is a separate statement of work, I cannot quote it today."),
     seg("Rachita", "Understood. Send the paper and I will review it."),
   ],
-  expectedFacts: [
+  expectedStatements: [
     { text: "platform license forty eight thousand dollars a year up to fifty seats", source: ["S002"] },
     { text: "overage nine dollars per seat per month", source: ["S003"] },
     { text: "twelve month minimum term net thirty payment terms", source: ["S005"] },
@@ -227,7 +227,7 @@ export const customer: Fixture = {
     seg("Priya", "One more thing, onboarding felt slow. It took two weeks to get our first workspace."),
     seg("Rachita", "That is fair. I will take that back to the team."),
   ],
-  expectedFacts: [
+  expectedStatements: [
     { text: "SSO is missing and security will not sign off without it", source: ["S002"] },
     { text: "SSO is on the roadmap for October", source: ["S003"] },
     { text: "send the security questionnaire this week", source: ["S003"] },
@@ -312,7 +312,7 @@ export const team: Fixture = {
     seg("Sharon", "I will send the tier comparison by Thursday."),
     seg("Prabhav", "Do we tell the design partners now, or after the rebuild?"),
   ],
-  expectedFacts: [
+  expectedStatements: [
     { text: "usage measurement logic wrong for annual accounts", source: ["S002"] },
     { text: "August is not realistic", source: ["S002"] },
     { text: "enterprise prospects pushed back on per seat pricing", source: ["S004"] },
@@ -395,7 +395,7 @@ export const oneOnOne: Fixture = {
     seg("Arjun", "Honestly I am not sure. We never load tested it before the cutover."),
     seg("Rachita", "Okay. On the engineering side this is a yes from me."),
   ],
-  expectedFacts: [
+  expectedStatements: [
     { text: "rewrote batch pipeline cut p95 latency from nine hundred to one hundred twenty milliseconds", source: ["S002"] },
     { text: "profiled and found payload re-serialised three times per hop", source: ["S004"] },
     { text: "never load tested the migration before cutover", source: ["S006"] },
@@ -458,7 +458,7 @@ export const adversarial: Fixture = {
     seg("Dev", "My dog is called Biscuit, by the way. She hates video calls."),
     seg("Dev", "We can start the pilot in March."),
   ],
-  expectedFacts: [
+  expectedStatements: [
     { text: "pricing eighty dollars per seat per month", source: ["S003"] },
     { text: "pilot can start in March", source: ["S006"] },
   ],

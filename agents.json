@@ -10,7 +10,7 @@
       "provider": "pyai",
       "model": { "pyai": "pyai-think", "openai": "gpt-4o-mini" },
       "purposes": {
-        "facts.extract": { "temperature": 0 },
+        "statements.extract": { "temperature": 0 },
         "notes": { "temperature": 0.1 },
         "entail.spotcheck": { "temperature": 0 }
       }

@@ -19,7 +19,7 @@ import { checkOwner, checkQuotes, checkSources, checkVerbatim, numericTokens } f
 export type HandoffScope = "meeting" | "cross-meeting";
 
 export type HandoffVars = {
-  facts: string;
+  statements: string;
   participants: string;
   type: string;
   /** Cross-meeting handoffs get a meeting roster instead of one participant list. */

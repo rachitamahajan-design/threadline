@@ -23,7 +23,7 @@ import {
 import type { MeetingType } from "../lib/segments.js";
 import { because } from "../lib/reasons.js";
 import { compose, type GroundedOutput } from "./grounded.js";
-import type { Fact } from "./facts.js";
+import type { Statement } from "./statements.js";
 import type { Budget } from "../lib/harness.js";
 
 /** Rules whose failure makes a LEAF unshippable. */
@@ -46,11 +46,11 @@ export function notesSpec(opts: {
     purpose: "notes",
     promptVersion: promptRef(NOTES_COMPOSE),
     temperature: 0.1,
-    system: (facts: string) =>
+    system: (statements: string) =>
       NOTES_COMPOSE.build({
         participants: opts.participants.join(", ") || "unknown",
         type: opts.type,
-        facts,
+        statements,
         memory: opts.memory,
         hints: opts.hints,
       }),
@@ -108,7 +108,7 @@ export function repairNotes(notes: Notes, failures: Failure[]): { value: Notes; 
 }
 
 export async function generateNotes(
-  facts: Fact[],
+  statements: Statement[],
   ctx: GroundingContext,
   opts: {
     type: MeetingType;
@@ -119,9 +119,9 @@ export async function generateNotes(
     refine?: string;
   },
 ): Promise<GroundedOutput<Notes>> {
-  // No facts means the transcript carried nothing extractable. That is a real
-  // answer: an empty outline beats a model asked to fill a page from nothing.
-  if (!facts.length)
+  // No statements means the transcript carried nothing extractable. That is a
+  // real answer: an empty outline beats a model asked to fill a page from nothing.
+  if (!statements.length)
     return {
       value: { themes: [] },
       needsReview: true,
@@ -135,11 +135,11 @@ export async function generateNotes(
           status: "skipped",
           attempts: 0,
           ms: 0,
-          reason: because("no-facts", "no grounded facts to compose from"),
+          reason: because("no-statements", "no grounded statements to compose from"),
         },
       ],
     };
-  return compose(notesSpec(opts), facts, ctx, { budget: opts.budget, refine: opts.refine });
+  return compose(notesSpec(opts), statements, ctx, { budget: opts.budget, refine: opts.refine });
 }
 
 /**

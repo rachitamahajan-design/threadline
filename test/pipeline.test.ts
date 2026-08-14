@@ -10,72 +10,72 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { compose } from "../src/pipeline/grounded.js";
 import { generateNotes, notesSpec, repairNotes } from "../src/pipeline/notes-outline.js";
-import { sanitizeFacts, extractFacts, factsForPrompt } from "../src/pipeline/facts.js";
+import { sanitizeStatements, extractStatements, statementsForPrompt } from "../src/pipeline/statements.js";
 import { isSoft, validateNotes } from "../src/lib/grounding.js";
 import { countLeaves, dedupeLeaves, walkLeaves } from "../src/lib/outline.js";
 import { investor, team, vendor } from "./fixtures.js";
-import { clearModel, ctxFor, factsResponseFor, scriptModel } from "./helpers.js";
+import { clearModel, ctxFor, statementsResponseFor, scriptModel } from "./helpers.js";
 
-const factsOf = (fx: typeof investor) => sanitizeFacts(factsResponseFor(fx), ctxFor(fx)).facts;
+const statementsOf = (fx: typeof investor) => sanitizeStatements(statementsResponseFor(fx), ctxFor(fx)).statements;
 
 test.afterEach(() => clearModel());
 
 // ── Pass 1 ──────────────────────────────────────────────────────────────────
 
-test("extraction drops facts that cite nothing, cite the dead, or misquote", () => {
+test("extraction drops statements that cite nothing, cite the dead, or misquote", () => {
   const ctx = ctxFor(vendor);
-  const set = sanitizeFacts(
+  const set = sanitizeStatements(
     {
-      facts: [
+      statements: [
         { text: "Platform license is forty eight thousand dollars a year", kind: "number", source: ["S002"] },
         { text: "Platform license is fifty two thousand dollars a year", kind: "number", source: ["S002"] }, // misheard
         { text: "There is a 10% discount for annual prepay", kind: "number", source: ["S002"] }, // invented
-        { text: "Dev promised a pilot", kind: "statement", source: ["S099"] }, // dead source
-        { text: "Something happened", kind: "statement", source: [] }, // no source
+        { text: "Dev promised a pilot", kind: "other", source: ["S099"] }, // dead source
+        { text: "Something happened", kind: "other", source: [] }, // no source
         { text: 'Dev said "I cannot quote it today"', kind: "quote", source: ["S007"] },
         { text: 'Dev said "we will discount that heavily"', kind: "quote", source: ["S007"] }, // fake quote
       ],
     },
     ctx,
   );
-  assert.equal(set.facts.length, 2);
+  assert.equal(set.statements.length, 2);
   assert.deepEqual(
     set.dropped.map((d) => d.reason.split(":")[0]),
     ["figure/date not in cited text", "figure/date not in cited text", "cites segments that do not exist", "no source segment ids", "quoted span is not verbatim in one cited segment"],
   );
   // Ids are assigned after sanitising, so they are dense and stable.
-  assert.deepEqual(set.facts.map((f) => f.id), ["F1", "F2"]);
+  assert.deepEqual(set.statements.map((f) => f.id), ["ST1", "ST2"]);
 });
 
 test("extraction refuses an attribution to someone who was not there", () => {
-  const set = sanitizeFacts(
-    { facts: [{ text: "The tiers are being rebuilt", kind: "statement", source: ["S003"], speaker: "Jordan" }] },
+  const set = sanitizeStatements(
+    { statements: [{ text: "The tiers are being rebuilt", kind: "other", source: ["S003"], speaker: "Jordan" }] },
     ctxFor(investor),
   );
-  assert.equal(set.facts[0].speaker, undefined);
+  assert.equal(set.statements[0].speaker, undefined);
 });
 
 test("extraction recomputes heardPoorly from STT rather than trusting the model", async () => {
   const ctx = ctxFor(vendor);
-  const set = sanitizeFacts(
-    { facts: [{ text: "Overage is nine dollars per seat per month", kind: "number", source: ["S003"], heardPoorly: true }] },
+  const set = sanitizeStatements(
+    { statements: [{ text: "Overage is nine dollars per seat per month", kind: "number", source: ["S003"], heardPoorly: true }] },
     ctx,
   );
-  assert.equal(set.facts[0].heardPoorly, undefined, "S003 was heard fine, so the flag is dropped");
+  assert.equal(set.statements[0].heardPoorly, undefined, "S003 was heard fine, so the flag is dropped");
 
   // And the round trip through the real extract pass keeps the prompt honest.
-  scriptModel({ "facts.extract": [factsResponseFor(vendor)] });
-  const { set: live } = await extractFacts(vendor.segments, ctx, { type: "vendor", participants: vendor.participants });
-  assert.ok(live.facts.length >= 4);
-  assert.match(live.promptVersion, /^facts\.extract@v\d+\+r\d+$/);
-  assert.match(factsForPrompt(live.facts), /^\[{"text"/);
+  scriptModel({ "statements.extract": [statementsResponseFor(vendor)] });
+  const { set: live } = await extractStatements(vendor.segments, ctx, { type: "vendor", participants: vendor.participants });
+  assert.ok(live.statements.length >= 4);
+  assert.match(live.promptVersion, /^statements\.extract@v\d+\+r\d+$/);
+  assert.match(statementsForPrompt(live.statements), /^\[{"text"/);
 });
 
 // ── Pass 2 ──────────────────────────────────────────────────────────────────
 
 test("a clean compose ships on the first attempt", async () => {
   const { calls } = scriptModel({ notes: [investor.goldNotes] });
-  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), factsOf(investor), ctxFor(investor));
+  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), statementsOf(investor), ctxFor(investor));
   assert.equal(out.needsReview, false);
   assert.equal(out.attempts, 1);
   assert.equal(out.dropped, 0);
@@ -98,7 +98,7 @@ test("an invalid compose is regenerated with the validator's own words", async (
     ],
   };
   const { calls } = scriptModel({ notes: [bad, bad, investor.goldNotes] });
-  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), factsOf(investor), ctxFor(investor));
+  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), statementsOf(investor), ctxFor(investor));
 
   assert.equal(out.needsReview, false, "the third attempt was clean, so nothing needs review");
   assert.equal(out.attempts, 3);
@@ -123,7 +123,7 @@ test("when every attempt fails, invalid bullets are pruned and the output is fla
     ],
   };
   scriptModel({ notes: [bad] });
-  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), factsOf(investor), ctxFor(investor));
+  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), statementsOf(investor), ctxFor(investor));
 
   assert.equal(out.needsReview, true, "the user must be told this came back thin");
   assert.equal(out.attempts, 3, "it tried three times before giving up");
@@ -183,7 +183,7 @@ test("a bullet that drops its source's figure is a style note, not a rejection",
   // still ship — and the "please review" banner stays off, because nothing here
   // is ungrounded.
   scriptModel({ notes: [titleish] });
-  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), factsOf(investor), ctx);
+  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), statementsOf(investor), ctx);
   assert.equal(out.needsReview, false, "a style note must not read as a grounding problem");
   assert.equal(countLeaves(out.value!), 2, "nothing was deleted for being terse");
   assert.equal(out.attempts, 2, "one corrective pass, not the full retry budget");
@@ -224,7 +224,7 @@ test("nothing ships without a valid source, ever", async () => {
       },
     ],
   });
-  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), factsOf(investor), ctxFor(investor));
+  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), statementsOf(investor), ctxFor(investor));
   assert.equal(countLeaves(out.value!), 0);
   assert.equal(out.value!.themes.length, 0);
   assert.equal(out.needsReview, true);
@@ -257,7 +257,7 @@ test('"not discussed" stays not discussed — no next steps are invented', async
   assert.deepEqual(def.validate(pruned.value, ctx), []);
 });
 
-test("no facts means an empty outline, not a hallucinated one", async () => {
+test("no statements means an empty outline, not a hallucinated one", async () => {
   const out = await generateNotes([], ctxFor(investor), { type: "investor", participants: investor.participants });
   assert.deepEqual(out.value, { themes: [] });
   assert.equal(out.needsReview, true);
@@ -266,7 +266,7 @@ test("no facts means an empty outline, not a hallucinated one", async () => {
 
 test("every leaf that ships carries a source that exists", async () => {
   scriptModel({ notes: [investor.goldNotes] });
-  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), factsOf(investor), ctxFor(investor));
+  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), statementsOf(investor), ctxFor(investor));
   const ctx = ctxFor(investor);
   let leaves = 0;
   walkLeaves(out.value!, (leaf) => {
@@ -279,7 +279,7 @@ test("every leaf that ships carries a source that exists", async () => {
 
 test("a model that returns prose instead of JSON fails honestly", async () => {
   scriptModel({ notes: ["I'm sorry, I can't help with that." as unknown] });
-  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), factsOf(investor), ctxFor(investor));
+  const out = await compose(notesSpec({ type: "investor", participants: investor.participants }), statementsOf(investor), ctxFor(investor));
   assert.equal(out.value, null);
   assert.equal(out.needsReview, true);
   assert.match(out.error ?? "", /schema|themes/i);

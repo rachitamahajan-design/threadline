@@ -3388,11 +3388,11 @@ function wireHandoffCard(meetingId, run, el) {
     const lines = [
       `prompt: ${run.promptVersion}`,
       `model: ${dbg.model?.provider}/${dbg.model?.model}`,
-      `facts extracted: ${dbg.facts?.count ?? 0} (${dbg.facts?.dropped?.length ?? 0} refused at extraction)`,
+      `statements extracted: ${dbg.statements?.count ?? 0} (${dbg.statements?.dropped?.length ?? 0} refused at extraction)`,
       `dropped here: ${mine.dropped ?? run.dropped ?? 0}`,
       "",
       ...(mine.failures ?? run.failures ?? []).slice(0, 8).map((f) => `[${f.rule}] ${f.detail}`),
-      ...(dbg.facts?.dropped ?? []).slice(0, 5).map((d) => `[extraction] "${d.text.slice(0, 60)}" — ${d.reason}`),
+      ...(dbg.statements?.dropped ?? []).slice(0, 5).map((d) => `[extraction] "${d.text.slice(0, 60)}" — ${d.reason}`),
     ];
     alert(lines.join("\n"));
   });

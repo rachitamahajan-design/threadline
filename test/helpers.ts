@@ -19,7 +19,7 @@ export type Script = Record<string, unknown[]>;
 
 /**
  * Install a scripted model. Keys are matched against the call's `purpose`
- * ("facts.extract", "notes", "handoff:pricing_quote"); values are consumed in
+ * ("statements.extract", "notes", "handoff:pricing_quote"); values are consumed in
  * order, and the last one repeats — which is how "always returns garbage" and
  * "gets it right on the second try" are both expressible.
  */
@@ -43,14 +43,14 @@ export function clearModel() {
 }
 
 /** A well-formed extraction response derived from a fixture's own segments. */
-export function factsResponseFor(fx: Fixture) {
+export function statementsResponseFor(fx: Fixture) {
   return {
-    facts: fx.segments
+    statements: fx.segments
       // Skip the off-topic lines: a good extraction would.
       .filter((s) => !/game last night|refereeing|dog is called/i.test(s.text))
       .map((s) => ({
         text: s.text,
-        kind: /\d|hundred|thousand|dollars|percent/i.test(s.text) ? "number" : "statement",
+        kind: /\d|hundred|thousand|dollars|percent/i.test(s.text) ? "number" : "other",
         source: [s.id],
         speaker: s.speaker,
         heardPoorly: s.confidence < 0.6,

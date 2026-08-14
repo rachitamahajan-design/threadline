@@ -2,7 +2,7 @@
  * The transcript adapter. STT output in, `Segment[]` out.
  *
  * A Segment is the ONLY thing a grounded claim is allowed to cite. Everything
- * downstream (facts, notes, handoffs, validators) addresses the transcript by
+ * downstream (statements, notes, handoffs, validators) addresses the transcript by
  * segment id and never by free text, so "where did this come from" is always
  * answerable by lookup instead of by search.
  *

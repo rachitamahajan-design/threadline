@@ -1,7 +1,7 @@
 /**
  * Running things: the orchestration the server calls.
  *
- *   ensureFacts     pass 1, cached per meeting (every handoff shares it)
+ *   ensureStatements pass 1, cached per meeting (every handoff shares it)
  *   ensureNotes     the always-on themed outline
  *   runHandoff      one handoff, on demand, for one meeting
  *   runCrossHandoff one handoff across N meetings (collated feedback)
@@ -24,14 +24,14 @@ import {
 } from "../lib/segments.js";
 import {
   insertHandoffRun,
-  readFacts,
   readOutline,
-  writeFacts,
+  readStatements,
   writeOutline,
+  writeStatements,
   type StoredHandoff,
   type StoredOutline,
 } from "../lib/store.js";
-import { extractFacts, type Fact, type FactSet } from "./facts.js";
+import { extractStatements, type Statement, type StatementSet } from "./statements.js";
 
 import { compose, type GroundedOutput } from "./grounded.js";
 import { generateNotes, memoryContext, repairNotes } from "./notes-outline.js";
@@ -75,26 +75,27 @@ export function meetingMeta(db: DatabaseSync, meetingId: string): MeetingMeta | 
 }
 
 /**
- * Pass 1, once per meeting. Cheap on repeat, identical facts for every handoff.
- * `steps` collects the extraction step when one actually ran, so a cache hit
- * costs nothing and a retried extraction still shows up on the run record.
+ * Pass 1, once per meeting. Cheap on repeat, identical statements for every
+ * handoff. `steps` collects the extraction step when one actually ran, so a
+ * cache hit costs nothing and a retried extraction still shows up on the run
+ * record.
  */
-export async function ensureFacts(
+export async function ensureStatements(
   db: DatabaseSync,
   m: MeetingMeta,
   opts: { force?: boolean; budget?: Budget; steps?: StepRecord[] } = {},
-): Promise<FactSet> {
+): Promise<StatementSet> {
   if (!opts.force) {
-    const cached = readFacts(db, m.id);
+    const cached = readStatements(db, m.id);
     if (cached) return cached;
   }
-  const { set, step } = await extractFacts(m.segments, m.ctx, {
+  const { set, step } = await extractStatements(m.segments, m.ctx, {
     type: m.type,
     participants: m.participants,
     budget: opts.budget,
   });
   opts.steps?.push(step);
-  writeFacts(db, m.id, set);
+  writeStatements(db, m.id, set);
   return set;
 }
 
@@ -202,15 +203,15 @@ export async function ensureNotes(
       // OUTCOME, not an exception to throw at the caller: the run is recorded
       // failed with its reason and the UI gets a retry button. Throwing here is
       // what previously took the server down instead.
-      let facts: FactSet;
+      let statements: StatementSet;
       try {
-        facts = await ensureFacts(db, m, { budget, steps });
+        statements = await ensureStatements(db, m, { budget, steps });
       } catch (e) {
         failure = reasonFrom(e);
-        steps.push({ name: "extract:facts", status: "failed", attempts: 1, ms: 0, reason: failure });
+        steps.push({ name: "extract:statements", status: "failed", attempts: 1, ms: 0, reason: failure });
         return { outline: existing, error: publicReason(failure), runId };
       }
-      const out = await generateNotes(facts.facts, m.ctx, {
+      const out = await generateNotes(statements.statements, m.ctx, {
         type: m.type,
         participants: m.participants,
         memory: memoryContext(db, meetingId),
@@ -292,18 +293,18 @@ export async function runHandoff(
       if (!modelConfigured())
         return { ...bail("model-unconfigured", "no model configured — set PYAI_API_KEY (or OPENAI_API_KEY)"), runId };
 
-      let facts: FactSet;
+      let statements: StatementSet;
       try {
-        facts = await ensureFacts(db, m, { budget, steps });
+        statements = await ensureStatements(db, m, { budget, steps });
       } catch (e) {
         failure = reasonFrom(e);
-        steps.push({ name: "extract:facts", status: "failed", attempts: 1, ms: 0, reason: failure });
+        steps.push({ name: "extract:statements", status: "failed", attempts: 1, ms: 0, reason: failure });
         return { run: null, error: publicReason(failure), runId };
       }
-      if (!facts.facts.length)
-        return { ...bail("no-facts", "nothing in this transcript survived extraction — there is nothing to hand off"), runId };
+      if (!statements.statements.length)
+        return { ...bail("no-statements", "nothing in this transcript survived extraction — there is nothing to hand off"), runId };
 
-      const out = await compose(specOf(def, { facts: "", participants: m.participants, type: m.type }), facts.facts, m.ctx, {
+      const out = await compose(specOf(def, { participants: m.participants, type: m.type }), statements.statements, m.ctx, {
         budget,
         refine: args.refine,
       });
@@ -338,9 +339,9 @@ export async function runHandoff(
 }
 
 /**
- * Cross-meeting handoff. Facts come from each meeting's cache with their segment
- * ids namespaced ("M2:S007"), so one grounding context can span the whole set
- * and a citation can never drift to the wrong meeting.
+ * Cross-meeting handoff. Statements come from each meeting's cache with their
+ * segment ids namespaced ("M2:S007"), so one grounding context can span the
+ * whole set and a citation can never drift to the wrong meeting.
  */
 export async function runCrossHandoff(
   db: DatabaseSync,
@@ -379,25 +380,25 @@ export async function runCrossHandoff(
       const { segments, aliasOf, idOf } = aliasSegments(metas.map((m) => ({ id: m.id, segments: m.segments })));
       const ctx = groundingContext({ segments, participants: metas.flatMap((m) => m.participants) });
 
-      const facts: Fact[] = [];
+      const statements: Statement[] = [];
       try {
         for (const m of metas) {
-          const set = await ensureFacts(db, m, { budget, steps });
+          const set = await ensureStatements(db, m, { budget, steps });
           const alias = aliasOf.get(m.id)!;
-          // Same facts, namespaced ids. Extraction is never re-run for a collation.
-          for (const f of set.facts) facts.push({ ...f, id: `${alias}${f.id}`, source: f.source.map((s) => `${alias}:${s}`) });
+          // Same statements, namespaced ids. Extraction is never re-run for a collation.
+          for (const f of set.statements) statements.push({ ...f, id: `${alias}${f.id}`, source: f.source.map((s) => `${alias}:${s}`) });
         }
       } catch (e) {
         failure = reasonFrom(e);
-        steps.push({ name: "extract:facts", status: "failed", attempts: 1, ms: 0, reason: failure });
+        steps.push({ name: "extract:statements", status: "failed", attempts: 1, ms: 0, reason: failure });
         return { run: null, error: publicReason(failure), runId };
       }
-      if (!facts.length) return { ...bail("no-facts", "no grounded facts across those meetings"), runId };
+      if (!statements.length) return { ...bail("no-statements", "no grounded statements across those meetings"), runId };
 
       const roster = metas.map((m) => `${aliasOf.get(m.id)} = ${m.title} (${m.when})`).join("; ");
       const out = await compose(
-        specOf(def, { facts: "", participants: [...new Set(metas.flatMap((m) => m.participants))], type: "customer", roster }),
-        facts,
+        specOf(def, { participants: [...new Set(metas.flatMap((m) => m.participants))], type: "customer", roster }),
+        statements,
         ctx,
         { budget, refine: args.refine },
       );
@@ -454,15 +455,15 @@ export function customerMeetingIds(db: DatabaseSync, limit = 8): string[] {
 /** Bridge a HandoffDef into the generic ComposeSpec the two-pass runner takes. */
 function specOf(
   def: HandoffDef<any>,
-  vars: { facts: string; participants: string[]; type: MeetingType; roster?: string },
+  vars: { participants: string[]; type: MeetingType; roster?: string },
 ) {
   return {
     purpose: `handoff:${def.id}`,
     promptVersion: promptRef(def.prompt),
     temperature: def.temperature,
-    system: (facts: string) =>
+    system: (statements: string) =>
       def.prompt.build({
-        facts,
+        statements,
         participants: vars.participants.join(", ") || "unknown",
         type: vars.type,
         roster: vars.roster,
