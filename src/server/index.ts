@@ -153,7 +153,8 @@ const MEETING_LIST_SQL = `
     COALESCE(m.duration_minutes, ${COMPUTED_MINUTES_SQL}) AS duration_minutes,
     (SELECT COUNT(*) FROM claims c WHERE c.meeting_id = m.id AND c.kind='decision' AND c.gate='passed') AS n_decisions,
     (SELECT COUNT(*) FROM claims c WHERE c.meeting_id = m.id AND c.kind='action_item' AND c.gate='passed') AS n_actions,
-    (SELECT GROUP_CONCAT(DISTINCT speaker) FROM utterances u WHERE u.meeting_id = m.id AND speaker IS NOT NULL) AS participants
+    (SELECT GROUP_CONCAT(DISTINCT speaker) FROM utterances u WHERE u.meeting_id = m.id AND speaker IS NOT NULL) AS participants,
+    (SELECT GROUP_CONCAT(mp.project_id) FROM meeting_projects mp WHERE mp.meeting_id = m.id) AS topic_ids
   FROM meetings m ORDER BY m.started_at DESC`;
 
 const api: Record<string, Handler> = {
