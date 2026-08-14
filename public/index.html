@@ -1478,7 +1478,7 @@ async function renderMcp() {
       <button class="copybtn" data-copy="${id}">Copy</button>
     </div>`;
   main.innerHTML = `<h1>Connect your AI</h1>
-    <div class="sub">Give Claude (or any MCP client) live access to this brain — search, claims, entities, receipts. Runs locally over stdio, needs no API keys, and never exposes raw transcripts: evidence only.</div>
+    <div class="sub">Give your AI — Claude, Cursor, any MCP client — live access to this brain — search, claims, entities, receipts. Runs locally over stdio, needs no API keys, and never exposes raw transcripts: evidence only.</div>
     <div class="card"><h2>Claude Code</h2>
       <div class="t-meta" style="margin-bottom:8px">Run once in any terminal, then ask Claude about your meetings in any session. Verify with <code>/mcp</code>.</div>
       ${codeBox("cmd", cmd)}</div>
@@ -1488,6 +1488,9 @@ async function renderMcp() {
     <div class="card"><h2>What your AI can pull</h2>
       ${info.tools.map((t) => `<div class="claim" style="padding:7px 0"><b style="font-family:ui-monospace,monospace;font-size:12.5px">${esc(t.name)}</b> — <span class="t-meta">${esc(t.desc)}</span></div>`).join("")}
       <div class="t-meta" style="margin-top:10px">Also: <code>data/BRAIN.md</code> — a regenerated ~300-token index of everything the brain knows, for agents that don't speak MCP.</div></div>
+    <div class="card"><h2>Other MCP clients — Cursor, Windsurf, Zed, Cline…</h2>
+      <div class="t-meta" style="margin-bottom:8px">MCP is an open protocol; any client that launches local (stdio) servers works. Use the same command/args in that client's MCP config — e.g. Cursor: Settings → MCP → Add server, command <code>npx</code>, args <code>tsx ${esc(info.server_path)}</code>.</div>
+      <div class="t-meta"><b>ChatGPT:</b> supports MCP via remote connectors only — it can't launch local servers, and exposing this brain over the internet through a tunnel would break the local-first promise. If that trade ever becomes worth it, it's a deliberate decision, not a config line.</div></div>
     <div class="card"><h2>What it can never pull</h2>
       <div class="t-meta">Full transcripts. Every result carries its receipt (quote · meeting · timestamp), but bulk verbatim transcript access is not part of the tool surface — the same notes-with-receipts rule the rest of Threadline lives by.</div></div>`;
   const copies = { cmd, cfg: desktopCfg.replace(/\\n/g, "\n") };
