@@ -1572,7 +1572,7 @@ async function liveMetaBar() {
   const { html } = await topicOptions([]);
   const bar = document.createElement("div");
   bar.id = "live-meta";
-  bar.style.cssText = "margin:-10px 0 18px;display:flex;gap:10px;align-items:center";
+  bar.style.cssText = "margin:8px 0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap";
   bar.innerHTML = `
     <select class="topic-select" id="live-mode" title="Meeting mode">${MODES.map((m) => `<option ${m === "discovery" ? "selected" : ""}>${m}</option>`).join("")}</select>
     <select class="topic-select" id="live-topic" title="Thread">${html}</select>
