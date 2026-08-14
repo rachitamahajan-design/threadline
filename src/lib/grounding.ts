@@ -15,6 +15,12 @@
  *   no-memory-source   is any citation reaching outside this meeting?
  *   unstated-verdict   does the cited line actually state this hire/no-hire call?
  *
+ * One rule is model-assisted and lives in pipeline/entail.ts: entailment-
+ * unsupported, the per-leaf "do the citations actually support this?" check —
+ * the semantic net that catches paraphrase drift ("let's launch" becoming
+ * "wants to launch asap"). Whether it blocks or merely flags is the
+ * gates.entailment config.
+ *
  * Plus two SOFT rules about usefulness rather than truth — they earn a rewrite,
  * never a deletion: bullet-is-a-title and owner-unnamed.
  *
@@ -42,6 +48,8 @@ export type Rule =
   | "no-memory-source"
   /** A verdict/lean the cited segment does not actually state (see checkStatedVerdict). */
   | "unstated-verdict"
+  /** A claim the entailment gate judged unsupported by its own citations (pipeline/entail.ts). */
+  | "entailment-unsupported"
   /** SOFT: a bullet that reads as a heading rather than a point (see checkBulletIsAPoint). */
   | "bullet-is-a-title"
   /** SOFT: an action-item bullet that names no owner (see checkActionOwnerNamed). */

@@ -450,6 +450,28 @@ export function openDb(dir = "data"): DatabaseSync {
     CREATE INDEX IF NOT EXISTS idx_outline_versions ON outline_versions(meeting_id, id DESC);
   `);
 
+  // ── Closed-loop run records ────────────────────────────────────────────
+  // Failure invariance: lib/runlog.ts inserts a row when a run STARTS and
+  // finalizes it when the run ends, so a crash, kill or timeout still leaves a
+  // structured record (outcome stays 'failed' with a crash reason). Additive
+  // columns on the append-only `runs` table:
+  for (const ddl of [
+    "ALTER TABLE runs ADD COLUMN kind TEXT NOT NULL DEFAULT 'process-meeting'", // WorkflowKind
+    "ALTER TABLE runs ADD COLUMN outcome TEXT", // shipped | partial | deadline | failed
+    "ALTER TABLE runs ADD COLUMN failure TEXT", // JSON Reason {code, detail} when not shipped
+    "ALTER TABLE runs ADD COLUMN args TEXT", // JSON: what the retry button re-runs with
+    "ALTER TABLE runs ADD COLUMN ended_at INTEGER", // NULL means the run never finished
+    "ALTER TABLE runs ADD COLUMN tokens_in INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE runs ADD COLUMN tokens_out INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE runs ADD COLUMN cost_usd REAL NOT NULL DEFAULT 0",
+  ]) {
+    try {
+      db.exec(ddl);
+    } catch {
+      /* column already exists */
+    }
+  }
+
   migrateEdgesPk(db);
 
   return db;

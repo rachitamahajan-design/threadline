@@ -5,18 +5,40 @@
  * that isn't in the transcript. Everything else is bookkeeping around that.
  */
 
-export type ExitReason = "shipped" | "partial" | "failed" | "deadline" | "budget";
+import { because, reasonFrom, type Outcome, type Reason } from "./reasons.js";
+import { budgetFor, retryPolicy, type WorkflowKind } from "./config.js";
+
+/**
+ * The four named exits, re-exported for existing imports. "deadline" covers
+ * both budget dimensions: time ran out or units ran out — either way the
+ * governor stopped the run. The canonical type lives in reasons.ts.
+ */
+export type ExitReason = Outcome;
+
+export type RunResult<T> = {
+  exit: Outcome;
+  value: T | null;
+  /** Every run leaves a record, including the ones that died. */
+  steps: StepRecord[];
+  spent: { units: number; ms: number };
+};
+
+export type StepStatus = "ok" | "retried" | "blocked" | "failed" | "skipped";
 
 export type StepRecord = {
   name: string;
-  status: "ok" | "retried" | "blocked" | "failed" | "skipped";
+  status: StepStatus;
   attempts: number;
   ms: number;
-  /** Why a gate blocked it, or why it failed. Always populated when not ok. */
-  reason?: string;
+  /** Why a gate blocked it, or why it failed. Structured: a code plus detail. */
+  reason?: Reason;
 };
 
-/** Budget governor. Time and API units, checked before every step. */
+/**
+ * Budget governor. Time and API units, checked before every step. Sizes come
+ * from the budgets section of agents.json via `Budget.for(kind)` — a workflow's
+ * spend ceiling is a config edit, not a code change.
+ */
 export class Budget {
   private startedAt = Date.now();
   private units = 0;
@@ -24,16 +46,23 @@ export class Budget {
     readonly maxUnits: number,
     readonly maxMs: number,
   ) {}
+  /** The governor for one workflow, sized by config. */
+  static for(kind: WorkflowKind): Budget {
+    const spec = budgetFor(kind);
+    return new Budget(spec.units, spec.ms);
+  }
   spendUnits(n: number) {
     this.units += n;
   }
   get spent() {
     return { units: this.units, ms: Date.now() - this.startedAt };
   }
-  /** Returns the exit reason that should stop the run, or null to continue. */
-  check(): ExitReason | null {
-    if (Date.now() - this.startedAt > this.maxMs) return "deadline";
-    if (this.units >= this.maxUnits) return "budget";
+  /** Why the run must stop now, or null to continue. Both codes exit as "deadline". */
+  check(): Reason | null {
+    if (Date.now() - this.startedAt > this.maxMs)
+      return because("deadline-exceeded", `run exceeded its ${this.maxMs}ms deadline`);
+    if (this.units >= this.maxUnits)
+      return because("budget-exhausted", `run spent all ${this.maxUnits} of its budgeted units`);
     return null;
   }
 }
@@ -120,9 +149,11 @@ export async function retry<T>(
   fn: (attempt: number, lastError: string | null) => Promise<T>,
   opts: { max?: number; retryable?: (e: unknown) => boolean } = {},
 ): Promise<{ value: T | null; record: StepRecord }> {
-  const max = opts.max ?? 3;
+  const policy = retryPolicy();
+  const max = opts.max ?? policy.maxAttempts;
   const startedAt = Date.now();
   let lastError: string | null = null;
+  let lastReason: Reason | null = null;
 
   for (let attempt = 1; attempt <= max; attempt++) {
     const stop = budget.check();
@@ -144,25 +175,30 @@ export async function retry<T>(
         },
       };
     } catch (e) {
+      // The structured reason is what the record keeps; the raw message is what
+      // the next attempt is aimed with (validator text, verbatim).
+      lastReason = reasonFrom(e);
       lastError = e instanceof Error ? e.message : String(e);
       const canRetry = opts.retryable ? opts.retryable(e) : true;
       if (!canRetry || attempt === max) {
         return {
           value: null,
-          record: { name, status: "failed", attempts: attempt, ms: Date.now() - startedAt, reason: lastError },
+          record: { name, status: "failed", attempts: attempt, ms: Date.now() - startedAt, reason: lastReason },
         };
       }
-      await new Promise((r) => setTimeout(r, 400 * 2 ** (attempt - 1)));
+      await new Promise((r) => setTimeout(r, policy.baseDelayMs * 2 ** (attempt - 1)));
     }
   }
-  return { value: null, record: { name, status: "failed", attempts: max, ms: Date.now() - startedAt, reason: lastError ?? "unknown" } };
+  return {
+    value: null,
+    record: { name, status: "failed", attempts: max, ms: Date.now() - startedAt, reason: lastReason ?? because("crash") },
+  };
 }
 
 
 /** Decides the run's single named exit from what actually happened. */
-export function decideExit(steps: StepRecord[], budget: Budget): ExitReason {
-  const stopped = budget.check();
-  if (stopped) return stopped;
+export function decideExit(steps: StepRecord[], budget: Budget): Outcome {
+  if (budget.check()) return "deadline";
   if (steps.some((s) => s.status === "failed" && s.name.startsWith("core:"))) return "failed";
   if (steps.some((s) => s.status === "failed" || s.status === "blocked" || s.status === "skipped")) return "partial";
   return "shipped";

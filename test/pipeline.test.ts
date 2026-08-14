@@ -65,7 +65,7 @@ test("extraction recomputes heardPoorly from STT rather than trusting the model"
 
   // And the round trip through the real extract pass keeps the prompt honest.
   scriptModel({ "facts.extract": [factsResponseFor(vendor)] });
-  const live = await extractFacts(vendor.segments, ctx, { type: "vendor", participants: vendor.participants });
+  const { set: live } = await extractFacts(vendor.segments, ctx, { type: "vendor", participants: vendor.participants });
   assert.ok(live.facts.length >= 4);
   assert.match(live.promptVersion, /^facts\.extract@v\d+\+r\d+$/);
   assert.match(factsForPrompt(live.facts), /^\[{"text"/);

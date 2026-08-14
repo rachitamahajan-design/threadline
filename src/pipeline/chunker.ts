@@ -11,6 +11,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Utterance } from "../lib/pyai.js";
 import type { StepRecord } from "../lib/harness.js";
+import { because, reasonFrom } from "../lib/reasons.js";
 
 const WINDOW = 3;
 const STRIDE = 2;
@@ -25,7 +26,7 @@ export function indexMeeting(db: DatabaseSync, meetingId: string): StepRecord {
   const meta = db.prepare("SELECT title, headline, summary FROM meetings WHERE id = ?").get(meetingId) as
     | { title: string; headline: string | null; summary: string | null }
     | undefined;
-  if (!meta) return { name: "index:chunks", status: "skipped", attempts: 0, ms: 0, reason: "no meeting" };
+  if (!meta) return { name: "index:chunks", status: "skipped", attempts: 0, ms: 0, reason: because("not-found", "no meeting") };
 
   db.exec("BEGIN");
   try {
@@ -58,7 +59,7 @@ export function indexMeeting(db: DatabaseSync, meetingId: string): StepRecord {
     db.exec("COMMIT");
   } catch (e) {
     db.exec("ROLLBACK");
-    return { name: "index:chunks", status: "failed", attempts: 1, ms: Date.now() - started, reason: e instanceof Error ? e.message : String(e) };
+    return { name: "index:chunks", status: "failed", attempts: 1, ms: Date.now() - started, reason: reasonFrom(e) };
   }
   return { name: "index:chunks", status: "ok", attempts: 1, ms: Date.now() - started };
 }

@@ -13,6 +13,9 @@
  * makes the output trustworthy lives in lib/grounding.ts instead.
  */
 
+import { chatModel, costOf } from "./config.js";
+import { log } from "./log.js";
+
 export type Provider = "pyai" | "openai" | "mock";
 
 export type ModelCall = {
@@ -25,7 +28,17 @@ export type ModelCall = {
   maxTokens?: number;
 };
 
-export type ModelUsage = { provider: Provider; model: string; ms: number; purpose: string };
+export type ModelUsage = {
+  provider: Provider;
+  model: string;
+  ms: number;
+  purpose: string;
+  /** Token counts as the provider reported them; 0 when not reported (mock). */
+  tokensIn: number;
+  tokensOut: number;
+  /** USD, from the pricing table in agents.json. 0 for unpriced models. */
+  costUsd: number;
+};
 
 export class ModelError extends Error {
   constructor(readonly status: number, message: string) {
@@ -41,7 +54,8 @@ const DEFAULT_TIMEOUT_MS = Number(process.env.MODEL_TIMEOUT_MS ?? 60_000);
 const DEFAULT_TEMPERATURE = 0;
 
 /**
- * Provider resolution: explicit env wins, else whichever key exists. PyAI is the
+ * Provider resolution: explicit env wins, then the provider agents.json prefers
+ * (when its key is actually configured), else whichever key exists. PyAI is the
  * product's model host; OpenAI stays reachable because the fallback path in
  * lib/openai.ts already depends on it.
  */
@@ -49,15 +63,24 @@ export function provider(): Provider {
   const forced = (process.env.MODEL_PROVIDER ?? "").toLowerCase();
   if (forced === "pyai" || forced === "openai" || forced === "mock") return forced;
   if (mock) return "mock";
+  const preferred = chatModel().provider;
+  if (preferred === "pyai" && process.env.PYAI_API_KEY) return "pyai";
+  if (preferred === "openai" && process.env.OPENAI_API_KEY) return "openai";
   if (process.env.OPENAI_API_KEY) return "openai";
   return "pyai";
 }
 
-export function modelName(p: Provider = provider()): string {
+/**
+ * Which model answers: env override > per-purpose config > per-provider config
+ * > code default. Swapping the model is an edit to agents.json's models.chat.
+ */
+export function modelName(p: Provider = provider(), purpose?: string): string {
   if (p === "mock") return "mock";
-  return p === "pyai"
-    ? process.env.PYAI_CHAT_MODEL ?? "pyai-think"
-    : process.env.SUMMARIZER_MODEL ?? "gpt-4o-mini";
+  const env = p === "pyai" ? process.env.PYAI_CHAT_MODEL : process.env.SUMMARIZER_MODEL;
+  if (env) return env;
+  const cfg = chatModel();
+  if (purpose && cfg.purposes?.[purpose]?.model) return cfg.purposes[purpose].model!;
+  return cfg.model?.[p] ?? (p === "pyai" ? "pyai-think" : "gpt-4o-mini");
 }
 
 /** Is a model reachable at all? The UI greys out generation instead of erroring. */
@@ -86,36 +109,107 @@ export function setMockModel(fn: MockFn | null) {
 // ── The call ────────────────────────────────────────────────────────────────
 
 const usageLog: ModelUsage[] = [];
+/** Total calls ever logged (survives the ring-buffer trim). */
+let usageTotal = 0;
 export function recentUsage(): ModelUsage[] {
   return [...usageLog];
+}
+
+/**
+ * The token meter the run logger reads: `usageCursor()` at run start, then
+ * `usageSince(cursor)` at run end sums what the run's calls actually cost.
+ */
+export function usageCursor(): number {
+  return usageTotal;
+}
+
+export function usageSince(cursor: number): { tokensIn: number; tokensOut: number; costUsd: number } {
+  // Entries older than the ring buffer are gone; a run that overflows 200 calls
+  // undercounts rather than crashes.
+  const fresh = Math.min(usageTotal - cursor, usageLog.length);
+  const window = fresh > 0 ? usageLog.slice(-fresh) : [];
+  return {
+    tokensIn: window.reduce((n, u) => n + u.tokensIn, 0),
+    tokensOut: window.reduce((n, u) => n + u.tokensOut, 0),
+    costUsd: window.reduce((n, u) => n + u.costUsd, 0),
+  };
 }
 
 /**
  * One JSON-mode chat call. Returns parsed JSON; callers own the schema and are
  * expected to validate it (see lib/grounding.ts). Throws ModelError on
  * transport failure and Error on unparseable output.
+ *
+ * SILENT FAILOVER: if the preferred provider's host fails (404 on the route,
+ * dead key, timeout, 5xx) and the other provider has a key, the call is retried
+ * there before anyone is told anything. The user sees an answer; the usage log
+ * and run record see which provider actually produced it. Both hosts failing is
+ * the only thing that surfaces.
  */
 export async function chatJson(call: ModelCall): Promise<unknown> {
   const p = provider();
-  const started = Date.now();
-  const temperature = call.temperature ?? DEFAULT_TEMPERATURE;
-  let raw: unknown;
   if (p === "mock") {
     if (!mock) throw new ModelError(0, "MODEL_PROVIDER=mock but no mock model is installed");
-    raw = await mock(call);
-  } else {
-    raw = parseJsonLoose(await post(p, call, temperature));
+    const started = Date.now();
+    const raw = await mock(call);
+    logUsage({ provider: p, model: "mock", ms: Date.now() - started, purpose: call.purpose, tokensIn: 0, tokensOut: 0, costUsd: 0 });
+    return raw;
   }
-  const usage: ModelUsage = { provider: p, model: modelName(p), ms: Date.now() - started, purpose: call.purpose };
-  usageLog.push(usage);
-  if (usageLog.length > 200) usageLog.shift();
-  if (process.env.LOG_MODEL === "1")
-    console.log(`[model] ${usage.purpose} → ${usage.provider}/${usage.model} ${usage.ms}ms temp=${temperature}`);
+  try {
+    return await chatVia(p, call);
+  } catch (e) {
+    const alt = altProvider(p);
+    if (!alt || !(e instanceof ModelError)) throw e;
+    log.warn("model.failover", { purpose: call.purpose, from: p, to: alt, status: e.status });
+    return await chatVia(alt, call);
+  }
+}
+
+/** The provider to fail over to: the other one, if its key is configured. */
+function altProvider(p: Exclude<Provider, "mock">): Exclude<Provider, "mock"> | null {
+  if (p === "pyai") return process.env.OPENAI_API_KEY ? "openai" : null;
+  return process.env.PYAI_API_KEY ? "pyai" : null;
+}
+
+async function chatVia(p: Exclude<Provider, "mock">, call: ModelCall): Promise<unknown> {
+  const started = Date.now();
+  const temperature = call.temperature ?? chatModel().purposes?.[call.purpose]?.temperature ?? DEFAULT_TEMPERATURE;
+  const res = await post(p, call, temperature);
+  const raw = parseJsonLoose(res.content);
+  const model = modelName(p, call.purpose);
+  logUsage({
+    provider: p,
+    model,
+    ms: Date.now() - started,
+    purpose: call.purpose,
+    ...res.tokens,
+    costUsd: costOf(model, res.tokens.tokensIn, res.tokens.tokensOut),
+  });
   return raw;
 }
 
+function logUsage(usage: ModelUsage): void {
+  usageLog.push(usage);
+  usageTotal++;
+  if (usageLog.length > 200) usageLog.shift();
+  // Per-call detail is debug: on at LOG_LEVEL=debug, off in normal running,
+  // where run.finish already carries the totals that matter.
+  log.debug("model.call", {
+    purpose: usage.purpose,
+    provider: usage.provider,
+    model: usage.model,
+    ms: usage.ms,
+    tokensIn: usage.tokensIn,
+    tokensOut: usage.tokensOut,
+  });
+}
+
 /** The single outbound request. Both providers speak the OpenAI chat shape. */
-async function post(p: Exclude<Provider, "mock">, call: ModelCall, temperature: number): Promise<string> {
+async function post(
+  p: Exclude<Provider, "mock">,
+  call: ModelCall,
+  temperature: number,
+): Promise<{ content: string; tokens: { tokensIn: number; tokensOut: number } }> {
   const base =
     p === "pyai"
       ? process.env.PYAI_BASE_URL ?? "https://api.pyai.com/v1"
@@ -131,7 +225,7 @@ async function post(p: Exclude<Provider, "mock">, call: ModelCall, temperature: 
       signal: controller.signal,
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: modelName(p),
+        model: modelName(p, call.purpose),
         temperature,
         ...(call.maxTokens ? { max_tokens: call.maxTokens } : {}),
         response_format: { type: "json_object" },
@@ -145,10 +239,16 @@ async function post(p: Exclude<Provider, "mock">, call: ModelCall, temperature: 
       const body = (await res.text()).slice(0, 300);
       throw new ModelError(res.status, `${p} chat failed: HTTP ${res.status} ${body}`);
     }
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
     const content = data.choices?.[0]?.message?.content;
     if (typeof content !== "string") throw new ModelError(res.status, `${p} returned no message content`);
-    return content;
+    return {
+      content,
+      tokens: { tokensIn: data.usage?.prompt_tokens ?? 0, tokensOut: data.usage?.completion_tokens ?? 0 },
+    };
   } catch (e) {
     if (e instanceof ModelError) throw e;
     if (e instanceof Error && e.name === "AbortError")

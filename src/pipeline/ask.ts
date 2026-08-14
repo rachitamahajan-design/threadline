@@ -13,6 +13,7 @@
  */
 import type { DatabaseSync } from "node:sqlite";
 import { Budget, retry, groundedIn, applyGate, allOf, decideExit, normalize, type Gate, type StepRecord } from "../lib/harness.js";
+import { because } from "../lib/reasons.js";
 import { hasOpenAI } from "../lib/openai.js";
 import { retrieve, type Snippet } from "./retrieve.js";
 
@@ -95,14 +96,14 @@ async function synthesize(
   return { summary: parsed.summary ?? "", points: parsed.points ?? [] };
 }
 
-export async function ask(db: DatabaseSync, question: string): Promise<AskResult> {
-  const budget = new Budget(3, 15_000);
+export async function ask(db: DatabaseSync, question: string, opts: { budget?: Budget } = {}): Promise<AskResult> {
+  const budget = opts.budget ?? Budget.for("ask");
   const steps: StepRecord[] = [];
   const t0 = Date.now();
 
   const receipts = retrieve(db, question);
   steps.push({ name: "retrieve", status: receipts.length ? "ok" : "failed", attempts: 1, ms: Date.now() - t0,
-    reason: receipts.length ? undefined : "nothing matched" });
+    reason: receipts.length ? undefined : because("no-retrieval", "nothing matched") });
   if (!receipts.length)
     return { question, mode: "extractive", summary: "", answer: [], blocked: [], receipts, exit: "failed", steps };
 
@@ -132,7 +133,7 @@ export async function ask(db: DatabaseSync, question: string): Promise<AskResult
     });
     if (blocked.length)
       steps.push({ name: "gate:synthesis", status: "blocked", attempts: 1, ms: 0,
-        reason: `${blocked.length} point(s) had no receipt in the retrieved snippets` });
+        reason: because("grounding-blocked", `${blocked.length} point(s) had no receipt in the retrieved snippets`) });
     return { question, mode, summary, answer, blocked: blocked.map((b) => ({ text: b.item.text ?? "", reason: b.reason })),
       receipts, exit: decideExit(steps, budget), steps };
   };
@@ -140,7 +141,7 @@ export async function ask(db: DatabaseSync, question: string): Promise<AskResult
   if (!hasOpenAI() || process.env.THREADLINE_SYNTHESIS === "off") {
     // Extractive: top snippets ARE the answer, so the gates pass by construction.
     const points: RawPoint[] = receipts.slice(0, 3).map((s) => ({ text: s.text, chunk_id: s.chunk_id, quote: s.text.slice(0, 80) }));
-    steps.push({ name: "synthesize", status: "skipped", attempts: 0, ms: 0, reason: "local-only — extractive answer" });
+    steps.push({ name: "synthesize", status: "skipped", attempts: 0, ms: 0, reason: because("skipped-local-only", "local-only — extractive answer") });
     const { kept, blocked } = applyGate(points, gate);
     return finish("", kept, blocked, "extractive");
   }
@@ -162,7 +163,7 @@ export async function ask(db: DatabaseSync, question: string): Promise<AskResult
   if (sumReason) {
     // Ungrounded summary never renders; the receipted points still can.
     if (summary.trim())
-      steps.push({ name: "gate:summary", status: "blocked", attempts: 1, ms: 0, reason: sumReason });
+      steps.push({ name: "gate:summary", status: "blocked", attempts: 1, ms: 0, reason: because("grounding-blocked", sumReason) });
     summary = "";
   }
   if (!kept.length) {
