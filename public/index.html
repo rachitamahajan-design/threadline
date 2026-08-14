@@ -1824,7 +1824,7 @@ function googleSetupModal(connectedViaLink = false) {
         <ol style="margin:10px 0 8px 18px;line-height:1.9;font-size:14px">
           <li>Open <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a> → create (or pick) a project</li>
           <li><b>APIs &amp; Services → Library</b> → enable <b>Google Calendar API</b></li>
-          <li><b>OAuth consent screen</b> → External → stay in <b>Testing</b> mode → add your own Google account as a test user</li>
+          <li><b>OAuth consent screen</b> → on a Workspace account choose <b>Internal</b> (no test users, no verification); on personal Gmail choose External → stay in <b>Testing</b> mode → add yourself as a test user</li>
           <li><b>Credentials → Create credentials → OAuth client ID</b> → type <b>Web application</b> → add this authorized redirect URI:
             ${codeBox("redirect", REDIRECT)}</li>
           <li>Copy the client ID and secret into <code>.env</code> in the Threadline folder:
@@ -1846,6 +1846,11 @@ function googleSetupModal(connectedViaLink = false) {
     if (r.error) {
       if (btn) { btn.disabled = false; btn.textContent = "Save & connect"; }
       return tlAlert(r.error, "Calendar link");
+    }
+    if (r.free_busy_only) {
+      if (btn) { btn.disabled = false; btn.textContent = "Save & connect"; }
+      await fetch("/api/google/ics", { method: "POST", body: JSON.stringify({ url: null }) }); // don't keep a titles-less feed
+      return tlAlert("This feed only says \"Busy\" — your Workspace admin caps external calendar sharing at free/busy, and the secret address obeys that cap.\n\nUse Option B (Google Cloud OAuth) instead: authenticated access as yourself returns full event details. Tip: pick the \"Internal\" consent screen type — no test users, no verification.", "Calendar link");
     }
     modal.remove();
     refreshGoogleButton();

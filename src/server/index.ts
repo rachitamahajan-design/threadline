@@ -857,7 +857,11 @@ const api: Record<string, Handler> = {
     setIcsUrl(db, url.trim());
     try {
       const events = await icsUpcomingEvents(db);
-      return { ok: true, connected: true, upcoming_48h: events.length };
+      // A Workspace admin can cap external sharing at free/busy — the feed
+      // then carries only "Busy" blocks with no titles. Say so instead of
+      // letting useless entries reach the Up-next list.
+      const allBusy = events.length > 0 && events.every((e) => /^busy$/i.test(e.title));
+      return { ok: true, connected: true, upcoming_48h: events.length, free_busy_only: allBusy };
     } catch (e) {
       setIcsUrl(db, null);
       return { error: `couldn't read that calendar link — ${e instanceof Error ? e.message : "fetch failed"}. Copy the "Secret address in iCal format" from Google Calendar settings.` };
