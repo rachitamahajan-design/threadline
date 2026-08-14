@@ -188,7 +188,7 @@ export async function converse(db: DatabaseSync, conversationId: number, text: s
       .run(text.slice(0, 60), conversationId);
 
   const steps: StepRecord[] = [];
-  const budget = new Budget(4, 20_000);
+  const budget = Budget.for("needle");
   const save = (content: string, payload: object) => {
     db.prepare("INSERT INTO messages (conversation_id, role, content, payload, created_at) VALUES (?, 'assistant', ?, ?, ?)")
       .run(conversationId, content, JSON.stringify(payload), Date.now());

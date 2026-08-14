@@ -2161,19 +2161,23 @@ function notesCard(data) {
   const summary = outline.notes?.summary;
   return `<div class="card">
     ${notesHead(
-      `<span class="out-stamp">${outline.edited ? "<b>edited</b> · " : ""}${esc(outline.promptVersion)}</span>
+      // An empty outline has nothing to copy or edit, and the version stamp is
+      // system info — the header stays bare until there is content.
+      empty
+        ? ""
+        : `<span class="out-stamp">${outline.edited ? "<b>edited</b> · " : ""}${esc(outline.promptVersion)}</span>
        <button class="hbtn" id="out-copy">Copy</button>
        <button class="hbtn" id="out-edit">Edit</button>`,
     )}
     ${empty
-      ? `<div class="empty" style="padding:18px 0">Nothing in this transcript could be grounded. Nothing invented to fill the gap.</div>`
+      ? `<div class="empty" style="padding:18px 0">No notes from this recording — there wasn't enough in the transcript to summarize. Keep recording, or edit the transcript and structure again.</div>`
       : `${summary?.text
             ? `<p class="out-summary"><span class="out-text ${summary.edited ? "edited" : ""}" data-path="summary" title="Click to edit">${esc(summary.text)}</span>${rc(summary.source)}${
                 summary.lowConfidence ? `<span class="low-flag">heard poorly</span>` : ""
               }</p>`
             : ""}
          <ul class="out-tree">${outlineTree(outline.notes.themes ?? [], rc)}</ul>`}
-    ${outline.needsReview
+    ${outline.needsReview && !empty
       ? `<div class="review-banner"><b>Low confidence — please review.</b>
           <span>${outline.dropped ? `${outline.dropped} line${outline.dropped === 1 ? "" : "s"} the transcript didn't support ${outline.dropped === 1 ? "was" : "were"} dropped rather than guessed at.` : "Some lines couldn't be verified."}</span></div>`
       : ""}
@@ -2190,8 +2194,7 @@ async function renderOutlineSection(meetingId, opts = {}) {
   const data = await api(`/api/outline?id=${encodeURIComponent(meetingId)}${opts.generate === false ? "&generate=0" : ""}`);
   data.meeting = opts.meeting ?? null;
   if (data.error && !data.outline) {
-    box.innerHTML = `<div class="card">${notesHead()}<div class="empty" style="padding:22px 0">${esc(data.error)}</div></div>`;
-    wireOutline(meetingId, data);
+    showOutlineFailure(meetingId, box, data, opts);
   } else {
     box.innerHTML = notesCard(data);
     wireOutline(meetingId, data);
@@ -2200,6 +2203,25 @@ async function renderOutlineSection(meetingId, opts = {}) {
   renderHandoffRow(meetingId, data.catalog ?? [], data.handoffs ?? []);
   for (const run of data.handoffs ?? []) appendHandoffCard(meetingId, run, { replay: true });
   return data;
+}
+
+/**
+ * Failure invariance, user-facing: a failed generation renders in the card —
+ * never an alert() — and always offers a retry. The retry itself is silent:
+ * the same skeleton any generation shows, then whatever the outcome is.
+ */
+function showOutlineFailure(meetingId, box, data, opts = {}) {
+  box.innerHTML = `<div class="card">${notesHead()}<div class="empty" style="padding:22px 0">${esc(data.error)}
+    <div style="margin-top:10px"><button class="hbtn" id="out-retry">Retry</button></div></div></div>`;
+  wireOutline(meetingId, data);
+  $("#out-retry")?.addEventListener("click", async (e) => {
+    e.currentTarget.disabled = true;
+    box.innerHTML = `<div class="card">${notesHead()}
+      <div class="out-skeleton"><div></div><div></div><div></div><div></div><div></div></div></div>`;
+    if (data.runId) await post("/api/run/retry", { id: data.runId });
+    else await post("/api/outline/generate", { id: meetingId, force: true });
+    renderOutlineSection(meetingId, { ...opts, generate: false });
+  });
 }
 
 function wireOutline(meetingId, data) {
@@ -2227,9 +2249,8 @@ function wireOutline(meetingId, data) {
     const hints = doc ? domToMd(doc) : "";
     const out = await post("/api/outline/generate", { id: meetingId, force: true, mode: data.meeting_type, hints });
     if (out.error && !out.outline) {
-      btn.disabled = false;
-      btn.textContent = "☰ Structure my notes";
-      return alert(out.error);
+      // In-card failure + retry, never an alert. The run record has the rest.
+      return showOutlineFailure(meetingId, box, { ...data, error: out.error, runId: out.runId });
     }
     const next = { ...data, outline: out.outline, meeting_type: out.meeting_type ?? data.meeting_type, catalog: out.catalog ?? data.catalog };
     box.innerHTML = notesCard(next);

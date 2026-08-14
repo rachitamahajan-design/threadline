@@ -12,7 +12,9 @@
  */
 import { DatabaseSync } from "node:sqlite";
 import { triggerRecap, awaitRecap, PyAIError, type Utterance, type RecapRecord } from "../lib/pyai.js";
-import { Budget, retry, groundedIn, applyGate, decideExit, type StepRecord } from "../lib/harness.js";
+import { retry, groundedIn, applyGate, decideExit, type Budget, type StepRecord } from "../lib/harness.js";
+import { because } from "../lib/reasons.js";
+import { firstFailure, recordRun } from "../lib/runlog.js";
 import { candidates } from "./candidates.js";
 import { resolveCandidates, storeResolutions } from "./resolve.js";
 import { projectGraph } from "./project.js";
@@ -89,8 +91,25 @@ export function reindexMeeting(db: DatabaseSync, meetingId: string) {
   for (const u of utts) ins.run(meetingId, "utterance", u.text);
 }
 
+/**
+ * Closed loop with failure invariance: the whole pipeline runs inside a run
+ * record that exists from the first instruction — a crash mid-run leaves an
+ * honest 'failed' row instead of nothing. Budget comes from agents.json.
+ */
 export async function processMeeting(db: DatabaseSync, apiKey: string, m: MeetingInput) {
-  const budget = new Budget(60, 180_000);
+  return recordRun(
+    db,
+    { kind: "process-meeting", meetingId: m.id, args: { title: m.title, mode: m.mode } },
+    (budget) => processMeetingInner(db, apiKey, m, budget),
+    (res) => ({
+      outcome: res.exit,
+      steps: res.steps,
+      failure: res.exit === "shipped" ? null : firstFailure(res.steps),
+    }),
+  );
+}
+
+async function processMeetingInner(db: DatabaseSync, apiKey: string, m: MeetingInput, budget: Budget) {
   const steps: StepRecord[] = [];
 
   // Known corrections are applied before anything downstream sees the text —
@@ -151,7 +170,7 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
       status: stored.blocked > 0 ? "blocked" : "ok",
       attempts: 1,
       ms: 0,
-      reason: stored.blocked > 0 ? `${stored.blocked} claim(s) had no proof in the transcript` : undefined,
+      reason: stored.blocked > 0 ? because("grounding-blocked", `${stored.blocked} claim(s) had no proof in the transcript`) : undefined,
     });
 
     const rec = record;
@@ -187,7 +206,7 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
           ms: 0,
           reason:
             structured.ungrounded > 0
-              ? `${structured.ungrounded} bullet(s) had no verifiable anchor in the transcript`
+              ? because("grounding-blocked", `${structured.ungrounded} bullet(s) had no verifiable anchor in the transcript`)
               : undefined,
         });
       }
@@ -240,17 +259,25 @@ export async function processMeeting(db: DatabaseSync, apiKey: string, m: Meetin
             attempts: 1,
             ms: Date.now() - startedAt,
             reason: notes.outline.needsReview
-              ? `${notes.outline.failures.length} grounding failure(s); ${notes.outline.dropped} bullet(s) dropped`
+              ? because(
+                  "grounding-blocked",
+                  `${notes.outline.failures.length} grounding failure(s); ${notes.outline.dropped} bullet(s) dropped`,
+                )
               : undefined,
           }
-        : { name: "notes:outline", status: "failed", attempts: 1, ms: Date.now() - startedAt, reason: notes.error ?? "unknown" },
+        : {
+            name: "notes:outline",
+            status: "failed",
+            attempts: 1,
+            ms: Date.now() - startedAt,
+            reason: because("upstream-failed", notes.error ?? "unknown"),
+          },
     );
   }
 
+  // The run record itself is written by the recordRun wrapper — including when
+  // this function never gets here.
   const exit = decideExit(steps, budget);
-  db.prepare(
-    "INSERT INTO runs (meeting_id, started_at, exit, steps, units_spent) VALUES (?, ?, ?, ?, ?)",
-  ).run(m.id, Date.now(), exit, JSON.stringify(steps), budget.spent.units);
   db.prepare("UPDATE meetings SET exit = ? WHERE id = ?").run(exit, m.id);
 
   return { exit, steps, stored };

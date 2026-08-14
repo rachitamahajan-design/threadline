@@ -36,6 +36,9 @@ import {
 } from "../lib/store.js";
 import { handoffCatalog, matchHandoff } from "../handoffs/registry.js";
 import { modelInfo } from "../lib/model.js";
+import { firstFailure, getRun, listRuns, recordRun, type RunRecord } from "../lib/runlog.js";
+import { log } from "../lib/log.js";
+import { publicReason, reasonFrom, type Outcome } from "../lib/reasons.js";
 import { converse } from "../pipeline/needle.js";
 import { indexMeeting } from "../pipeline/chunker.js";
 
@@ -46,6 +49,18 @@ for (const line of (() => { try { return readFileSync(".env", "utf8").split("\n"
 }
 
 const db = openDb();
+
+// Last-resort net. Node kills the process on an unhandled rejection, and a dead
+// server is the one state where the user cannot reach the retry button that
+// every failed run is supposed to leave them. Loud, never silent: a stray
+// rejection is still a bug, it just must not take the app down with it.
+process.on("unhandledRejection", (reason) => {
+  log.error("process.unhandledRejection", { stack: reason instanceof Error ? reason.stack : String(reason) });
+});
+process.on("uncaughtException", (e) => {
+  log.error("process.uncaughtException", { stack: e.stack ?? String(e) });
+});
+
 const PORT = Number(process.env.PORT ?? 4640);
 const PUBLIC = path.resolve("public");
 const DOCS_DIR = path.resolve("data", "docs");
@@ -149,9 +164,15 @@ const api: Record<string, Handler> = {
     const claims = (db.prepare(`SELECT * FROM claims WHERE meeting_id = ?`).all(id) as { body: string; edited_body: string | null }[]).map(
       (c) => ({ ...c, body: JSON.parse(c.edited_body ?? c.body) }),
     );
-    const runs = (db.prepare(`SELECT * FROM runs WHERE meeting_id = ? ORDER BY id DESC LIMIT 1`).all(id) as { steps: string }[]).map(
-      (r) => ({ ...r, steps: JSON.parse(r.steps) }),
-    );
+    // The pipeline panel shows the latest full-pipeline run; a notes or handoff
+    // run must not displace it. The full per-workflow history is not part of
+    // the product UI — it lives in the runs table and GET /api/runs for
+    // debugging; the user only ever sees outcomes and retry buttons in place.
+    const runs = (
+      db
+        .prepare(`SELECT * FROM runs WHERE meeting_id = ? AND kind = 'process-meeting' ORDER BY id DESC LIMIT 1`)
+        .all(id) as { steps: string }[]
+    ).map((r) => ({ ...r, steps: JSON.parse(r.steps) }));
     // backlinks: other meetings sharing a person/topic node with this one —
     // plus meetings one `related` hop away, so "ANZ rollout" (kickoff) still
     // threads to "ANZ pricing" (investor call) without pretending they are
@@ -230,7 +251,17 @@ const api: Record<string, Handler> = {
   async "GET /api/ask"(p) {
     const q = (p.get("q") ?? "").trim();
     if (!q) return { error: "missing q" };
-    return await ask(db, q);
+    // Closed loop: even a crashed ask leaves a run record with outcome+cost.
+    return await recordRun(
+      db,
+      { kind: "ask", args: { q } },
+      (budget) => ask(db, q, { budget }),
+      (r) => ({
+        outcome: r.exit as Outcome,
+        steps: r.steps,
+        failure: r.exit === "shipped" ? null : firstFailure(r.steps),
+      }),
+    );
   },
 
   "POST /api/record/start"(p, body) {
@@ -759,7 +790,16 @@ const api: Record<string, Handler> = {
   async "POST /api/needle/send"(p, body) {
     const { conversation_id, text } = (body ?? {}) as { conversation_id?: number; text?: string };
     if (!conversation_id || !text?.trim()) return { error: "missing conversation_id or text" };
-    return await converse(db, conversation_id, text.trim());
+    // Closed loop around the chat turn; the payload's own exit is the outcome.
+    return await recordRun(
+      db,
+      { kind: "needle", args: { conversation_id, q: text.trim() } },
+      () => converse(db, conversation_id, text.trim()),
+      (r) => {
+        const exit = ((r as { payload?: { exit?: string } })?.payload?.exit ?? "shipped") as Outcome | "budget";
+        return { outcome: exit === "budget" ? "deadline" : exit, steps: [], failure: null };
+      },
+    );
   },
 
   "POST /api/meeting/rename"(p, body) {
@@ -792,27 +832,64 @@ const api: Record<string, Handler> = {
   async "POST /api/meeting/regenerate"(p, body) {
     const { id } = (body ?? {}) as { id?: string };
     if (!id) return { error: "missing id" };
-    if (regenerating.has(id)) return { error: "already regenerating" };
-    const meeting = db.prepare(`SELECT * FROM meetings WHERE id = ?`).get(id) as
-      | { id: string; title: string; mode: string; started_at: number }
-      | undefined;
-    if (!meeting) return { error: "not found" };
-    const utterances = db
-      .prepare(`SELECT speaker, speaker_role, text, offset_s, duration_s FROM utterances WHERE meeting_id = ? ORDER BY idx`)
-      .all(id) as Utterance[];
-    if (!utterances.length) return { error: "no transcript to regenerate from" };
-    regenerating.add(id);
-    try {
-      const { exit, steps, stored } = await processMeeting(db, apiKey, {
-        id: meeting.id,
-        title: meeting.title,
-        mode: meeting.mode,
-        startedAt: meeting.started_at,
-        utterances,
-      });
-      return { ok: true, exit, steps, stored };
-    } finally {
-      regenerating.delete(id);
+    return await regenerateMeeting(id);
+  },
+
+  /** Run history: every AI workflow that touched this meeting, newest first. */
+  "GET /api/runs"(p) {
+    const id = p.get("meeting_id") ?? "";
+    return { runs: listRuns(db, id, Math.min(Number(p.get("limit") ?? 10) || 10, 50)).map(forUi) };
+  },
+
+  /**
+   * The retry button. Every run record carries its kind and args, so any run
+   * that didn't ship can be re-dispatched — same work, fresh budget, and the
+   * new attempt leaves its own record.
+   */
+  async "POST /api/run/retry"(p, body) {
+    const { id } = (body ?? {}) as { id?: number };
+    if (!id) return { error: "missing id" };
+    const run = getRun(db, id);
+    if (!run) return { error: "run not found" };
+    const args = (run.args ?? {}) as Record<string, unknown>;
+    const refine = typeof args.refine === "string" ? args.refine : undefined;
+    switch (run.kind) {
+      case "process-meeting":
+        return await regenerateMeeting(run.meetingId);
+      case "notes": {
+        const out = await ensureNotes(db, run.meetingId, { force: true, refine });
+        return { ok: !out.error, outline: out.outline, error: out.error, runId: out.runId };
+      }
+      case "handoff": {
+        if (typeof args.handoffId !== "string") return { error: "run has no handoff to retry" };
+        const out = await runHandoff(db, { meetingId: run.meetingId, handoffId: args.handoffId, refine });
+        return { ok: !out.error, run: out.run, error: out.error, runId: out.runId };
+      }
+      case "cross-handoff": {
+        if (typeof args.handoffId !== "string") return { error: "run has no handoff to retry" };
+        const out = await runCrossHandoff(db, {
+          handoffId: args.handoffId,
+          meetingIds: Array.isArray(args.meetingIds) ? (args.meetingIds as string[]) : undefined,
+          refine,
+        });
+        return { ok: !out.error, run: out.run, error: out.error, runId: out.runId };
+      }
+      case "ask": {
+        if (typeof args.q !== "string") return { error: "run has no question to retry" };
+        const q = args.q;
+        return await recordRun(
+          db,
+          { kind: "ask", args: { q } },
+          (budget) => ask(db, q, { budget }),
+          (r) => ({
+            outcome: r.exit as Outcome,
+            steps: r.steps,
+            failure: r.exit === "shipped" ? null : firstFailure(r.steps),
+          }),
+        );
+      }
+      default:
+        return { error: `a ${run.kind} run is retried from where it started (the chat)` };
     }
   },
 
@@ -894,7 +971,26 @@ const api: Record<string, Handler> = {
     if (!hasOpenAI()) return { error: "OPENAI_API_KEY not configured — chat needs it" };
     const utterances = meetingTranscript(meeting_id);
     if (!utterances.length) return { error: "no transcript yet" };
-    return await chatAboutMeeting(db, meeting_id, message.trim(), history ?? [], notes ?? "", utterances);
+    // Closed loop like every other workflow: recorded, and a dead network is a
+    // failed run with a friendly error — never a 500, never a raw stack.
+    let failure: ReturnType<typeof reasonFrom> | null = null;
+    return await recordRun(
+      db,
+      { kind: "chat", meetingId: meeting_id, args: { q: message.trim().slice(0, 200) } },
+      async () => {
+        try {
+          return await chatAboutMeeting(db, meeting_id, message.trim(), history ?? [], notes ?? "", utterances);
+        } catch (e) {
+          failure = reasonFrom(e);
+          return { error: publicReason(failure) };
+        }
+      },
+      (r) => ({
+        outcome: (r as { error?: string }).error ? "failed" : "shipped",
+        steps: [],
+        failure,
+      }),
+    );
   },
 
   /** One-shot correction: every occurrence (exact + similar spellings) fixed now. */
@@ -980,6 +1076,7 @@ const api: Record<string, Handler> = {
     return {
       outline: result.outline,
       error: result.error,
+      runId: (result as { runId?: number }).runId,
       meeting_type: m.type,
       participants: m.participants,
       catalog: handoffCatalog(m.type),
@@ -1012,6 +1109,7 @@ const api: Record<string, Handler> = {
     return {
       outline: out.outline,
       error: out.error,
+      runId: out.runId,
       meeting_type: m?.type,
       catalog: m ? handoffCatalog(m.type) : [],
     };
@@ -1033,7 +1131,7 @@ const api: Record<string, Handler> = {
     };
     if (!meeting_id || !handoff_id) return { error: "missing fields" };
     const out = await runHandoff(db, { meetingId: meeting_id, handoffId: handoff_id, refine: refine?.trim() || undefined });
-    return { run: out.run, error: out.error };
+    return { run: out.run, error: out.error, runId: out.runId };
   },
 
   /** The cross-meeting handoff: collated customer feedback. */
@@ -1046,7 +1144,7 @@ const api: Record<string, Handler> = {
       meetingIds: Array.isArray(meeting_ids) ? meeting_ids : undefined,
       refine: refine?.trim() || undefined,
     });
-    return { run: out.run, error: out.error };
+    return { run: out.run, error: out.error, runId: out.runId };
   },
 
   "GET /api/handoff/cross"() {
@@ -1118,11 +1216,56 @@ const MEETING_TYPES = ["investor", "vendor", "customer", "team", "one_on_one"];
 
 const regenerating = new Set<string>();
 
+/**
+ * What a run record looks like on screen. System internals — failure details,
+ * step logs, codes — never leave the server on this path; the browser gets the
+ * outcome, a human phrase for the failure, spend, and enough identity to
+ * retry. The full record stays queryable in the runs table for debugging.
+ */
+function forUi(r: RunRecord) {
+  return {
+    id: r.id,
+    kind: r.kind,
+    outcome: r.outcome,
+    failureText: publicReason(r.failure),
+    startedAt: r.startedAt,
+    tokensIn: r.tokensIn,
+    tokensOut: r.tokensOut,
+    costUsd: r.costUsd,
+  };
+}
+
+/** Full-pipeline re-run, shared by the regenerate endpoint and the run retry button. */
+async function regenerateMeeting(id: string) {
+  if (regenerating.has(id)) return { error: "already regenerating" };
+  const meeting = db.prepare(`SELECT * FROM meetings WHERE id = ?`).get(id) as
+    | { id: string; title: string; mode: string; started_at: number }
+    | undefined;
+  if (!meeting) return { error: "not found" };
+  const utterances = db
+    .prepare(`SELECT speaker, speaker_role, text, offset_s, duration_s FROM utterances WHERE meeting_id = ? ORDER BY idx`)
+    .all(id) as Utterance[];
+  if (!utterances.length) return { error: "no transcript to regenerate from" };
+  regenerating.add(id);
+  try {
+    const { exit, steps, stored } = await processMeeting(db, apiKey, {
+      id: meeting.id,
+      title: meeting.title,
+      mode: meeting.mode,
+      startedAt: meeting.started_at,
+      utterances,
+    });
+    return { ok: true, exit, steps, stored };
+  } finally {
+    regenerating.delete(id);
+  }
+}
+
 /** In-flight outline generations, keyed by meeting: one model call, many waiters. */
 const outlining = new Map<string, ReturnType<typeof ensureNotes>>();
 function track(id: string, work: ReturnType<typeof ensureNotes>) {
   outlining.set(id, work);
-  void work.finally(() => outlining.delete(id));
+  void work.finally(() => outlining.delete(id)).catch(() => {});
   return work;
 }
 
@@ -1231,8 +1374,11 @@ createServer(async (req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(out));
     } catch (e) {
+      // The user never sees internals; the log gets the whole thing — the
+      // classified reason for branching/grepping, the stack for reading.
+      log.error("api.error", { route: key, reason: reasonFrom(e), stack: e instanceof Error ? e.stack : String(e) });
       res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }));
+      res.end(JSON.stringify({ error: "something went wrong" }));
     }
     return;
   }

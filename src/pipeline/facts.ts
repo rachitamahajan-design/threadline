@@ -9,7 +9,9 @@
  *
  * Facts are extracted once per meeting and reused by every handoff.
  */
-import { chatJson } from "../lib/model.js";
+import { ModelError, chatJson } from "../lib/model.js";
+import { Budget, retry, type StepRecord } from "../lib/harness.js";
+import { CodedError, because } from "../lib/reasons.js";
 import { EXTRACT_FACTS, promptRef } from "../lib/prompts.js";
 import { checkQuotes, verbatimMisses, type GroundingContext } from "../lib/grounding.js";
 import { citedText, renderSegments, type MeetingType, type Segment } from "../lib/segments.js";
@@ -33,24 +35,47 @@ export type FactSet = {
   promptVersion: string;
 };
 
+/**
+ * Pass 1, under the same harness as compose: silent, budgeted, aimed retries.
+ * Without this a single transient 429 on extraction killed the whole run —
+ * compose was protected and the pass feeding it was not.
+ *
+ * Retries are invisible by design. What the user eventually sees is the
+ * outcome; what the run record keeps is the attempt count and the reason.
+ */
 export async function extractFacts(
   segments: Segment[],
   ctx: GroundingContext,
-  opts: { type: MeetingType; participants: string[] },
-): Promise<FactSet> {
-  const raw = await chatJson({
-    purpose: "facts.extract",
-    temperature: 0,
-    system: EXTRACT_FACTS.build({
-      transcript: renderSegments(segments),
-      participants: opts.participants.join(", ") || "unknown",
-      type: opts.type,
-    }),
-    // The transcript is in the system prompt; the user turn only has to trigger
-    // the shape. Weak models do better with an explicit, boring instruction.
-    user: 'Extract the facts now. Return {"facts": [...]} and nothing else.',
-  });
-  return sanitizeFacts(raw, ctx);
+  opts: { type: MeetingType; participants: string[]; budget?: Budget },
+): Promise<{ set: FactSet; step: StepRecord }> {
+  const budget = opts.budget ?? Budget.for("notes");
+  const run = await retry(
+    "extract:facts",
+    budget,
+    async () => {
+      const raw = await chatJson({
+        purpose: "facts.extract",
+        temperature: 0,
+        system: EXTRACT_FACTS.build({
+          transcript: renderSegments(segments),
+          participants: opts.participants.join(", ") || "unknown",
+          type: opts.type,
+        }),
+        // The transcript is in the system prompt; the user turn only has to trigger
+        // the shape. Weak models do better with an explicit, boring instruction.
+        user: 'Extract the facts now. Return {"facts": [...]} and nothing else.',
+      });
+      budget.spendUnits(1);
+      return sanitizeFacts(raw, ctx);
+    },
+    // A 404 or a dead key never becomes valid on the third try.
+    { retryable: (e) => !(e instanceof ModelError) || e.retryable },
+  );
+  if (!run.value) {
+    const reason = run.record.reason ?? because("crash", "extraction produced nothing");
+    throw new CodedError(reason.code, reason.detail);
+  }
+  return { set: run.value, step: run.record };
 }
 
 /**

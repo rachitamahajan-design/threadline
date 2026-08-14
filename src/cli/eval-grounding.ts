@@ -107,7 +107,7 @@ function covered(expected: string, blob: string): boolean {
 export async function evalNotes(fx: Fixture, live: boolean): Promise<Score> {
   if (!live) return scoreNotes(fx, fx.goldNotes);
   const ctx = groundingContext({ segments: fx.segments, participants: fx.participants });
-  const facts = await extractFacts(fx.segments, ctx, { type: fx.type, participants: fx.participants });
+  const { set: facts } = await extractFacts(fx.segments, ctx, { type: fx.type, participants: fx.participants });
   const out = await generateNotes(facts.facts, ctx, { type: fx.type, participants: fx.participants });
   if (!out.value) {
     return { fixture: fx.id, leaves: 0, strict: 0, lexical: 0, factRecall: 0, themeRecall: 0, needsReview: true, dropped: 0, failures: [] };
@@ -131,7 +131,7 @@ export async function evalHandoff(
     return { fixture: fx.id, handoff: def.id, clean: failures.length === 0, failures, dropped: 0 };
   }
 
-  const facts = await extractFacts(fx.segments, ctx, { type: fx.type, participants: fx.participants });
+  const { set: facts } = await extractFacts(fx.segments, ctx, { type: fx.type, participants: fx.participants });
   const out = await compose(
     {
       purpose: `handoff:${def.id}`,

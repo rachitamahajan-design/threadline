@@ -14,6 +14,7 @@
  * wrong one is not.
  */
 import { Budget, retry, type StepRecord } from "../lib/harness.js";
+import { CodedError, because, publicReason } from "../lib/reasons.js";
 import { ModelError, chatJson } from "../lib/model.js";
 import { REFINE, REPAIR } from "../lib/prompts.js";
 import { formatFailures, isSoft, type Failure, type GroundingContext } from "../lib/grounding.js";
@@ -85,14 +86,15 @@ export async function compose<T>(
       });
       budget.spendUnits(1);
       const parsed = spec.parse(raw);
-      if (typeof parsed === "string") throw new Error(`schema: ${parsed}`);
+      if (typeof parsed === "string") throw new CodedError("schema-invalid", `schema: ${parsed}`);
       const failures = spec.validate(parsed, ctx);
       if (failures.length) {
         last = { value: parsed, failures };
         // Style-only failures get one nudge, not the full retry budget: nobody
         // should pay for three model calls because a bullet was terse.
         if (attempt >= SOFT_ONLY_ATTEMPTS && failures.every(isSoft)) return parsed;
-        throw new Error(formatFailures(failures));
+        // The aimed retry: the validator's words ride back as the detail.
+        throw new CodedError("grounding-blocked", formatFailures(failures));
       }
       return parsed;
     },
@@ -123,7 +125,8 @@ export async function compose<T>(
       attempts,
       promptVersion: spec.promptVersion,
       steps,
-      error: run.record.reason ?? "the model produced nothing usable",
+      // User-facing: the code's human label only; the detail stays on the record.
+      error: publicReason(run.record.reason) || "the model produced nothing usable",
     };
   }
 
@@ -135,7 +138,10 @@ export async function compose<T>(
     status: hard.length ? "blocked" : "retried",
     attempts,
     ms: 0,
-    reason: `${hard.length} grounding failure(s) and ${candidate.failures.length - hard.length} style note(s) after ${attempts} attempts; ${pruned.dropped} item(s) dropped`,
+    reason: because(
+      "grounding-blocked",
+      `${hard.length} grounding failure(s) and ${candidate.failures.length - hard.length} style note(s) after ${attempts} attempts; ${pruned.dropped} item(s) dropped`,
+    ),
   });
   return {
     value: pruned.value,

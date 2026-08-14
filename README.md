@@ -59,6 +59,14 @@ this.
 Runs on [PyAI](https://pyai.com) — one key, `curl -X POST
 https://api.pyai.com/v1/sandbox/keys` to mint one free.
 
+## Forking
+
+Every AI workflow runs inside a closed-loop harness: config-driven models,
+budgets and gates, silent aimed retries, four named outcomes, and crash-proof
+run records. Before changing pipeline code, read [harnesses.md](harnesses.md) —
+it maps the moving parts, the config surfaces, and the invariants a fork must
+keep.
+
 ## License
 
 [MIT](LICENSE)

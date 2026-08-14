@@ -1,16 +1,50 @@
 {
-  "$comment": "Capability registry. Meeting modes are config, not code — swapping a model or changing what a mode extracts is one edit here, no rebuild.",
+  "$comment": "Capability registry. Meeting modes, model selection, per-workflow budgets, retry policy and gates are config, not code — swapping a model, resizing a budget or turning the entailment gate advisory is one edit here, no rebuild. Prompt text lives in config/prompts.json.",
   "version": 1,
   "models": {
     "transcribe_stream": { "provider": "pyai", "model": "pyai-hear", "surface": "hear.stream" },
     "transcribe_batch": { "provider": "pyai", "model": "pyai-hear", "surface": "transcription.jobs", "diarize": true },
     "recap": { "provider": "pyai", "surface": "recap.calls" },
-    "extract": { "provider": "anthropic", "model": "claude-sonnet-5" }
+    "extract": { "provider": "anthropic", "model": "claude-sonnet-5" },
+    "chat": {
+      "provider": "pyai",
+      "model": { "pyai": "pyai-think", "openai": "gpt-4o-mini" },
+      "purposes": {
+        "facts.extract": { "temperature": 0 },
+        "notes": { "temperature": 0.1 },
+        "entail.spotcheck": { "temperature": 0 }
+      }
+    },
+    "pricing": {
+      "pyai-think": { "in": 0.0005, "out": 0.0015 },
+      "gpt-4o-mini": { "in": 0.00015, "out": 0.0006 }
+    }
   },
   "budgets": {
     "per_meeting_units": 60,
     "per_meeting_ms": 180000,
-    "live_assist_min_gap_ms": 20000
+    "live_assist_min_gap_ms": 20000,
+    "workflows": {
+      "process-meeting": { "units": 60, "ms": 180000 },
+      "notes": { "units": 12, "ms": 150000 },
+      "handoff": { "units": 12, "ms": 150000 },
+      "cross-handoff": { "units": 16, "ms": 180000 },
+      "ask": { "units": 3, "ms": 15000 },
+      "needle": { "units": 4, "ms": 20000 },
+      "chat": { "units": 4, "ms": 30000 }
+    }
+  },
+  "retry": { "max_attempts": 3, "base_delay_ms": 400 },
+  "gates": { "entailment": "blocking" },
+  "logging": {
+    "$comment": "JSON Lines to data/logs/, rotated by size. max_files is how many backups are kept, so disk is bounded at (max_files + 1) * max_bytes ≈ 30MB here. Never contains meeting content.",
+    "enabled": true,
+    "dir": "data/logs",
+    "file": "threadline.log",
+    "max_bytes": 5242880,
+    "max_files": 5,
+    "level": "info",
+    "console": true
   },
   "modes": [
     {

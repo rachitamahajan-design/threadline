@@ -13,6 +13,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { upsertNode, addEdge } from "../lib/db.js";
 import type { StepRecord } from "../lib/harness.js";
+import { because, reasonFrom } from "../lib/reasons.js";
 
 type MentionRow = {
   entity_id: string;
@@ -26,7 +27,7 @@ export function projectGraph(db: DatabaseSync, meetingIds?: string[]): StepRecor
   const ids =
     meetingIds ??
     (db.prepare("SELECT id FROM meetings").all() as { id: string }[]).map((r) => r.id);
-  if (!ids.length) return { name: "graph:project", status: "skipped", attempts: 0, ms: 0, reason: "no meetings" };
+  if (!ids.length) return { name: "graph:project", status: "skipped", attempts: 0, ms: 0, reason: because("not-found", "no meetings") };
 
   const started = Date.now();
   const place = ids.map(() => "?").join(",");
@@ -64,7 +65,7 @@ export function projectGraph(db: DatabaseSync, meetingIds?: string[]): StepRecor
       status: "failed",
       attempts: 1,
       ms: Date.now() - started,
-      reason: e instanceof Error ? e.message : String(e),
+      reason: reasonFrom(e),
     };
   }
 

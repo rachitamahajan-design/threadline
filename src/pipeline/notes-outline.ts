@@ -21,6 +21,7 @@ import {
   type Notes,
 } from "../lib/outline.js";
 import type { MeetingType } from "../lib/segments.js";
+import { because } from "../lib/reasons.js";
 import { compose, type GroundedOutput } from "./grounded.js";
 import type { Fact } from "./facts.js";
 import type { Budget } from "../lib/harness.js";
@@ -32,6 +33,7 @@ const LEAF_KILLERS: Failure["rule"][] = [
   "no-memory-source",
   "verbatim-number",
   "exact-quote",
+  "entailment-unsupported",
 ];
 
 export function notesSpec(opts: {
@@ -127,7 +129,15 @@ export async function generateNotes(
       dropped: 0,
       attempts: 0,
       promptVersion: promptRef(NOTES_COMPOSE),
-      steps: [{ name: "compose:notes", status: "skipped", attempts: 0, ms: 0, reason: "no grounded facts to compose from" }],
+      steps: [
+        {
+          name: "compose:notes",
+          status: "skipped",
+          attempts: 0,
+          ms: 0,
+          reason: because("no-facts", "no grounded facts to compose from"),
+        },
+      ],
     };
   return compose(notesSpec(opts), facts, ctx, { budget: opts.budget, refine: opts.refine });
 }

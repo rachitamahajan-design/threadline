@@ -15,6 +15,7 @@
  */
 import type { DatabaseSync } from "node:sqlite";
 import { applyGate, normalize, type Gate, type StepRecord } from "../lib/harness.js";
+import { because } from "../lib/reasons.js";
 import { slug } from "../lib/db.js";
 import type { Candidate } from "./candidates.js";
 
@@ -238,7 +239,9 @@ export function storeResolutions(
       status: blocked.length ? "blocked" : "ok",
       attempts: 1,
       ms: 0,
-      reason: blocked.length ? `${blocked.length} of ${resolutions.length} mentions could not be canonicalised` : undefined,
+      reason: blocked.length
+        ? because("grounding-blocked", `${blocked.length} of ${resolutions.length} mentions could not be canonicalised`)
+        : undefined,
     },
   };
 }
@@ -266,5 +269,5 @@ export function relateEntities(db: DatabaseSync): { pairs: number; step: StepRec
       ins.run(ents[j].id, ents[i].id);
       pairs++;
     }
-  return { pairs, step: { name: "resolve:relate", status: "ok", attempts: 1, ms: 0, reason: `${pairs} related pair(s)` } };
+  return { pairs, step: { name: "resolve:relate", status: "ok", attempts: 1, ms: 0, reason: because("info", `${pairs} related pair(s)`) } };
 }
