@@ -7,7 +7,8 @@
  *   - output is validated; validator errors are fed back into one retry
  *   - anchored bullets are grounded against the transcript afterwards
  */
-import { chatJSON, flattenTranscript } from "../lib/openai.js";
+import { flattenTranscript } from "../lib/openai.js";
+import { chatJson } from "../lib/model.js";
 import { validateSummary, groundSummary, type StructuredSummary } from "../lib/summary.js";
 import { retry, type Budget, type StepRecord } from "../lib/harness.js";
 import type { Utterance, RecapRecord } from "../lib/pyai.js";
@@ -70,7 +71,7 @@ export async function structureSummary(
       const feedback = lastError
         ? `\n\nYour previous reply was rejected: ${lastError}\nFix these problems and reply with valid JSON only.`
         : "";
-      const raw = await chatJSON(SYSTEM + feedback, `Transcript:\n${transcript}\n\n${draft}`);
+      const raw = await chatJson({ purpose: "summary.structure", system: SYSTEM + feedback, user: `Transcript:\n${transcript}\n\n${draft}` });
       budget.spendUnits(1);
       const errors = validateSummary(raw);
       if (errors.length > 0) throw new Error(`schema validation failed: ${errors.slice(0, 5).join("; ")}`);

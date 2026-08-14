@@ -152,7 +152,10 @@ async function processMeetingInner(db: DatabaseSync, apiKey: string, m: MeetingI
   let record = recap.value?.record ?? null;
   let headline = recap.value?.headline ?? null;
   if (!record && hasOpenAI()) {
-    const fb = await retry("fallback:openai-extract", budget, () => openaiExtract(m.utterances), { max: 2 });
+    const fb = await retry("fallback:openai-extract", budget, () => {
+      budget.spendUnits(1);
+      return openaiExtract(m.utterances);
+    }, { max: 2 });
     steps.push(fb.record);
     if (fb.value) {
       record = fb.value;

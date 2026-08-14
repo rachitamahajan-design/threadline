@@ -31,7 +31,10 @@
       "cross-handoff": { "units": 16, "ms": 180000 },
       "ask": { "units": 3, "ms": 15000 },
       "needle": { "units": 4, "ms": 20000 },
-      "chat": { "units": 4, "ms": 30000 }
+      "chat": { "units": 4, "ms": 30000 },
+      "diarize": { "units": 2, "ms": 600000 },
+      "project-ask": { "units": 3, "ms": 30000 },
+      "doc-summary": { "units": 2, "ms": 30000 }
     }
   },
   "retry": { "max_attempts": 3, "base_delay_ms": 400 },

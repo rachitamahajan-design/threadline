@@ -19,7 +19,7 @@ import { indexMeeting } from "./chunker.js";
 import { reindexMeeting } from "./extract.js";
 import { groundedIn, type StepRecord } from "../lib/harness.js";
 import { recordRun } from "../lib/runlog.js";
-import { because } from "../lib/reasons.js";
+import { because, publicReason, reasonFrom } from "../lib/reasons.js";
 import { generateBrainMd } from "./brain-md.js";
 import { clearStatements } from "../lib/store.js";
 import { ensureNotes } from "./handoff.js";
@@ -119,7 +119,12 @@ export async function diarizeMeeting(db: DatabaseSync, apiKey: string, meetingId
     async (budget) => diarizeInner(db, apiKey, meetingId, steps, () => budget.spendUnits(1)),
     () => {
       const st = (db.prepare("SELECT status, reason FROM diarize_runs WHERE meeting_id = ?").get(meetingId) as { status: string; reason: string | null } | undefined);
-      const outcome = st?.status === "failed" ? "failed" : st?.status === "shipped" && st.reason ? "partial" : "shipped";
+      // Honest four-outcome mapping: a guard skip shipped nothing → partial.
+      const outcome =
+        st?.status === "failed" ? "failed"
+        : st?.status === "skipped" ? "partial"
+        : st?.status === "shipped" && st.reason ? "partial"
+        : "shipped";
       return { outcome, steps };
     },
   ).catch(() => { /* recordRun re-throws after recording; chip state already set */ });
@@ -231,7 +236,10 @@ async function diarizeInner(db: DatabaseSync, apiKey: string, meetingId: string,
       reason: notes.length ? notes.join("; ") : null,
     });
   } catch (e) {
-    const msg = e instanceof PyAIError ? `${e.code}: ${e.message}` : e instanceof Error ? e.message : String(e);
-    setRun(db, meetingId, { status: "failed", reason: msg });
+    // The chip renders this string verbatim, so it gets the public label only;
+    // the raw error lands in the run record's step reasons, not on screen.
+    const failure = reasonFrom(e);
+    steps.push({ name: "diarize", status: "failed", attempts: 1, ms: 0, reason: failure });
+    setRun(db, meetingId, { status: "failed", reason: publicReason(failure) });
   }
 }
