@@ -150,8 +150,13 @@
     font-size: 17px;
     margin-right: 14px;
     position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
   }
-  .wordmark::after {
+  .wordmark svg { flex: none; }
+  .wordmark span { position: relative; }
+  .wordmark span::after {
     content: "";
     position: absolute;
     left: 1px; right: 1px; bottom: -2px;
@@ -709,12 +714,33 @@
 </div>
 
 <nav aria-label="Main">
-  <a class="wordmark" href="#hero">Threadline</a>
+  <a class="wordmark" href="#hero">
+    <!-- needle & thread mark, same as the app header -->
+    <svg width="26" height="26" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="tl-needle" x1="8" y1="30" x2="26" y2="6" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#b9bec6"/>
+          <stop offset="0.45" stop-color="#eef0f3"/>
+          <stop offset="1" stop-color="#9aa0a9"/>
+        </linearGradient>
+      </defs>
+      <path d="M2.5 6.5 C 6.5 3, 12 3.5, 15.5 5.8
+               C 18.5 7.7, 21.5 9.5, 23.8 10.2
+               C 27.5 11.2, 29.8 13.8, 29 17
+               C 28.2 20.5, 24.4 21.2, 23.2 18.6
+               C 22.2 16.4, 24.6 14.4, 27.6 15.2"
+        stroke="#4a7ce8" stroke-width="1.7" stroke-linecap="round"/>
+      <path d="M6.6 31.6 L 23.2 9.4 A 1.55 1.55 0 1 1 25.6 11.4 Z"
+        fill="url(#tl-needle)" stroke="#7c828b" stroke-width="0.6" stroke-linejoin="round"/>
+      <ellipse cx="24.4" cy="10.4" rx="0.6" ry="1.35" transform="rotate(-50 24.4 10.4)" fill="var(--bg)" stroke="#7c828b" stroke-width="0.45"/>
+    </svg>
+    <span>Threadline</span></a>
   <div class="links">
     <a href="#local">Local-first</a>
     <a href="#receipts">Receipts</a>
     <a href="#todos">To-dos</a>
     <a href="#graph">Graph</a>
+    <a href="#ask">Needle</a>
     <a href="#launch">Quick start</a>
   </div>
   <a class="nav-cta" href="/">Open the app</a>
