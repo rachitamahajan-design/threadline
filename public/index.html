@@ -1,41 +1,100 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Threadline</title>
+<!-- carries an id, not a bare tag, so the build check's script-extracting regex
+     still isolates the app script at the bottom of the file -->
+<script id="tl-theme-boot">
+  /* Theme, applied BEFORE first paint so the app never flashes the wrong one.
+     localStorage "tl-theme" holds "auto" | "light" | "dark"; "auto" resolves
+     against the OS preference and re-resolves whenever the OS flips. */
+  (function () {
+    var KEY = "tl-theme";
+    window.__tlThemePref = function () {
+      try { var v = localStorage.getItem(KEY); return v === "light" || v === "dark" ? v : "auto"; }
+      catch (e) { return "auto"; }
+    };
+    window.__tlApplyTheme = function () {
+      var pref = window.__tlThemePref();
+      var resolved = pref === "auto"
+        ? (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : pref;
+      document.documentElement.setAttribute("data-theme", resolved);
+      return { pref: pref, resolved: resolved };
+    };
+    window.__tlApplyTheme();
+    try {
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+        if (window.__tlThemePref() === "auto") {
+          window.__tlApplyTheme();
+          window.dispatchEvent(new CustomEvent("tl-theme"));
+        }
+      });
+    } catch (e) { /* older Safari: auto simply won't live-update */ }
+  })();
+</script>
 <style>
+  /* ═══════════════════════════════════════════════════════════════════════
+     THEME TOKENS — warm porcelain (light) and warm espresso (dark).
+
+     Light lives on :root. Dark is declared TWICE, on purpose:
+       1. :root[data-theme="dark"]              — the explicit choice
+       2. @media dark { :root:not([data-theme="light"]) } — the no-JS fallback
+     The <head> boot script normally stamps an explicit data-theme before first
+     paint, so (2) only matters if scripts are blocked. THE TWO DARK BLOCKS ARE
+     IDENTICAL — edit one, edit the other.
+     ═══════════════════════════════════════════════════════════════════════ */
   :root {
     color-scheme: light;
-    --bg: #f5f5f7;              /* Apple gray */
-    --surface: #ffffff;
-    --ink: #1c1c1e;
-    --ink-2: #56565c;
-    --ink-3: #8e8e93;
+    --is-dark: 0;
+    --bg: #f6f4f1;              /* warm porcelain */
+    --surface: #fffdfa;
+    --ink: #1e1c19;             /* warm black */
+    --ink-2: #57534c;
+    --ink-3: #8e8880;
     --thread: #5b74e0;          /* the thread */
-    --thread-soft: #eceffc;
+    --thread-soft: #ecedfa;
+    --thread-press: color-mix(in srgb, var(--thread) 85%, #000);
     --warm: #e8752e;
     --pass: #3d8b68; --block: #cf5a52;
-    --line: rgba(60, 60, 67, 0.12);   /* hairline */
-    --shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 8px 32px rgb(16 24 40 / 0.08);
+    --rec: #e0443e;             /* the recording red, as ink */
+    --red: #ff5f57;             /* the "now" dot */
+    --red-ink: #d0433c;
+    --red-wash: color-mix(in srgb, #ff5f57 13%, transparent);
+    --line: rgba(74, 62, 48, 0.13);   /* warm hairline */
+    --shadow: 0 1px 2px rgb(58 44 28 / 0.05), 0 8px 32px rgb(58 44 28 / 0.09);
+    --shadow-sm: 0 1px 2px rgb(58 44 28 / .06), 0 1px 1px rgb(58 44 28 / .04);
+    --shadow-lift: 0 2px 6px rgb(58 44 28 / .09), 0 12px 34px rgb(58 44 28 / .14);
+    --shadow-pop: 0 2px 6px rgb(60 50 30 / 0.06), 0 16px 44px rgb(30 25 15 / 0.14);
+    --shadow-panel: 0 24px 80px rgb(45 34 22 / 0.28), 0 2px 6px rgb(45 34 22 / .09);
+    --veil: rgb(38 30 22 / 0.26);
 
     /* ── glass ── */
-    --card: rgba(255, 255, 255, 0.72);
-    --card-solid: #ffffff;
-    --glass-border: rgba(255, 255, 255, 0.55);
+    --card: rgba(255, 253, 250, 0.72);
+    --pal-bg: rgba(255, 253, 250, 0.82);
+    --card-solid: #fffdfa;
+    --glass-border: rgba(255, 252, 246, 0.6);
     --glass-blur: blur(24px) saturate(1.7);
-    --chrome: rgba(250, 250, 252, 0.72);
-    --hover: rgba(60, 60, 67, 0.06);
-    --sunk: rgba(60, 60, 67, 0.045);
+    --chrome: rgba(252, 250, 246, 0.72);
+    --hover: rgba(74, 62, 48, 0.06);
+    --sunk: rgba(74, 62, 48, 0.045);
     --radius: 18px;
     --radius-sm: 11px;
 
     /* ── gradient accents ── */
-    --grad-blue: linear-gradient(135deg, #e8edff, #dbe4ff);
-    --grad-peach: linear-gradient(135deg, #ffeede, #ffe0cc);
-    --grad-mint: linear-gradient(135deg, #e2f7ec, #d2f0e2);
-    --grad-lilac: linear-gradient(135deg, #f1e9ff, #e6dcff);
+    --grad-blue: linear-gradient(135deg, #eaedfb, #dde3f8);
+    --grad-peach: linear-gradient(135deg, #ffefe0, #ffe1cd);
+    --grad-mint: linear-gradient(135deg, #e6f7ec, #d7f0e0);
+    --grad-lilac: linear-gradient(135deg, #f3eaff, #e8ddfa);
     --grad-record: linear-gradient(135deg, #ff5f57, #e0443e);
+
+    /* ── the thread props: spool, brain nodes, mindmap branches ── */
+    --spool: #efeae2; --spool-line: rgb(33 32 28 / 0.14);
+    --node-topic: #cf9a35; --node-person: #a39e94;
+    --mm-meet: #5b74e0; --mm-people: #1baf7a; --mm-dec: #eb6834;
+    --mm-open: #e87ba4; --mm-topic: #cf9a35;
 
     /* ── shell metrics ── */
     --hdr-h: 58px;
@@ -44,37 +103,110 @@
 
     /* corner wash behind everything */
     --wash:
-      radial-gradient(900px 620px at 6% -8%, #eef1fb 0%, transparent 62%),
-      radial-gradient(820px 560px at 104% 4%, #fdf3ec 0%, transparent 60%),
-      radial-gradient(760px 620px at 88% 104%, #eef6f2 0%, transparent 62%);
+      radial-gradient(900px 620px at 6% -8%, #f0eefa 0%, transparent 62%),
+      radial-gradient(820px 560px at 104% 4%, #fdf1e5 0%, transparent 60%),
+      radial-gradient(760px 620px at 88% 104%, #f1f4ec 0%, transparent 62%);
   }
+
+  /* ── DARK (1 of 2): the explicit choice ── */
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --is-dark: 1;
+    --bg: #181512;              /* warm charcoal */
+    --surface: #1f1c18;
+    --ink: #f1ece4;
+    --ink-2: #b4aa9c;
+    --ink-3: #8b8175;
+    --thread: #93a4f2;          /* lighter periwinkle: 1.3px strokes must survive */
+    --thread-soft: #2b2e46;
+    --thread-press: color-mix(in srgb, var(--thread) 82%, #fff);
+    --warm: #f0954f;
+    --pass: #5cbf92; --block: #e8867c;
+    --rec: #ff7166;
+    --red: #ff7166;
+    --red-ink: #ffa79e;
+    --red-wash: color-mix(in srgb, #ff5f57 18%, transparent);
+    --line: rgba(255, 246, 235, 0.11);
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.42), 0 10px 36px rgb(0 0 0 / 0.44);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / .45), 0 1px 1px rgb(0 0 0 / .3);
+    --shadow-lift: 0 2px 6px rgb(0 0 0 / .45), 0 14px 38px rgb(0 0 0 / .5);
+    --shadow-pop: 0 2px 6px rgb(0 0 0 / 0.4), 0 18px 48px rgb(0 0 0 / 0.5);
+    --shadow-panel: 0 26px 84px rgb(0 0 0 / 0.62), 0 2px 6px rgb(0 0 0 / .4);
+    --veil: rgb(10 7 4 / 0.55);
+
+    --card: rgba(40, 36, 31, 0.66);
+    --pal-bg: rgba(42, 37, 32, 0.9);
+    --card-solid: #241f1b;
+    --glass-border: rgba(255, 246, 235, 0.09);
+    --chrome: rgba(26, 23, 19, 0.74);
+    --hover: rgba(255, 246, 235, 0.07);
+    --sunk: rgba(255, 246, 235, 0.05);
+
+    --grad-blue: linear-gradient(135deg, #262b45, #1e2235);
+    --grad-peach: linear-gradient(135deg, #3b2a1e, #2c2017);
+    --grad-mint: linear-gradient(135deg, #1e3229, #172720);
+    --grad-lilac: linear-gradient(135deg, #2f2643, #241d34);
+
+    --spool: #3b352c; --spool-line: rgb(255 246 235 / 0.18);
+    --node-topic: #e0b356; --node-person: #9b9184;
+    --mm-meet: #8fa2f2; --mm-people: #4fce9d; --mm-dec: #f5885a;
+    --mm-open: #f09cbd; --mm-topic: #e0b356;
+
+    --wash:
+      radial-gradient(900px 620px at 6% -8%, #23212f 0%, transparent 62%),
+      radial-gradient(820px 560px at 104% 4%, #2b2118 0%, transparent 60%),
+      radial-gradient(760px 620px at 88% 104%, #1c2620 0%, transparent 62%);
+  }
+
+  /* ── DARK (2 of 2): system preference, no explicit choice (no-JS fallback) ── */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --bg: #161618; --surface: #1e1e22;
-      --ink: #f2f2f5; --ink-2: #aeaeb4; --ink-3: #79797f;
-      --thread: #8296ec; --thread-soft: #2a2f45;
-      --warm: #f08644;
-      --pass: #4caf87; --block: #e07a70;
-      --line: rgba(255, 255, 255, 0.10);
-      --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 32px rgb(0 0 0 / 0.34);
+      --is-dark: 1;
+      --bg: #181512;
+      --surface: #1f1c18;
+      --ink: #f1ece4;
+      --ink-2: #b4aa9c;
+      --ink-3: #8b8175;
+      --thread: #93a4f2;
+      --thread-soft: #2b2e46;
+      --thread-press: color-mix(in srgb, var(--thread) 82%, #fff);
+      --warm: #f0954f;
+      --pass: #5cbf92; --block: #e8867c;
+      --rec: #ff7166;
+      --red: #ff7166;
+      --red-ink: #ffa79e;
+      --red-wash: color-mix(in srgb, #ff5f57 18%, transparent);
+      --line: rgba(255, 246, 235, 0.11);
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.42), 0 10px 36px rgb(0 0 0 / 0.44);
+      --shadow-sm: 0 1px 2px rgb(0 0 0 / .45), 0 1px 1px rgb(0 0 0 / .3);
+      --shadow-lift: 0 2px 6px rgb(0 0 0 / .45), 0 14px 38px rgb(0 0 0 / .5);
+      --shadow-pop: 0 2px 6px rgb(0 0 0 / 0.4), 0 18px 48px rgb(0 0 0 / 0.5);
+      --shadow-panel: 0 26px 84px rgb(0 0 0 / 0.62), 0 2px 6px rgb(0 0 0 / .4);
+      --veil: rgb(10 7 4 / 0.55);
 
-      --card: rgba(30, 30, 34, 0.62);
-      --card-solid: #1e1e22;
-      --glass-border: rgba(255, 255, 255, 0.08);
-      --chrome: rgba(22, 22, 24, 0.72);
-      --hover: rgba(255, 255, 255, 0.07);
-      --sunk: rgba(255, 255, 255, 0.05);
+      --card: rgba(40, 36, 31, 0.66);
+      --pal-bg: rgba(42, 37, 32, 0.9);
+      --card-solid: #241f1b;
+      --glass-border: rgba(255, 246, 235, 0.09);
+      --chrome: rgba(26, 23, 19, 0.74);
+      --hover: rgba(255, 246, 235, 0.07);
+      --sunk: rgba(255, 246, 235, 0.05);
 
-      --grad-blue: linear-gradient(135deg, #262c46, #1f2438);
-      --grad-peach: linear-gradient(135deg, #3a2a22, #2e2018);
-      --grad-mint: linear-gradient(135deg, #1e332a, #182a22);
-      --grad-lilac: linear-gradient(135deg, #2d2540, #241d34);
+      --grad-blue: linear-gradient(135deg, #262b45, #1e2235);
+      --grad-peach: linear-gradient(135deg, #3b2a1e, #2c2017);
+      --grad-mint: linear-gradient(135deg, #1e3229, #172720);
+      --grad-lilac: linear-gradient(135deg, #2f2643, #241d34);
+
+      --spool: #3b352c; --spool-line: rgb(255 246 235 / 0.18);
+      --node-topic: #e0b356; --node-person: #9b9184;
+      --mm-meet: #8fa2f2; --mm-people: #4fce9d; --mm-dec: #f5885a;
+      --mm-open: #f09cbd; --mm-topic: #e0b356;
 
       --wash:
-        radial-gradient(900px 620px at 6% -8%, #1d2036 0%, transparent 62%),
-        radial-gradient(820px 560px at 104% 4%, #2a2119 0%, transparent 60%),
-        radial-gradient(760px 620px at 88% 104%, #17241f 0%, transparent 62%);
+        radial-gradient(900px 620px at 6% -8%, #23212f 0%, transparent 62%),
+        radial-gradient(820px 560px at 104% 4%, #2b2118 0%, transparent 60%),
+        radial-gradient(760px 620px at 88% 104%, #1c2620 0%, transparent 62%);
     }
   }
   * { box-sizing: border-box; margin: 0; }
@@ -120,7 +252,7 @@
      buttons; it surfaces only as the Stop control while a take is live */
   #rec { display: none; }
   #rec.on { display: inline-flex; }
-  #hotkey-help.rec-live { border-color: #e0443e; color: #e0443e; animation: recpulse 1.6s ease-in-out infinite; }
+  #hotkey-help.rec-live { border-color: var(--rec); color: var(--rec); animation: recpulse 1.6s ease-in-out infinite; }
   @keyframes recpulse { 0%,100% { box-shadow: 0 0 0 0 rgb(224 68 62 / .35); } 50% { box-shadow: 0 0 0 6px rgb(224 68 62 / 0); } }
   .rec-btn {
     display: inline-flex; align-items: center; gap: 8px; flex: none;
@@ -135,7 +267,7 @@
     content: ""; width: 10px; height: 10px; border-radius: 50%; flex: none;
     background: var(--grad-record); box-shadow: 0 0 0 0 rgb(224 68 62 / 0.5);
   }
-  .rec-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgb(16 24 40 / .08), 0 12px 34px rgb(16 24 40 / .13); }
+  .rec-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-lift); }
   .rec-btn:disabled { opacity: .6; cursor: default; transform: none; }
   .rec-btn.on, .rec-btn.recording {
     background: var(--grad-record); border-color: rgb(224 68 62 / .6); color: #fff;
@@ -208,7 +340,7 @@
   .side-link:hover > .ic { color: var(--ink-2); }
   .side-link.active {
     background: var(--card-solid); color: var(--ink); font-weight: 600;
-    box-shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 1px rgb(16 24 40 / .04);
+    box-shadow: var(--shadow-sm);
   }
   .side-link.active > .ic { color: var(--thread); }
   .side-empty { padding: 2px 12px; font-size: 12.5px; color: var(--ink-3); }
@@ -240,13 +372,13 @@
   .side-collapsed .side-head { justify-content: center; padding: 0 0 6px; }
   .side-collapsed .side-head .lbl { display: none; }
   .side-collapsed .profile { justify-content: center; padding: 4px 0 8px; }
-  .side-collapsed .pname, .side-collapsed #settings-btn { display: none; }
+  .side-collapsed .pname, .side-collapsed #theme-btn { display: none; }
   .side-collapsed #google-btn { justify-content: center; padding: 7px 0; }
   .side-collapsed #google-btn .gb-label { display: none; }
   .side-collapsed .side-empty { display: none; }
 
   #side-scrim {
-    position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / .28);
+    position: fixed; inset: 0; z-index: 19; background: var(--veil);
     backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .22s;
   }
 
@@ -270,7 +402,7 @@
     background: var(--card); border: 1px solid var(--glass-border);
     backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
     border-radius: var(--radius); padding: clamp(16px, 2.2vw, 24px) clamp(16px, 2.4vw, 26px);
-    margin-bottom: 22px; box-shadow: var(--shadow);
+    margin-bottom: 34px; box-shadow: var(--shadow);
   }
   .card h2 {
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -291,7 +423,7 @@
   .stat.s-peach { background: var(--grad-peach); }
   .stat.s-mint { background: var(--grad-mint); }
   .stat.s-lilac { background: var(--grad-lilac); }
-  .stat .ic { display: block; color: var(--ink-2); opacity: .72; margin-bottom: clamp(12px, 2vw, 20px); }
+  .stat .ic { display: block; color: var(--ink-2); opacity: calc(.72 + var(--is-dark) * .22); margin-bottom: clamp(12px, 2vw, 20px); }
   .stat b { display: block; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.12; }
   .stat span { display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
 
@@ -311,7 +443,7 @@
   }
   .up-mon { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); margin-top: 5px; }
   .up-dow { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
-  .up-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ff5f57; margin-right: 5px; vertical-align: 1px; }
+  .up-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--red); margin-right: 5px; vertical-align: 1px; }
   .up-body { position: relative; padding-left: 15px; min-width: 0; }
   .up-tick { position: absolute; left: 0; top: 3px; bottom: 3px; width: 3px; border-radius: 3px; background: var(--thread); opacity: .85; }
   .up-name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.35; }
@@ -323,7 +455,7 @@
     border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px 2px 8px; white-space: nowrap;
   }
   .up-chip .ic { color: var(--ink-3); }
-  .up-chip.now { border-color: transparent; background: color-mix(in srgb, #ff5f57 13%, transparent); color: #d0433c; font-weight: 650; }
+  .up-chip.now { border-color: transparent; background: var(--red-wash); color: var(--red-ink); font-weight: 650; }
   .up-chip.soon { border-color: transparent; background: var(--thread-soft); color: var(--thread); font-weight: 600; }
   .up-people { font-size: 12.5px; color: var(--ink-3); margin-top: 4px; }
   .up-slim {
@@ -380,7 +512,7 @@
     padding: 11px 14px 11px 17px; color: var(--ink-3); font: inherit; font-size: 14px; text-align: left;
     transition: transform .15s, box-shadow .15s, border-color .15s;
   }
-  .search-pill:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgb(16 24 40 / .08), 0 12px 34px rgb(16 24 40 / .13); }
+  .search-pill:hover { transform: translateY(-1px); box-shadow: var(--shadow-lift); }
   .search-pill .ic { color: var(--ink-3); }
   .search-pill .lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -413,7 +545,7 @@
   .pop-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .pop-actions .copybtn { margin-top: 2px; }
   .pop-actions .primary { background: var(--thread); border-color: var(--thread); color: #fff; font-weight: 600; }
-  .pop-actions .primary:hover { background: color-mix(in srgb, var(--thread) 85%, #000); color: #fff; }
+  .pop-actions .primary:hover { background: var(--thread-press); color: #fff; }
   .glass-pop .topic-select { width: 100%; max-width: none; font-size: 13px; padding: 7px 9px; color: var(--ink); }
   .menu-row {
     display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
@@ -436,7 +568,7 @@
     #side {
       position: fixed; left: 0; top: var(--hdr-h); z-index: 20;
       width: min(280px, 84vw); transform: translateX(-102%);
-      box-shadow: 12px 0 40px rgb(16 24 40 / .16);
+      box-shadow: 12px 0 40px rgb(16 24 40 / .16), var(--shadow-panel);
     }
     .side-collapsed #side { padding: 12px 10px 10px; }
     .side-collapsed .side-link { justify-content: flex-start; padding: 8px 10px; gap: 10px; }
@@ -445,7 +577,7 @@
     .side-collapsed .side-head .lbl, .side-collapsed .side-empty { display: revert; }
     .side-collapsed .side-search, .side-collapsed #google-btn { justify-content: flex-start; padding: 7px 10px; }
     .side-collapsed .profile { justify-content: flex-start; padding: 4px 6px 8px; }
-    .side-collapsed #settings-btn { display: inline-flex; }
+    .side-collapsed #theme-btn { display: inline-flex; }
     .side-top { display: none; }
     body.drawer-open #side { transform: none; }
     body.drawer-open #side-scrim { opacity: 1; pointer-events: auto; }
@@ -489,7 +621,7 @@
     appearance: none; -webkit-appearance: none; margin-top: 3px; width: 19px; height: 19px;
     border-radius: 50%; border: 2px solid var(--ink-3); background: transparent;
     cursor: pointer; flex: none; transition: border-color .2s;
-    box-shadow: inset 0 1px 2.5px rgb(40 35 20 / 0.14);
+    box-shadow: inset 0 1px 2.5px rgb(0 0 0 / calc(0.14 + var(--is-dark) * 0.24));
   }
   .todo input { display: grid; place-content: center; }
   .todo input:checked { border-color: var(--thread); }
@@ -533,13 +665,13 @@
     background: var(--thread-soft); color: var(--thread);
     cursor: pointer; font-size: 13px; font-weight: 550; transition: filter .12s;
   }
-  .backlink:hover { filter: brightness(0.96); }
+  .backlink:hover { filter: brightness(calc(0.96 + var(--is-dark) * 0.16)); }
 
   #graph-wrap { position: relative; height: 640px; overflow: hidden; padding: 0; }
   #graph-tip {
     position: absolute; left: 0; top: 0; opacity: 0; pointer-events: none;
     background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
-    padding: 8px 12px; box-shadow: 0 6px 20px rgb(60 50 30 / 0.12); max-width: 220px; transition: opacity .12s;
+    padding: 8px 12px; box-shadow: var(--shadow-pop); max-width: 220px; transition: opacity .12s;
   }
   #graph-tip b { display: block; font-weight: 650; font-size: 13px; letter-spacing: -0.01em; }
   #graph-tip span { color: var(--ink-3); font-size: 11.5px; }
@@ -562,7 +694,7 @@
   #graph-panel {
     position: absolute; right: 0; top: 0; bottom: 0; width: 372px; z-index: 2;
     background: var(--surface); border-left: 1px solid var(--line);
-    box-shadow: -14px 0 34px rgb(60 50 30 / 0.09); overflow-y: auto; padding: 22px 24px 26px;
+    box-shadow: -14px 0 34px rgb(0 0 0 / calc(0.09 + var(--is-dark) * 0.36)); overflow-y: auto; padding: 22px 24px 26px;
     transform: translateX(100%); opacity: 0;
     transition: transform .26s cubic-bezier(.32,.72,.3,1), opacity .2s;
   }
@@ -582,9 +714,9 @@
   .legend i { font-style: normal; color: var(--ink-3); font-size: 11.5px; }
   .legend span::before { content: ""; display: inline-block; margin-right: 7px; vertical-align: -1px; }
   .legend { font-size: 13.5px; color: var(--ink-2); font-weight: 550; }
-  .legend .l-m::before { width: 11px; height: 11px; border-radius: 50%; background: #5b74e0; box-shadow: 0 0 7px rgb(91 116 224 / 0.75); }
-  .legend .l-p::before { width: 8px; height: 8px; border-radius: 50%; background: #a39e94; }
-  .legend .l-t::before { width: 12px; height: 12px; border-radius: 50%; background: #cf9a35; box-shadow: 0 0 7px rgb(207 154 53 / 0.7); }
+  .legend .l-m::before { width: 11px; height: 11px; border-radius: 50%; background: var(--thread); box-shadow: 0 0 7px rgb(91 116 224 / 0.75); }
+  .legend .l-p::before { width: 8px; height: 8px; border-radius: 50%; background: var(--node-person); }
+  .legend .l-t::before { width: 12px; height: 12px; border-radius: 50%; background: var(--node-topic); box-shadow: 0 0 7px rgb(207 154 53 / 0.7); }
 
   .empty { color: var(--ink-3); text-align: center; padding: 44px 0; font-size: 13.5px; }
   .empty svg { display: none; }
@@ -629,7 +761,7 @@
     cursor: pointer; box-shadow: var(--shadow);
   }
   #correct-modal, .tl-modal {
-    position: fixed; inset: 0; z-index: 40; background: rgb(0 0 0 / .35);
+    position: fixed; inset: 0; z-index: 40; background: var(--veil);
     display: flex; align-items: center; justify-content: center;
   }
   #correct-modal .box, .tl-modal .box {
@@ -652,7 +784,41 @@
   .tag-chip.suggest button[data-accept] { color: var(--pass); }
   .tag-chip.suggest button[data-dismiss] { color: var(--block); }
   /* Project workspace */
-  .proj-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  .proj-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; margin-bottom: 34px; }
+
+  /* Ask-this-project: a wide bar docked at the bottom of the project screen */
+  .ask-float {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: 22px; z-index: 60;
+    width: min(880px, calc(100vw - 48px));
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .ask-log {
+    max-height: min(440px, 55vh); overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--card); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  .ask-log[hidden] { display: none; }
+  .ask-msg { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; border-radius: 12px; padding: 9px 13px; max-width: 92%; }
+  .ask-msg.q { align-self: flex-end; background: var(--ink); color: var(--surface); }
+  .ask-msg.a { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
+  .ask-msg.a .ask-src { display: block; margin-top: 6px; font-size: 11.5px; color: var(--ink-3); }
+  .ask-bar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 22px;
+    background: var(--card); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border-radius: 999px; box-shadow: var(--shadow);
+  }
+  .ask-bar input { flex: 1; border: none; outline: none; background: none; font: inherit; font-size: 14.5px; color: var(--ink); }
+  .ask-bar input::placeholder { color: var(--ink-3); }
+  .ask-bar button {
+    border: 1px solid var(--line); border-radius: 999px; padding: 9px 18px;
+    font: 600 13.5px inherit; font-family: inherit; background: var(--surface); color: var(--ink); cursor: pointer;
+    white-space: nowrap;
+  }
+  .ask-bar button:hover { border-color: var(--ink-3); }
+  .ask-bar button:disabled { opacity: 0.5; cursor: default; }
   .proj-grid .card { margin: 0; }
   .proj-desc { font-size: 14px; color: var(--ink-2); margin: 4px 0 14px; cursor: pointer; max-width: 720px; }
   .proj-desc:hover { color: var(--thread); }
@@ -763,7 +929,7 @@
     display: flex; flex-direction: column; overflow: hidden;
     max-height: min(62vh, 640px);
     background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
-    box-shadow: 0 -4px 14px rgb(60 50 30 / 0.05), 0 24px 80px rgb(30 25 15 / 0.22);
+    box-shadow: var(--shadow-panel);
   }
   #chat-sheet.closed { display: none; }
   .chat-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex: none; }
@@ -794,7 +960,7 @@
   #chat-bar {
     display: flex; gap: 10px; align-items: center;
     background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px;
-    box-shadow: 0 2px 6px rgb(60 50 30 / 0.06), 0 16px 44px rgb(30 25 15 / 0.14);
+    box-shadow: var(--shadow-pop);
   }
   #chat-bar:focus-within { border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); }
   #chat-input { flex: 1; border: none; background: none; font: inherit; font-size: 14px; color: var(--ink); outline: none; }
@@ -850,15 +1016,15 @@
   /* ── command palette: Spotlight for your meetings (⌘K / ⌘Space) ── */
   #palette-veil {
     position: fixed; inset: 0; z-index: 40; display: none;
-    background: rgb(0 0 0 / 0.25); backdrop-filter: blur(6px) saturate(1.2); -webkit-backdrop-filter: blur(6px) saturate(1.2);
+    background: var(--veil); backdrop-filter: blur(6px) saturate(1.2); -webkit-backdrop-filter: blur(6px) saturate(1.2);
   }
   #palette-veil.open { display: block; }
   #palette {
     position: fixed; left: 50%; top: 13%; transform: translateX(-50%);
     width: min(640px, 92vw); z-index: 41;
-    background: var(--card); border: 1px solid var(--glass-border); border-radius: 16px;
+    background: var(--pal-bg); border: 1px solid var(--glass-border); border-radius: 16px;
     backdrop-filter: blur(34px) saturate(1.8); -webkit-backdrop-filter: blur(34px) saturate(1.8);
-    box-shadow: 0 24px 80px rgb(16 24 40 / 0.30), 0 2px 6px rgb(16 24 40 / .08); overflow: hidden;
+    box-shadow: var(--shadow-panel); overflow: hidden;
   }
   .pal-search { display: flex; align-items: center; gap: 11px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .pal-search > .ic { color: var(--ink-3); flex: none; }
@@ -934,7 +1100,7 @@
   .hcard tr:hover .src, .hcard p:hover .src, .hcard .email:hover .src, .src:focus-visible {
     background: var(--thread-soft); color: var(--thread); opacity: 1;
   }
-  .src:hover { filter: brightness(0.95); }
+  .src:hover { filter: brightness(calc(0.95 + var(--is-dark) * 0.18)); }
   .low-flag {
     font-size: 10px; color: var(--ink-3); border: 1px dashed var(--line); border-radius: 5px;
     padding: 0 4px; margin-left: 6px; vertical-align: 1px;
@@ -962,7 +1128,7 @@
   .handoff-row .label { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); font-weight: 600; margin-right: auto; }
   .hchip {
     border: 1px solid var(--line); background: var(--surface); color: var(--ink-3);
-    box-shadow: 0 1px 3px rgb(60 50 30 / 0.07), 0 6px 18px rgb(30 25 15 / 0.08);
+    box-shadow: var(--shadow-sm);
     border-radius: 10px; padding: 5px 11px; font: inherit; font-size: 13px; cursor: pointer;
     transition: color .14s, border-color .14s, background .14s;
     display: inline-flex; align-items: center; gap: 7px;
@@ -1010,7 +1176,7 @@
   .hcard.pending { opacity: .6; }
   #slash-menu {
     position: absolute; z-index: 30; background: var(--surface); border: 1px solid var(--line);
-    border-radius: 12px; box-shadow: 0 16px 44px rgb(30 25 15 / 0.18), var(--shadow);
+    border-radius: 12px; box-shadow: var(--shadow-pop), var(--shadow);
     padding: 6px; width: 330px; max-height: 300px; overflow-y: auto;
   }
   #slash-menu button {
@@ -1073,6 +1239,10 @@
   <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></symbol>
   <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.8" width="6" height="11" rx="3"/><path d="M5.5 11.2a6.5 6.5 0 0 0 13 0"/><path d="M12 17.7V21"/></symbol>
   <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.6v2.6M12 18.8v2.6M21.4 12h-2.6M5.2 12H2.6M18.6 5.4 16.8 7.2M7.2 16.8l-1.8 1.8M18.6 18.6l-1.8-1.8M7.2 7.2 5.4 5.4"/></symbol>
+  <!-- a solid disc, so it never reads as the gear sitting beside it -->
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/><path d="M12 1.6v2.6M12 19.8v2.6M22.4 12h-2.6M4.2 12H1.6M19.35 4.65l-1.85 1.85M6.5 17.5l-1.85 1.85M19.35 19.35 17.5 17.5M6.5 6.5 4.65 4.65"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.3 14.4A8.6 8.6 0 0 1 9.6 3.7a8.6 8.6 0 1 0 10.7 10.7Z"/></symbol>
+  <symbol id="i-theme-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 3.4a8.6 8.6 0 0 1 0 17.2Z" fill="currentColor" stroke="none"/></symbol>
   <symbol id="i-person" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.6 20.2a7.4 7.4 0 0 1 14.8 0"/></symbol>
   <symbol id="i-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.4" cy="8.2" r="3.2"/><path d="M3.4 19.6a6 6 0 0 1 12 0"/><path d="M16 5.4a3.2 3.2 0 0 1 0 5.7M17.4 14.6a6 6 0 0 1 3.2 5"/></symbol>
   <symbol id="i-google" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20.2 12H12"/></symbol>
@@ -1155,7 +1325,7 @@
         <div class="avatar" aria-hidden="true">R</div>
         <div class="pname">Rachita</div>
         <span style="flex:1"></span>
-        <button id="settings-btn" class="icon-btn" title="Settings — coming soon" aria-label="Settings — coming soon" style="width:26px;height:26px"><svg class="ic" width="15" height="15"><use href="#i-gear"/></svg></button>
+        <button id="theme-btn" class="icon-btn" title="Appearance" aria-label="Appearance" style="width:26px;height:26px"><svg class="ic" width="15" height="15"><use href="#i-sun"/></svg></button>
       </div>
       <button id="google-btn" title="Google Workspace"><svg class="ic" width="16" height="16"><use href="#i-google"/></svg><span class="gb-label">Connect Google</span></button>
     </div>
@@ -1375,7 +1545,33 @@ $("#google-btn").addEventListener("click", () => {
 });
 
 $("#add-project").addEventListener("click", () => projectModal());
-$("#settings-btn").addEventListener("click", () => showToast("Settings are coming soon."));
+
+// ── Appearance: Auto → Light → Dark, cycling ────────────────────────────────
+// The <head> boot script already stamped data-theme before first paint; this
+// only owns the button, the cycle and the persistence.
+const THEME_CYCLE = ["auto", "light", "dark"];
+const THEME_ICON = { auto: "theme-auto", light: "sun", dark: "moon" };
+const THEME_LABEL = { auto: "Appearance: Auto (follows your system)", light: "Appearance: Light", dark: "Appearance: Dark" };
+/** True when the resolved theme is dark. Read live — canvases repaint from it. */
+const isDark = () => document.documentElement.getAttribute("data-theme") === "dark";
+function paintThemeButton() {
+  const btn = $("#theme-btn");
+  if (!btn) return;
+  const pref = window.__tlThemePref();
+  btn.querySelector("use").setAttribute("href", `#i-${THEME_ICON[pref]}`);
+  btn.title = THEME_LABEL[pref];
+  btn.setAttribute("aria-label", THEME_LABEL[pref]);
+}
+$("#theme-btn").addEventListener("click", () => {
+  const next = THEME_CYCLE[(THEME_CYCLE.indexOf(window.__tlThemePref()) + 1) % THEME_CYCLE.length];
+  try { localStorage.setItem("tl-theme", next); } catch (e) { /* private mode: session-only */ }
+  window.__tlApplyTheme();
+  paintThemeButton();
+  window.dispatchEvent(new CustomEvent("tl-theme"));
+  showToast(next === "auto" ? "Appearance follows your system." : `Appearance: ${next}.`);
+});
+window.addEventListener("tl-theme", paintThemeButton);
+paintThemeButton();
 
 // ── Sidebar: collapsible icon rail (desktop) + off-canvas drawer (≤900px) ──
 const shellEl = document.querySelector(".shell");
@@ -1470,7 +1666,9 @@ async function render() {
 // ── MCP setup: connect your AI to this brain ─────────────────────────────
 async function renderMcp() {
   const info = await api("/api/mcp/info").catch(() => ({ server_path: "src/mcp/server.ts", tools: [] }));
-  const cmd = `claude mcp add threadline -- npx tsx ${info.server_path}`;
+  // shell-quote the path — spaces (like "py hack") would split it into two args
+  const shPath = /[\s'"$`\\]/.test(info.server_path) ? `"${info.server_path.replace(/(["$`\\])/g, "\\$1")}"` : info.server_path;
+  const cmd = `claude mcp add threadline -- npx tsx ${shPath}`;
   const desktopCfg = `{ "mcpServers": { "threadline": {\n    "command": "npx",\n    "args": ["tsx", "${info.server_path}"] } } }`;
   const codeBox = (id, content) => `
     <div style="display:flex;gap:8px;align-items:flex-start">
@@ -1668,7 +1866,7 @@ function projectMindmap(project, groups) {
   const cy = H / 2;
   let out = "";
   const branch = (x1, y1, x2, y2, color, w, op) =>
-    `<path d="M ${x1} ${y1} C ${x1 + (x2 - x1) * 0.45} ${y1}, ${x1 + (x2 - x1) * 0.55} ${y2}, ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
+    `<path d="M ${x1} ${y1} C ${x1 + (x2 - x1) * 0.45} ${y1}, ${x1 + (x2 - x1) * 0.55} ${y2}, ${x2} ${y2}" fill="none" style="stroke:${color}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
   for (const [side, arr] of Object.entries(sides)) {
     const dir = side === "right" ? 1 : -1;
     let y = cy - sideH(arr) / 2 + GROUP_GAP / 2;
@@ -1677,7 +1875,7 @@ function projectMindmap(project, groups) {
       const gy = y + blockH / 2, gx = cx + dir * 165;
       const labelW = 18 + g.label.length * 8.2;
       out += branch(cx + dir * 66, cy, gx, gy, g.color, 2.6, 0.9);
-      out += `<circle cx="${gx}" cy="${gy}" r="3.2" fill="${g.color}"/>`;
+      out += `<circle cx="${gx}" cy="${gy}" r="3.2" style="fill:${g.color}"/>`;
       out += `<text x="${gx + dir * 11}" y="${gy + 4.5}" text-anchor="${dir > 0 ? "start" : "end"}" style="font:650 13.5px -apple-system,system-ui;fill:var(--ink)">${esc(g.label)}</text>`;
       const startX = gx + dir * (labelW + 4);
       const lx = gx + dir * (labelW + 74);
@@ -1693,7 +1891,7 @@ function projectMindmap(project, groups) {
     }
   }
   const nameW = Math.max(96, project.name.length * 9.4 + 34);
-  out += `<rect x="${cx - nameW / 2}" y="${cy - 21}" width="${nameW}" height="42" rx="11" fill="var(--surface)" stroke="var(--line)" stroke-width="1.4" filter="drop-shadow(0 1px 2px rgb(60 50 30 / 0.10))"/>
+  out += `<rect x="${cx - nameW / 2}" y="${cy - 21}" width="${nameW}" height="42" rx="11" fill="var(--surface)" stroke="var(--line)" stroke-width="1.4" style="filter:drop-shadow(0 1px 2px rgb(0 0 0 / 0.14))"/>
     <text x="${cx}" y="${cy + 5}" text-anchor="middle" style="font:650 15px -apple-system,system-ui;fill:var(--ink)">${esc(project.name)}</text>`;
   return `<svg viewBox="0 0 ${Wm} ${H}" style="width:100%;display:block">${out}</svg>`;
 }
@@ -1727,11 +1925,11 @@ async function renderProject(id) {
       const open = claims.filter((c) => c.kind === "action_item" && !c.done);
       const who = people.length ? people.map((p) => ({ label: p.name })) : speakers.map((s) => ({ label: s.speaker }));
       return [
-        { label: "Meetings", color: "#5b74e0", items: [...meetings.slice(0, 5).map((m) => ({ label: m.title, mid: m.id })), ...more(meetings, 5)] },
-        { label: "People", color: "#1baf7a", items: who.slice(0, 5) },
-        { label: "Decisions", color: "#eb6834", items: [...decisions.slice(0, 4).map((d) => ({ label: d.body.text, mid: d.meeting_id })), ...more(decisions, 4)] },
-        { label: "Open items", color: "#e87ba4", items: [...open.slice(0, 4).map((o) => ({ label: o.body.task, mid: o.meeting_id })), ...more(open, 4)] },
-        { label: "Topics", color: "#cf9a35", items: topics.slice(0, 5).map((t) => ({ label: t.label })) },
+        { label: "Meetings", color: "var(--mm-meet)", items: [...meetings.slice(0, 5).map((m) => ({ label: m.title, mid: m.id })), ...more(meetings, 5)] },
+        { label: "People", color: "var(--mm-people)", items: who.slice(0, 5) },
+        { label: "Decisions", color: "var(--mm-dec)", items: [...decisions.slice(0, 4).map((d) => ({ label: d.body.text, mid: d.meeting_id })), ...more(decisions, 4)] },
+        { label: "Open items", color: "var(--mm-open)", items: [...open.slice(0, 4).map((o) => ({ label: o.body.task, mid: o.meeting_id })), ...more(open, 4)] },
+        { label: "Topics", color: "var(--mm-topic)", items: topics.slice(0, 5).map((t) => ({ label: t.label })) },
       ].filter((g) => g.items.length);
     })())}</div>
     <div class="proj-grid">
@@ -1753,14 +1951,15 @@ async function renderProject(id) {
           ${docs.map((d) => `
             <div class="doc-row" data-doc="${d.id}" data-kind="${d.kind}">
               <span>${d.kind === "note" ? "🗎" : "📎"}</span>
-              <div style="flex:1"><div class="doc-title">${esc(d.title)}</div></div>
+              <div style="flex:1"><div class="doc-title">${esc(d.title)}</div>${d.summary ? `<div class="t-meta" style="margin-top:2px">${esc(d.summary)}</div>` : ""}</div>
               <span class="t-meta">${fmtDate(d.updated_at)}</span>
+              <button data-del-doc="${d.id}" title="Remove from project" style="border:none;background:none;color:var(--ink-3);cursor:pointer;font-size:14px">✕</button>
             </div>`).join("") || `<div class="t-meta">No documents yet — upload context or write one.</div>`}
         </div>
         <div class="add-row">
           <button class="copybtn" id="doc-new" style="margin:0">+ New doc</button>
           <button class="copybtn" id="doc-upload" style="margin:0">↑ Upload</button>
-          <input type="file" id="doc-file" accept=".pdf,.txt,.md" style="display:none">
+          <input type="file" id="doc-file" accept=".pdf,.txt,.md,.csv" style="display:none">
         </div>
       </div>
     </div>
@@ -1781,6 +1980,14 @@ async function renderProject(id) {
           <div class="m-date">${fmtDate(m.started_at)}</div>
           <div><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
         </div>`).join("") : `<div class="empty">Nothing filed here yet — open a meeting and add it, or accept a suggestion on the meeting page.</div>`}
+    </div>
+    <div style="height:96px"></div>
+    <div class="ask-float" id="ask-float">
+      <div class="ask-log" id="ask-log" hidden></div>
+      <div class="ask-bar">
+        <input type="text" id="ask-input" placeholder="Ask anything related to this project…">
+        <button id="ask-send">✦ Ask this project</button>
+      </div>
     </div>`;
   wireMeetingLinks();
   wireProject(id, project);
@@ -1789,6 +1996,47 @@ async function renderProject(id) {
 /** All the project page's interactions. Re-renders the page after each write. */
 function wireProject(id, project) {
   const refresh = () => renderProject(id);
+
+  // Ask-this-project bar (docked at the bottom of the screen)
+  const askMsg = (cls, text) => {
+    const el = document.createElement("div");
+    el.className = `ask-msg ${cls}`;
+    el.textContent = text;
+    $("#ask-log").hidden = false;
+    $("#ask-log").appendChild(el);
+    $("#ask-log").scrollTop = $("#ask-log").scrollHeight;
+    return el;
+  };
+  const sendAsk = async () => {
+    const q = $("#ask-input").value.trim();
+    if (!q || $("#ask-send").disabled) return;
+    $("#ask-input").value = "";
+    $("#ask-send").disabled = true;
+    askMsg("q", q);
+    const thinking = askMsg("a", "Thinking…");
+    try {
+      const out = await fetch("/api/project/ask", {
+        method: "POST",
+        body: JSON.stringify({ project_id: id, question: q }),
+      }).then((r) => r.json());
+      if (out?.error) thinking.textContent = out.error;
+      else {
+        thinking.textContent = out.answer;
+        if (out.sources?.length) {
+          const src = document.createElement("span");
+          src.className = "ask-src";
+          src.textContent = `Sources: ${out.sources.join(" · ")}`;
+          thinking.appendChild(src);
+        }
+      }
+    } catch {
+      thinking.textContent = "Something went wrong — is the server still running?";
+    }
+    $("#ask-send").disabled = false;
+    $("#ask-log").scrollTop = $("#ask-log").scrollHeight;
+  };
+  $("#ask-send").addEventListener("click", sendAsk);
+  $("#ask-input").addEventListener("keydown", (e) => { if (e.key === "Enter") sendAsk(); });
 
   // Editable description
   $("#proj-desc").addEventListener("click", () => {
@@ -1829,6 +2077,15 @@ function wireProject(id, project) {
     r.addEventListener("click", () => {
       if (r.dataset.kind === "note") { state.view = "doc"; state.docId = Number(r.dataset.doc); state.projectId = id; render(); }
       else window.open(`/api/doc/file?id=${r.dataset.doc}`, "_blank");
+    }));
+  main.querySelectorAll("[data-del-doc]").forEach((b) =>
+    b.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const title = b.closest(".doc-row")?.querySelector(".doc-title")?.textContent ?? "this document";
+      if (!confirm(`Remove "${title}" from the project? This deletes the file too.`)) return;
+      const out = await fetch("/api/doc/delete", { method: "POST", body: JSON.stringify({ id: Number(b.dataset.delDoc) }) }).then((r) => r.json());
+      if (out?.error) return alert(out.error);
+      refresh();
     }));
   $("#doc-new").addEventListener("click", async () => {
     const title = prompt("Doc title?", "");
@@ -1964,7 +2221,7 @@ async function renderToday() {
     </div>
     <svg class="stitch-connector" width="120" height="44" viewBox="0 0 120 44" aria-hidden="true">
       <path d="M78 3 C 58 13, 40 16, 24 26 C 16 31, 9 36, 5 41" fill="none" stroke="var(--thread)" stroke-width="1.3" stroke-linecap="round" opacity="0.38"/>
-      <g fill="#efeae2" stroke="rgb(33 32 28 / 0.14)" stroke-width="0.8">
+      <g style="fill:var(--spool);stroke:var(--spool-line)" stroke-width="0.8">
         <ellipse cx="78" cy="3" rx="2.6" ry="1.7" transform="rotate(-24 78 3)"/>
         <ellipse cx="5" cy="41" rx="2.6" ry="1.7" transform="rotate(-52 5 41)"/>
       </g>
@@ -2098,6 +2355,10 @@ function drawRailThread() {
   const rail = document.getElementById("loose-rail");
   if (!rail) return;
   rail.querySelector(".rail-svg")?.remove();
+  // orphan sweep: a flyer whose animation died with a previous render must not
+  // linger as a stray needle parked wherever its path last put it
+  const liveNodes = new Set(Object.values(_flyers).map((f) => f.node));
+  rail.querySelectorAll(".needle-flyer").forEach((n) => { if (!liveNodes.has(n)) n.remove(); });
   const h = rail.scrollHeight, x = 9;
   let d = `M ${x} 8`, y = 8, side = 1;
   while (y < h - 20) {
@@ -2198,14 +2459,26 @@ function needleRunTo(checkbox) {
       <path d="M37.1 4.2 C 38.8 5.1, 38.8 9.9, 37.1 10.8 L 29 9.9 L 7 8.15 L 1.6 7.5 L 7 6.85 L 29 5.1 Z" fill="url(#${mid}-n)"/>
       <path d="M36.6 5.1 L 8 6.95" stroke="#fff" stroke-width="0.7" stroke-linecap="round" opacity="0.75"/>
       <ellipse cx="33.6" cy="7.5" rx="1.05" ry="2.15" fill="var(--bg)" stroke="#7d838d" stroke-width="0.55"/></svg>`;
+    // pin a sane default: with no offset-path support the flyer must not fall
+    // back to its static position (the bottom of the list)
+    flyer.style.top = "0"; flyer.style.left = "0";
     flyer.style.offsetPath = `path('${d.replace(/\s+/g, " ").trim()}')`;
     flyer.style.offsetRotate = "auto";
     flyer.style.offsetAnchor = "84% 50%";
     rail.appendChild(flyer);
     if (rest) rest.style.opacity = "0";
+    // register before anything can fail: every exit path below goes through
+    // endWeave, which only cleans up needles it knows about
+    _flyers[id] = { node: flyer, anim: null };
+    // safety net FIRST: whatever happens below, the flyer dies and the resting
+    // needle comes back — a browser that rejects the animation must not strand it
+    setTimeout(() => { endWeave(id); done(); }, DUR + 600);
+    if (!CSS.supports("offset-path", "path('M 0 0 L 1 1')")) { endWeave(id); return done(); }
 
     // dips: the needle vanishes under the sheet between stitches, then surfaces
-    const fa = flyer.animate(
+    let fa;
+    try {
+    fa = flyer.animate(
       [
         { offsetDistance: "0%", opacity: 1 },
         { offsetDistance: "52%", opacity: 1, offset: 0.52 },
@@ -2217,11 +2490,10 @@ function needleRunTo(checkbox) {
       ],
       { duration: DUR, easing: EASE, fill: "forwards" },
     );
-    _flyers[id] = { node: flyer, anim: fa };
+    } catch (e) { endWeave(id); return done(); }
+    if (_flyers[id]) _flyers[id].anim = fa;
     fa.onfinish = () => { endWeave(id); done(); };
     fa.oncancel = () => endWeave(id);
-    // belt-and-braces: never leave the resting needle hidden if onfinish never fires
-    setTimeout(() => { endWeave(id); done(); }, DUR + 600);
   });
 }
 
@@ -3950,10 +4222,10 @@ async function renderGraph() {
         <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8.5" fill="var(--thread)"/><circle cx="11" cy="11" r="6.1" fill="none" stroke="#fff" stroke-width="1.1" stroke-dasharray="2 2.4" opacity=".55"/><path d="M7.6 8.4 L14.4 8.4 M7.6 13.6 L14.4 13.6" stroke="#fff" stroke-width="1.9" stroke-linecap="round" opacity=".95"/><circle cx="7.6" cy="8.4" r="1.3" fill="#33459c"/><circle cx="14.4" cy="8.4" r="1.3" fill="#33459c"/><circle cx="7.6" cy="13.6" r="1.3" fill="#33459c"/><circle cx="14.4" cy="13.6" r="1.3" fill="#33459c"/></svg>
         Meeting <i>· a button sewn to the cloth</i></span>
       <span style="display:flex;align-items:center;gap:8px">
-        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="6.4" fill="var(--surface)" stroke="var(--ink-3)" stroke-width="1.6"/><circle cx="11" cy="11" r="2.4" fill="none" stroke="var(--ink-3)" stroke-width="1.1"/></svg>
+        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="6.4" fill="none" stroke="var(--node-person)" stroke-width="1.6"/><circle cx="11" cy="11" r="2.4" fill="none" stroke="var(--node-person)" stroke-width="1.1"/></svg>
         Person <i>· an eyelet</i></span>
       <span style="display:flex;align-items:center;gap:8px">
-        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="3.4" fill="var(--ink-3)"/><path d="M13.6 12.6 C 16 13.6, 17.6 12.2, 19 13.4" stroke="var(--ink-3)" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"/></svg>
+        <svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="6.5" fill="var(--node-topic)" opacity=".22"/><circle cx="11" cy="11" r="3.6" fill="var(--node-topic)"/><path d="M13.6 12.6 C 16 13.6, 17.6 12.2, 19 13.4" stroke="var(--node-topic)" stroke-width="1.3" fill="none" stroke-linecap="round" opacity=".85"/></svg>
         Topic <i>· a knot with a loose end</i></span>
       <button class="copybtn" style="margin:0 0 0 auto" id="ctx-md">Copy context .md of selection</button></div>`;
 
@@ -4059,6 +4331,22 @@ async function renderGraph() {
     return { x: W / 2 + Math.cos(a) * W * rr, y: H / 2 + Math.sin(a) * H * rr * 0.92, s: 0.5 + ((i * 0.414) % 1) * 1.1, o: 0.04 + ((i * 0.271) % 1) * 0.09 };
   });
 
+  /* The atlas paints on a canvas, so it can't inherit CSS vars — it reads the
+     resolved theme once per frame instead. Same logic, two palettes. */
+  const PAL_LIGHT = {
+    bg: "#fdfcf9", vignette: "rgba(90,80,55,.07)", star: "#b3ac9d",
+    edge: "33,32,28", edgeHot: "rgba(91,116,224,.5)", core: "rgba(255,255,255,.9)",
+    topic: "#cf9a35", meeting: "#5b74e0", meetingHot: "#4a63cf", person: "#a39e94",
+    label: "rgba(33,32,28,.9)", labelDim: "rgba(33,32,28,.85)", labelMeta: "rgba(150,143,130,.95)",
+  };
+  const PAL_DARK = {
+    bg: "#141110", vignette: "rgba(0,0,0,.34)", star: "#5f584d",
+    edge: "255,244,230", edgeHot: "rgba(147,164,242,.62)", core: "rgba(255,250,242,.92)",
+    topic: "#e6b95e", meeting: "#93a4f2", meetingHot: "#b6c1ff", person: "#9b9184",
+    label: "rgba(241,236,228,.94)", labelDim: "rgba(241,236,228,.88)", labelMeta: "rgba(160,150,136,.95)",
+  };
+  let PAL = PAL_LIGHT;
+
   function glowDot(x, y, r, color, glow, alpha) {
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -4067,20 +4355,21 @@ async function renderGraph() {
     ctx.fillStyle = color; ctx.fill();
     ctx.shadowBlur = 0;
     ctx.beginPath(); ctx.arc(x, y, Math.max(0.6, r * 0.45), 0, 6.2832);
-    ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fill();
+    ctx.fillStyle = PAL.core; ctx.fill();
     ctx.restore();
   }
 
   function draw() {
+    PAL = isDark() ? PAL_DARK : PAL_LIGHT;
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "#fdfcf9"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = PAL.bg; ctx.fillRect(0, 0, W, H);
     const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, H * 0.9);
-    vg.addColorStop(0, "rgba(255,255,255,0)"); vg.addColorStop(1, "rgba(90,80,55,.07)");
+    vg.addColorStop(0, "rgba(255,255,255,0)"); vg.addColorStop(1, PAL.vignette);
     ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
     for (const s of stars) {
-      ctx.globalAlpha = s.o;
+      ctx.globalAlpha = s.o * (isDark() ? 2.6 : 1);
       ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, 6.2832);
-      ctx.fillStyle = "#b3ac9d"; ctx.fill();
+      ctx.fillStyle = PAL.star; ctx.fill();
     }
     ctx.globalAlpha = 1;
 
@@ -4095,7 +4384,7 @@ async function renderGraph() {
       if (spot && !(spot.has(e.a.id) && spot.has(e.b.id))) continue;
       const on = hover && (e.a === hover || e.b === hover);
       const da = Math.min(depthAlpha(a.z), depthAlpha(b.z));
-      ctx.strokeStyle = on ? "rgba(91,116,224,.5)" : `rgba(33,32,28,${(0.09 * da).toFixed(3)})`;
+      ctx.strokeStyle = on ? PAL.edgeHot : `rgba(${PAL.edge},${(0.09 * da * (isDark() ? 1.9 : 1)).toFixed(3)})`;
       ctx.lineWidth = on ? 1.2 : 0.8;
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
@@ -4107,9 +4396,9 @@ async function renderGraph() {
       const on = lit(n);
       const hot = n === hover || n.id === selected;
       const da = depthAlpha(p.z);
-      if (n.kind === "topic") glowDot(p.x, p.y, Math.max(3, n.r * 0.5 * p.s), "#cf9a35", hot ? 24 : 13, (on ? 1 : 0.3) * da);
-      else if (n.kind === "meeting") glowDot(p.x, p.y, 5 * p.s, hot ? "#4a63cf" : "#5b74e0", hot ? 22 : 10, (on ? 0.95 : 0.3) * da);
-      else glowDot(p.x, p.y, 2.5 * p.s, "#a39e94", hot ? 12 : 4, (on ? 0.7 : 0.2) * da);
+      if (n.kind === "topic") glowDot(p.x, p.y, Math.max(3, n.r * 0.5 * p.s), PAL.topic, hot ? 24 : 13, (on ? 1 : 0.3) * da);
+      else if (n.kind === "meeting") glowDot(p.x, p.y, 5 * p.s, hot ? PAL.meetingHot : PAL.meeting, hot ? 22 : 10, (on ? 0.95 : 0.3) * da);
+      else glowDot(p.x, p.y, 2.5 * p.s, PAL.person, hot ? 12 : 4, (on ? 0.7 : 0.2) * da);
     }
 
     // labels: topic hubs in caps; front hemisphere reads clearest
@@ -4118,7 +4407,7 @@ async function renderGraph() {
       if (spot && !spot.has(n.id)) continue;
       if (spot && n.kind !== "topic") {
         const p = proj.get(n);
-        ctx.fillStyle = "rgba(33,32,28,.9)";
+        ctx.fillStyle = PAL.label;
         ctx.font = "600 11.5px -apple-system, system-ui";
         ctx.textAlign = "center";
         ctx.fillText(n.label.slice(0, 28), p.x, p.y + 18);
@@ -4132,17 +4421,17 @@ async function renderGraph() {
       const deg = meetingNeighbors[n.id]?.size ?? 0;
       const on = lit(n);
       ctx.globalAlpha = (on ? 1 : 0.25) * da;
-      ctx.fillStyle = "rgba(33,32,28,.85)";
+      ctx.fillStyle = PAL.labelDim;
       ctx.font = "700 11px ui-monospace, SFMono-Regular, monospace";
       ctx.fillText(n.label.toUpperCase().slice(0, 26), p.x + 9, p.y - 2);
-      ctx.fillStyle = "rgba(150,143,130,.95)";
+      ctx.fillStyle = PAL.labelMeta;
       ctx.font = "500 9.5px ui-monospace, SFMono-Regular, monospace";
       ctx.fillText(`${deg} MEETING${deg === 1 ? "" : "S"}`, p.x + 9, p.y + 9);
       ctx.globalAlpha = 1;
     }
     if (hover && hover.kind !== "topic") {
       const p = proj.get(hover);
-      ctx.fillStyle = "rgba(33,32,28,.9)";
+      ctx.fillStyle = PAL.label;
       ctx.font = "600 11px -apple-system, system-ui";
       ctx.textAlign = "center";
       ctx.fillText(hover.label.slice(0, 28), p.x, p.y + 16);
@@ -4391,32 +4680,50 @@ async function openCompanion(title, manual) {
     return; // needs a fresh click — the Pop out button provides one
   }
   const doc = pipWin.document;
+  /* The companion is a separate document, so it can't inherit the app's tokens
+     — it carries its own copy of the palette and follows the same theme. */
   doc.head.innerHTML = `<style>
-    body { margin:0; background:#faf8f5; color:#21201c; font:12.5px/1.5 -apple-system,system-ui;
+    :root { color-scheme:light;
+      --p-bg:#faf8f5; --p-ink:#21201c; --p-ink2:#6b675f; --p-ink3:#a39e94;
+      --p-line:#eae4da; --p-surface:#fffdfa; --p-thread:#5b74e0; --p-thread-hi:#a3aee8;
+      --p-red:#cf5a52; --p-qa:#f4f2ec; }
+    :root[data-theme="dark"] { color-scheme:dark;
+      --p-bg:#181512; --p-ink:#f1ece4; --p-ink2:#b4aa9c; --p-ink3:#8b8175;
+      --p-line:#332e27; --p-surface:#241f1b; --p-thread:#93a4f2; --p-thread-hi:#5c68a8;
+      --p-red:#ff7166; --p-qa:#221e19; }
+    body { margin:0; background:var(--p-bg); color:var(--p-ink); font:12.5px/1.5 -apple-system,system-ui;
       -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
     header { display:flex; align-items:center; gap:7px; padding:9px 10px; flex:none; }
-    .dot { width:7px; height:7px; border-radius:50%; background:#cf5a52; animation:p 1.6s ease-in-out infinite; flex:none; }
+    .dot { width:7px; height:7px; border-radius:50%; background:var(--p-red); animation:p 1.6s ease-in-out infinite; flex:none; }
     @keyframes p { 50% { opacity:.4 } }
     .t { font-weight:650; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0; }
-    .clock { font-variant-numeric:tabular-nums; color:#6b675f; font-size:11.5px; flex:none; }
-    .ib { border:1px solid #eee9e1; background:#fff; border-radius:7px; width:24px; height:24px;
-      cursor:pointer; color:#6b675f; font-size:12px; line-height:1; flex:none; padding:0; }
-    .ib:hover { border-color:#a3aee8; color:#5b74e0; }
-    .ib.stop { color:#cf5a52; font-weight:700; }
-    #feed { display:none; flex:1; overflow-y:auto; padding:2px 12px 10px; border-top:1px solid #eee9e1; }
+    .clock { font-variant-numeric:tabular-nums; color:var(--p-ink2); font-size:11.5px; flex:none; }
+    .ib { border:1px solid var(--p-line); background:var(--p-surface); border-radius:7px; width:24px; height:24px;
+      cursor:pointer; color:var(--p-ink2); font-size:12px; line-height:1; flex:none; padding:0; }
+    .ib:hover { border-color:var(--p-thread-hi); color:var(--p-thread); }
+    .ib.stop { color:var(--p-red); font-weight:700; }
+    #feed { display:none; flex:1; overflow-y:auto; padding:2px 12px 10px; border-top:1px solid var(--p-line); }
     #pipbar { display:none; gap:6px; padding:6px 12px 0; align-items:center; }
-    #pipbar select { border:1px solid #eee9e1; border-radius:7px; background:#fff; color:#6b675f; font:500 11px -apple-system,system-ui; padding:2px 6px; }
-    #askrow { display:none; gap:6px; padding:8px 12px 10px; border-top:1px solid #eee9e1; }
-    #askrow input { flex:1; border:1px solid #eee9e1; border-radius:8px; padding:5px 9px; font:12px -apple-system,system-ui; outline:none; }
-    #askrow button { width:auto; padding:5px 12px; background:#5b74e0; font-size:12px; }
-    .qa { margin:8px 0; padding:8px 10px; background:#f4f2ec; border-radius:9px; font-size:12px; }
-    .qa b { color:#21201c; } .qa .src { color:#a39e94; font-size:10.5px; margin-top:4px; }
+    #pipbar select { border:1px solid var(--p-line); border-radius:7px; background:var(--p-surface); color:var(--p-ink2); font:500 11px -apple-system,system-ui; padding:2px 6px; }
+    #askrow { display:none; gap:6px; padding:8px 12px 10px; border-top:1px solid var(--p-line); }
+    #askrow input { flex:1; border:1px solid var(--p-line); border-radius:8px; padding:5px 9px; font:12px -apple-system,system-ui;
+      background:var(--p-surface); color:var(--p-ink); outline:none; }
+    #askrow button { width:auto; padding:5px 12px; background:var(--p-thread); color:#fff; border:0; border-radius:8px; cursor:pointer; font-size:12px; }
+    .qa { margin:8px 0; padding:8px 10px; background:var(--p-qa); border-radius:9px; font-size:12px; }
+    .qa b { color:var(--p-ink); } .qa .src { color:var(--p-ink3); font-size:10.5px; margin-top:4px; }
+    .qa .a { color:var(--p-ink2); }
     body.open #pipbar, body.open #askrow { display:flex; }
-    #feed .u { margin-top:6px; font-size:12px; color:#21201c; }
-    #feed .u b { color:#5b74e0; font-weight:600; margin-right:5px; }
-    #feed .partial { color:#a39e94; font-style:italic; }
+    #feed .u { margin-top:6px; font-size:12px; color:var(--p-ink); }
+    #feed .u b { color:var(--p-thread); font-weight:600; margin-right:5px; }
+    #feed .partial { color:var(--p-ink3); font-style:italic; }
+    #pipbar .modelbl { font-size:10.5px; color:var(--p-ink3); }
     body.open #feed { display:block; }
   </style>`;
+  const syncPipTheme = () => {
+    try { doc.documentElement.setAttribute("data-theme", isDark() ? "dark" : "light"); } catch (e) { /* window gone */ }
+  };
+  syncPipTheme();
+  window.addEventListener("tl-theme", syncPipTheme);
   doc.body.innerHTML = `
     <header>
       <span class="dot"></span><span class="t">${esc(title)}</span><span class="clock" id="pc">00:00</span>
@@ -4425,7 +4732,7 @@ async function openCompanion(title, manual) {
     </header>
     <div id="pipbar">
       <select id="pmode" title="Meeting mode"></select>
-      <span style="font-size:10.5px;color:#a39e94">mode</span>
+      <span class="modelbl">mode</span>
     </div>
     <div id="feed"></div>
     <div id="askrow"><input id="pq" placeholder="Ask your brain — this meeting &amp; past ones"><button id="pgo">Ask</button></div>`;
@@ -4452,7 +4759,7 @@ async function openCompanion(title, manual) {
     doc.body.classList.add("open");
     const box = doc.createElement("div");
     box.className = "qa";
-    box.innerHTML = `<b>${esc(q)}</b><div class="a" style="color:#6b675f;margin-top:3px">thinking…</div>`;
+    box.innerHTML = `<b>${esc(q)}</b><div class="a" style="margin-top:3px">thinking…</div>`;
     feedEl.appendChild(box); feedEl.scrollTop = 1e9;
     try {
       const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
@@ -4473,7 +4780,7 @@ async function openCompanion(title, manual) {
     doc.getElementById("px").textContent = open ? "⌃" : "⌄";
     try { pipWin.resizeTo(open ? 340 : 272, open ? 330 : 74); } catch (e) { /* browser may refuse; user can drag-resize */ }
   });
-  pipWin.addEventListener("pagehide", () => { pipWin = null; });
+  pipWin.addEventListener("pagehide", () => { pipWin = null; window.removeEventListener("tl-theme", syncPipTheme); });
 }
 
 // ── Meeting-start notifications ─────────────────────────────────────────

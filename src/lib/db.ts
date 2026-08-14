@@ -373,6 +373,13 @@ export function openDb(dir = "data"): DatabaseSync {
   } catch {
     /* column already exists */
   }
+  // One-paragraph model summary of a document, generated at upload (or lazily
+  // backfilled) so project context and ask-this-project can use it.
+  try {
+    db.exec("ALTER TABLE documents ADD COLUMN summary TEXT");
+  } catch {
+    /* column already exists */
+  }
   // Project-level manual action items live in claims (meeting_id='' sentinel).
   try {
     db.exec("ALTER TABLE claims ADD COLUMN project_id INTEGER");

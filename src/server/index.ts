@@ -14,7 +14,8 @@ import { processMeeting, reindexMeeting } from "../pipeline/extract.js";
 import { findOccurrences, applyCorrection, undoCorrection, detectWordSwap } from "../pipeline/corrections.js";
 import { chatAboutMeeting } from "../pipeline/notes.js";
 import { bulletAt, type StructuredSummary } from "../lib/summary.js";
-import { hasOpenAI, openaiModel } from "../lib/openai.js";
+import { hasOpenAI, openaiModel, chatJSON } from "../lib/openai.js";
+import { extractDocText, summarizeDoc, EXTRACTABLE } from "../lib/docs.js";
 import type { Utterance } from "../lib/pyai.js";
 import { googleConfigured, googleConnected, authUrl, exchangeCode, upcomingEvents } from "./google.js";
 import { ask } from "../pipeline/ask.js";
@@ -561,7 +562,7 @@ const api: Record<string, Handler> = {
       )
       .all(id);
     const docs = db
-      .prepare(`SELECT id, title, kind, filename, mime, updated_at FROM documents WHERE project_id = ? ORDER BY updated_at DESC`)
+      .prepare(`SELECT id, title, kind, filename, mime, summary, updated_at FROM documents WHERE project_id = ? ORDER BY updated_at DESC`)
       .all(id);
     const items = (db
       .prepare(
@@ -580,6 +581,83 @@ const api: Record<string, Handler> = {
       )
       .all(id);
     return { project, meetings, claims, people, speakers, docs, items, topics };
+  },
+
+  /**
+   * Ask-this-project: answer a question from the project's own context —
+   * filed meetings (headline/summary/decisions/action items), people, and
+   * document text. Context-stuffed, no retrieval index: one project fits.
+   */
+  async "POST /api/project/ask"(p, body) {
+    const { project_id, question } = (body ?? {}) as { project_id?: number; question?: string };
+    if (!project_id || !question?.trim()) return { error: "missing fields" };
+    if (!hasOpenAI()) return { error: "Set OPENAI_API_KEY in .env to enable project Q&A." };
+    const project = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(project_id) as
+      | { name: string; description: string | null }
+      | undefined;
+    if (!project) return { error: "not found" };
+
+    const meetings = db
+      .prepare(
+        `SELECT m.id, m.title, m.started_at, m.headline, m.summary FROM meeting_projects mp
+         JOIN meetings m ON m.id = mp.meeting_id WHERE mp.project_id = ? ORDER BY m.started_at DESC LIMIT 12`,
+      )
+      .all(project_id) as { title: string; started_at: number; headline: string | null; summary: string | null }[];
+    const claims = (db
+      .prepare(
+        `SELECT c.kind, COALESCE(c.edited_body, c.body) AS body, c.done, m.title AS meeting_title
+         FROM meeting_projects mp JOIN claims c ON c.meeting_id = mp.meeting_id JOIN meetings m ON m.id = mp.meeting_id
+         WHERE mp.project_id = ? AND c.gate = 'passed' AND c.kind IN ('decision','action_item')`,
+      )
+      .all(project_id) as { kind: string; body: string; done: number | null; meeting_title: string }[])
+      .map((c) => { try { return { ...c, body: JSON.parse(c.body) as { text?: string; task?: string; owner?: string } }; } catch { return null; } })
+      .filter((c) => c !== null);
+    const people = db
+      .prepare(
+        `SELECT pe.name, pe.team FROM project_people pp JOIN people pe ON pe.id = pp.person_id WHERE pp.project_id = ?`,
+      )
+      .all(project_id) as { name: string; team: string | null }[];
+    const docsRaw = db
+      .prepare(`SELECT id, title, filename, path, content, summary FROM documents WHERE project_id = ? ORDER BY updated_at DESC LIMIT 8`)
+      .all(project_id) as { id: number; title: string; filename: string | null; path: string | null; content: string | null; summary: string | null }[];
+    const docs = [];
+    for (const d of docsRaw) docs.push(await ensureDocContext(d));
+
+    const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+    const ctx = [
+      `# Project: ${project.name}`,
+      project.description ? `Description: ${project.description}` : "",
+      people.length ? `People: ${people.map((pe) => pe.name + (pe.team ? ` (${pe.team})` : "")).join(", ")}` : "",
+      ...meetings.map((m) =>
+        `## Meeting: ${m.title} (${day(m.started_at)})\n${m.headline ?? ""}\n${(m.summary ?? "").slice(0, 2500)}`.trim()),
+      claims.length
+        ? `## Decisions and action items\n` + claims.map((c) =>
+            c.kind === "decision"
+              ? `- Decision: ${c.body.text ?? ""} [${c.meeting_title}]`
+              : `- Action item${c.done ? " (done)" : ""}: ${c.body.task ?? ""}${c.body.owner ? ` — owner ${c.body.owner}` : ""} [${c.meeting_title}]`,
+          ).join("\n")
+        : "",
+      ...docs.map((d) =>
+        `## Document: ${d.title}\n${d.summary ? `Summary: ${d.summary}\n` : ""}${(d.content ?? "(no extractable text)").slice(0, 9000)}`),
+    ].filter(Boolean).join("\n\n");
+
+    try {
+      const out = (await chatJSON(
+        "You answer questions about one project workspace using ONLY the provided context: its filed " +
+          "meetings, decisions, action items, people, and documents. Be concrete and cite facts from the " +
+          "context. If the context does not contain the answer, say so plainly instead of guessing. " +
+          'Reply with JSON: {"answer": string, "sources": string[]} where sources lists the meeting or ' +
+          "document titles you drew the answer from (empty if none).",
+        `Question: ${question.trim()}\n\nProject context:\n${ctx}`,
+      )) as { answer?: unknown; sources?: unknown };
+      if (typeof out.answer !== "string" || !out.answer.trim()) return { error: "The model returned no answer — try rephrasing." };
+      return {
+        answer: out.answer.trim(),
+        sources: Array.isArray(out.sources) ? out.sources.filter((s): s is string => typeof s === "string").slice(0, 6) : [],
+      };
+    } catch (e) {
+      return { error: `Ask failed: ${e instanceof Error ? e.message : String(e)}` };
+    }
   },
 
   "GET /api/people"() {
@@ -640,27 +718,30 @@ const api: Record<string, Handler> = {
   },
 
   /** Upload a file into a project's context. Base64 in JSON — localhost, small files. */
-  "POST /api/project/doc/upload"(p, body) {
+  async "POST /api/project/doc/upload"(p, body) {
     const { project_id, filename, mime, data_b64 } = (body ?? {}) as {
       project_id?: number; filename?: string; mime?: string; data_b64?: string;
     };
     if (!project_id || !filename?.trim() || !data_b64) return { error: "missing fields" };
     const ext = path.extname(filename).toLowerCase();
-    if (![".pdf", ".txt", ".md"].includes(ext)) return { error: "only pdf, txt and md files for now" };
+    if (!EXTRACTABLE.includes(ext)) return { error: "only pdf, txt, md and csv files for now" };
     const buf = Buffer.from(data_b64, "base64");
     if (buf.length > 10 * 1024 * 1024) return { error: "file too large (max 10MB)" };
+    const content = await extractDocText(ext, buf);
+    const summary = await summarizeDoc(filename.trim(), content);
     const now = Date.now();
     const r = db
       .prepare(
-        `INSERT INTO documents (project_id, title, kind, filename, mime, content, created_at, updated_at)
-         VALUES (?, ?, 'upload', ?, ?, ?, ?, ?)`,
+        `INSERT INTO documents (project_id, title, kind, filename, mime, content, summary, created_at, updated_at)
+         VALUES (?, ?, 'upload', ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         project_id,
         filename.trim(),
         filename.trim(),
         mime ?? "application/octet-stream",
-        ext === ".pdf" ? null : buf.toString("utf8"),
+        content,
+        summary,
         now,
         now,
       );
@@ -668,7 +749,7 @@ const api: Record<string, Handler> = {
     const safe = `${docId}-${filename.trim().replace(/[^\w.-]+/g, "_")}`;
     writeFileSync(path.join(DOCS_DIR, safe), buf);
     db.prepare(`UPDATE documents SET path = ? WHERE id = ?`).run(path.join("data", "docs", safe), docId);
-    return db.prepare(`SELECT id, title, kind, filename, mime, updated_at FROM documents WHERE id = ?`).get(docId);
+    return db.prepare(`SELECT id, title, kind, filename, mime, summary, updated_at FROM documents WHERE id = ?`).get(docId);
   },
 
   /** In-app markdown doc. Versioned like meeting notes. */
@@ -1354,6 +1435,27 @@ function linkMeetingPeople(meetingId: string, projectId: number) {
       db.prepare(`INSERT INTO project_people (project_id, person_id, added_via) VALUES (?, ?, 'meeting') ON CONFLICT DO NOTHING`)
         .run(projectId, person.id);
   }
+}
+
+/**
+ * Backfill for docs uploaded before extraction existed: pull text out of the
+ * saved file and summarize it, persisting both. No-op when already populated.
+ */
+async function ensureDocContext<T extends { id: number; title: string; filename: string | null; path: string | null; content: string | null; summary: string | null }>(doc: T): Promise<T> {
+  let { content, summary } = doc;
+  if (!content && doc.path) {
+    const full = path.resolve(doc.path);
+    if (full.startsWith(DOCS_DIR + path.sep) && existsSync(full)) {
+      const ext = path.extname(doc.filename ?? full).toLowerCase();
+      content = await extractDocText(ext, readFileSync(full));
+      if (content) db.prepare(`UPDATE documents SET content = ? WHERE id = ?`).run(content, doc.id);
+    }
+  }
+  if (!summary && content) {
+    summary = await summarizeDoc(doc.title, content);
+    if (summary) db.prepare(`UPDATE documents SET summary = ? WHERE id = ?`).run(summary, doc.id);
+  }
+  return { ...doc, content, summary };
 }
 
 /** Transcript for a meeting — the live session's finals while recording, else the DB. */
