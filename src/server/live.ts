@@ -125,6 +125,13 @@ export class LiveSession {
       let msg: { type: string; text?: string; utterance_id?: string; t_ms?: number; audio_ms?: number };
       try { msg = JSON.parse(String(raw)); } catch { return; }
       if (msg.type === "partial" && msg.text) {
+        // Partials were never echo-gated, so speaker bleed paraded through the
+        // live view even when the final got blocked. Them-partials also feed
+        // the recent-lines memory: they arrive BEFORE the mic's echo does.
+        if (speaker === "Them") {
+          this.themRecent.push({ text: msg.text, at: Date.now() });
+          if (this.themRecent.length > 30) this.themRecent.shift();
+        } else if (this.isEcho(msg.text)) return;
         this.emit({ type: "partial", speaker, text: msg.text, utteranceId: msg.utterance_id ?? "" });
       } else if (msg.type === "final" && msg.text?.trim()) {
         const offsetS = this.offsetBase + Math.max(0, ((msg.t_ms ?? 0) - (msg.audio_ms ?? 0)) / 1000);

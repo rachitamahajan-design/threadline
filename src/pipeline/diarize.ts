@@ -24,6 +24,13 @@ import { generateBrainMd } from "./brain-md.js";
 import type { RecapRecord } from "../lib/pyai.js";
 
 const MIN_TAPE_BYTES = 960_000; // ~30s @ 32KB/s — shorter isn't worth a job
+function wordOverlap(a: string, b: string): number {
+  const t = (x: string) => new Set(x.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2));
+  const A = t(a), B = t(b);
+  if (!A.size || !B.size) return 0;
+  return [...A].filter((w) => B.has(w)).length / Math.min(A.size, B.size);
+}
+
 const MIN_LINES = 2;            // need something to relabel
 const MIN_SPOKEN_S = 20;        // duration is the content measure — line count is an endpointing artifact
 const OVERLAP_MIN = 0.5; // segment must cover ≥50% of the utterance span
@@ -142,6 +149,7 @@ async function diarizeInner(db: DatabaseSync, apiKey: string, meetingId: string,
 
   setRun(db, meetingId, { status: "running", reason: null });
   let totalSpeakers = 0, totalMatched = 0, totalLines = 0, anyRewrite = false;
+  let callSegs: DiarizedSegment[] = []; // ch0's turns — the bleed-dedup reference
   const notes: string[] = [];
   try {
     for (const plan of plans) {
@@ -165,8 +173,17 @@ async function diarizeInner(db: DatabaseSync, apiKey: string, meetingId: string,
       // transcript is replaced by the finer one. Distinct namespace per
       // channel: call side "Speaker K", mic side "Room K".
       const role = plan.target === "Them" ? "customer" : "agent";
+      // Mic bleed: without OS echo cancellation the mic re-records the
+      // speakers, and each channel's ASR transcribes that same sound slightly
+      // differently — so the dedup is fuzzy (time overlap + word overlap),
+      // and it happens HERE, where both channels' full text exists, rather
+      // than being guessed live.
+      const isBleed = (g: DiarizedSegment) =>
+        plan.target === "You" &&
+        callSegs.some((c) => Math.abs(c.start - g.start) < 4 && wordOverlap(c.text, g.text) >= 0.5);
+      if (plan.target === "Them") callSegs = segments;
       const replacement = segments
-        .filter((g) => g.text?.trim())
+        .filter((g) => g.text?.trim() && !isBleed(g))
         .map((g) => ({
           // PyAI labels arrive as "speaker_1" — normalize into the channel's
           // namespace so call and room voices can never collide.
