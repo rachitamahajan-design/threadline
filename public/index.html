@@ -3217,34 +3217,17 @@ async function renderProject(id) {
     ...claims.filter((c) => c.kind === "action_item").map((c) => ({ c, manual: false })),
   ].sort((a, b) => (a.c.done ? 1 : 0) - (b.c.done ? 1 : 0));
 
-  // ── Decision lineage: cluster look-alike decisions across the thread's
-  // meetings into chains (token overlap, no model call). Each chain is one
-  // seam: the newest version is the standing call, older ones its re-stitches.
+  // ── Decision lineage: chains come from the brain-wide matcher, so a seam
+  // stitched across two threads still shows on every thread it touches
+  // (the revision may live in a meeting filed elsewhere).
   const when = Object.fromEntries(meetings.map((m) => [m.id, m.started_at]));
-  const chains = (() => {
-    const STOP = new Set("a an and are as at be but by for from has have in is it its of on or our that the their they this to was we will with".split(" "));
-    const toks = decisions.map((d) => new Set(String(d.body.text ?? "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w))));
-    const sim = (a, b) => {
-      if (!a.size || !b.size) return 0;
-      let hit = 0;
-      for (const w of a) if (b.has(w)) hit++;
-      return hit / (a.size + b.size - hit);
-    };
-    const grouped = decisions.map(() => false), out = [];
-    decisions.forEach((d, i) => {
-      if (grouped[i]) return;
-      grouped[i] = true;
-      const chain = [d];
-      decisions.forEach((o, j) => {
-        if (!grouped[j] && o.meeting_id !== d.meeting_id && sim(toks[i], toks[j]) >= 0.25) { grouped[j] = true; chain.push(o); }
-      });
-      out.push(chain.sort((a, b) => (when[a.meeting_id] ?? 0) - (when[b.meeting_id] ?? 0)));
-    });
-    // longest seams first, then newest
-    return out.sort((a, b) => (b.length - a.length) || ((when[b[b.length - 1].meeting_id] ?? 0) - (when[a[a.length - 1].meeting_id] ?? 0)));
-  })();
-  const multi = chains.filter((c) => c.length > 1);
-  const singles = chains.filter((c) => c.length === 1).map((c) => c[0]);
+  const linAll = await api("/api/decision/lineage").catch(() => ({ chains: [] }));
+  const inThread = new Set(meetings.map((m) => m.id));
+  const multi = (linAll.chains ?? []).filter((ch) => ch.some((v) => inThread.has(v.meeting_id)));
+  const chained = new Set(multi.flatMap((ch) => ch.map((v) => v.claim_id)));
+  const singles = decisions.filter((d) => !chained.has(d.id))
+    .sort((a, b) => (when[b.meeting_id] ?? 0) - (when[a.meeting_id] ?? 0));
+  const chains = [...multi, ...singles.map((d) => [d])]; // for the empty-state check
 
   // ── The lineage, readable-first: one horizontal timeline per revised
   // decision. Time flows left → right, every version carries its full-ish
@@ -3274,10 +3257,10 @@ async function renderProject(id) {
         if (vi) out += `<line x1="${x - colX + R + 7}" y1="${y}" x2="${x - R - 9}" y2="${y}" style="stroke:var(--ink-3)" stroke-width="2.2" opacity=".55" marker-end="url(#lin-arr)"/>
           <text x="${x - colX / 2}" y="${y - 10}" text-anchor="middle" style="font:600 10.5px -apple-system,system-ui;fill:var(--ink-3)">revised</text>`;
         const head = cur
-          ? `CURRENT · since ${fmtDate(when[v.meeting_id])}`
-          : vi === 0 ? `FIRST DECIDED · ${fmtDate(when[v.meeting_id])}` : `REVISED · ${fmtDate(when[v.meeting_id])}`;
-        const lines = wrap2(v.body.text, 40);
-        out += `<g data-linmid="${esc(v.meeting_id)}" style="cursor:pointer"><title>${esc(v.body.text)} — ${esc(v.meeting_title ?? "")}</title>
+          ? `CURRENT · since ${fmtDate(v.started_at)}`
+          : vi === 0 ? `FIRST DECIDED · ${fmtDate(v.started_at)}` : `REVISED · ${fmtDate(v.started_at)}`;
+        const lines = wrap2(v.text, 40);
+        out += `<g data-linmid="${esc(v.meeting_id)}" style="cursor:pointer"><title>${esc(v.text)} — ${esc(v.meeting_title ?? "")}</title>
           <circle cx="${x}" cy="${y}" r="${R}" style="fill:${cur ? "color-mix(in srgb, #4caf6d 30%, var(--surface))" : "var(--surface)"};stroke:${cur ? "#3f9d58" : "var(--ink-3)"}" stroke-width="3"/>
           ${cur ? `<circle cx="${x}" cy="${y}" r="${R + 6}" style="fill:none;stroke:#3f9d58" stroke-width="1.3" opacity=".55"/>` : ""}
           <text x="${x - R}" y="${y + 32}" style="font:700 10.5px -apple-system,system-ui;letter-spacing:.06em;fill:${cur ? "#379154" : "var(--ink-3)"}">${esc(head)}</text>
@@ -3294,9 +3277,14 @@ async function renderProject(id) {
     <div class="sub">${meetings.length} meeting${meetings.length === 1 ? "" : "s"} · ${docs.length} doc${docs.length === 1 ? "" : "s"} · ${actions.filter((a) => !a.c.done).length} open</div>
     <div class="card"><h2>Decision lineage <span class="h2-note">how this thread's calls evolved — oldest on the left, the green one is what stands today. Click any dot to open its meeting.</span></h2>
       ${lineageGraph ? `<div style="overflow-x:auto;padding:4px 0 2px">${lineageGraph}</div>` : ""}
-      ${singles.length ? `<div style="${lineageGraph ? "border-top:1px solid var(--line);margin-top:10px;padding-top:4px" : ""}">
-        ${singles.map((d) => `<div class="claim" data-linmid="${esc(d.meeting_id)}" style="cursor:pointer">✓ ${esc(d.body.text)}
-          <span class="t-meta">· ${when[d.meeting_id] ? fmtDate(when[d.meeting_id]) + " · " : ""}${esc(d.meeting_title ?? "")}</span></div>`).join("")}
+      ${singles.length ? `<div style="${lineageGraph ? "border-top:1px solid var(--line);margin-top:8px;padding-top:10px" : ""}">
+        ${lineageGraph ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-3);font-weight:600;margin-bottom:4px">Decided once, still standing</div>` : ""}
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:0 34px">
+          ${singles.map((d, i) => `<div data-linmid="${esc(d.meeting_id)}" ${i >= 6 ? 'data-linmore="1" hidden' : ""}
+            style="cursor:pointer;font-size:13px;line-height:1.45;padding:6.5px 0;border-bottom:1px solid var(--line)">✓ ${esc(d.body.text)}
+            <span class="t-meta" style="white-space:nowrap">· ${when[d.meeting_id] ? fmtDate(when[d.meeting_id]) : ""}</span></div>`).join("")}
+        </div>
+        ${singles.length > 6 ? `<button class="copybtn" id="lin-more" style="margin:10px 0 0">Show all ${singles.length}</button>` : ""}
       </div>` : ""}
       ${!chains.length ? `<div class="t-meta">No decisions in this thread yet — they'll gather here as meetings are filed.</div>` : ""}
     </div>
@@ -3434,6 +3422,10 @@ function wireProject(id, project) {
   $("#add-person").addEventListener("keydown", (e) => { if (e.key === "Enter") addPerson(); });
   main.querySelectorAll("[data-linmid]").forEach((el) =>
     el.addEventListener("click", () => { state.meetingId = el.dataset.linmid; render(); window.scrollTo(0, 0); }));
+  $("#lin-more")?.addEventListener("click", (e) => {
+    main.querySelectorAll('[data-linmore="1"]').forEach((el) => { el.hidden = false; });
+    e.currentTarget.remove();
+  });
   main.querySelectorAll("[data-unperson]").forEach((b) =>
     b.addEventListener("click", async (e) => {
       e.stopPropagation();

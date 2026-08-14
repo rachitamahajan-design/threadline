@@ -1194,7 +1194,6 @@ const api: Record<string, Handler> = {
    *  Similarity is plain token Jaccard; no model call, instant. */
   "GET /api/decision/lineage"(p) {
     const meetingId = p.get("meeting_id");
-    if (!meetingId) return { error: "missing meeting_id" };
     const rows = db.prepare(
       `SELECT c.id, c.meeting_id, c.body, c.edited_body, m.title, m.started_at
        FROM claims c JOIN meetings m ON m.id = c.meeting_id
@@ -1213,13 +1212,30 @@ const api: Record<string, Handler> = {
       for (const w of a) if (b.has(w)) hit++;
       return hit / (a.size + b.size - hit);
     };
-    const out: Record<number, { claim_id: number; meeting_id: string; meeting_title: string; started_at: number; text: string }[]> = {};
+    const item = (k: number) => ({ claim_id: rows[k].id, meeting_id: rows[k].meeting_id, meeting_title: rows[k].title, started_at: rows[k].started_at, text: toks[k].text });
+    // No meeting_id: every chain in the whole brain, for thread pages —
+    // lineage follows a decision wherever it was made, across threads.
+    if (!meetingId) {
+      const grouped = rows.map(() => false);
+      const chains: ReturnType<typeof item>[][] = [];
+      rows.forEach((r, i) => {
+        if (grouped[i]) return;
+        grouped[i] = true;
+        const chain = [i];
+        rows.forEach((o, j) => {
+          if (!grouped[j] && o.meeting_id !== r.meeting_id && sim(toks[i].set, toks[j].set) >= 0.25) { grouped[j] = true; chain.push(j); }
+        });
+        if (chain.length > 1) chains.push(chain.map(item).sort((a, b) => a.started_at - b.started_at));
+      });
+      return { chains };
+    }
+    const out: Record<number, ReturnType<typeof item>[]> = {};
     rows.forEach((r, i) => {
       if (r.meeting_id !== meetingId) return;
       const chain = rows
         .map((o, j) => ({ o, j, s: i === j ? 1 : sim(toks[i].set, toks[j].set) }))
         .filter((x) => x.j === i || (x.s >= 0.25 && x.o.meeting_id !== r.meeting_id))
-        .map((x) => ({ claim_id: x.o.id, meeting_id: x.o.meeting_id, meeting_title: x.o.title, started_at: x.o.started_at, text: toks[x.j].text }));
+        .map((x) => item(x.j));
       if (chain.length > 1) out[r.id] = chain.sort((a, b) => a.started_at - b.started_at);
     });
     return out;
