@@ -10,6 +10,22 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 const BASE = process.env.PYAI_BASE_URL ?? "https://api.pyai.com/v1";
 
+/**
+ * Persist a single env var to ./.env and apply it to the running process.
+ * Values must be single-line: the boot-time .env parser is line-based.
+ */
+export function writeEnvVar(name: string, value: string): void {
+  if (!/^[A-Z_]+$/.test(name)) throw new Error(`invalid env var name: ${name}`);
+  if (!value || /\s/.test(value)) throw new Error(`${name} value must be non-empty with no whitespace`);
+  const line = `${name}=${value}`;
+  const prior = existsSync(".env") ? readFileSync(".env", "utf8") : "";
+  const next = new RegExp(`^${name}=.*$`, "m").test(prior)
+    ? prior.replace(new RegExp(`^${name}=.*$`, "m"), line)
+    : (prior && !prior.endsWith("\n") ? prior + "\n" : prior) + line + "\n";
+  writeFileSync(".env", next);
+  process.env[name] = value;
+}
+
 export async function ensureApiKey(): Promise<string> {
   if (process.env.PYAI_API_KEY) return process.env.PYAI_API_KEY;
 
@@ -22,10 +38,7 @@ export async function ensureApiKey(): Promise<string> {
 
   if (res.ok) {
     const d = (await res.json()) as { api_key: string; expires_at?: number };
-    const line = `PYAI_API_KEY=${d.api_key}\n`;
-    const prior = existsSync(".env") ? readFileSync(".env", "utf8") : "";
-    writeFileSync(".env", prior.includes("PYAI_API_KEY=") ? prior.replace(/PYAI_API_KEY=.*/g, line.trim()) : prior + line);
-    process.env.PYAI_API_KEY = d.api_key;
+    writeEnvVar("PYAI_API_KEY", d.api_key);
     const until = d.expires_at ? ` (valid until ${new Date(d.expires_at).toLocaleString()})` : "";
     console.log(`✓ Sandbox key minted and saved to .env${until}. Note: sandbox keys cap at ~10 audio-minutes/day — create a free account at https://console.pyai.com for real use.`);
     return d.api_key;

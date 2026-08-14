@@ -24,11 +24,19 @@ Granola takes notes about your meeting. **Threadline takes your side in it.**
 
 ```bash
 git clone <repo-url> && cd threadline
-cp .env.example .env        # add your PyAI key — or mint a free sandbox one:
-                            # curl -X POST https://api.pyai.com/v1/sandbox/keys
 npm install
-npm run demo                # processes 3 sample meetings, zero setup
+npm run dev                 # → http://localhost:4640
 ```
+
+Open the app and follow the **onboarding wizard** — it opens itself on a fresh
+install (and lives under the profile chip → *Start onboarding* afterwards). It
+mints a free PyAI sandbox key for you (or takes one you paste), walks through
+building the capture engine and macOS permissions, connects your calendar, and
+can load 3 sample meetings so every view has something to show. Keys are saved
+to `.env` and applied immediately — no restart needed.
+
+Prefer the terminal? `cp .env.example .env`, add `PYAI_API_KEY`, then
+`npm run demo` processes the same 3 sample meetings end to end.
 
 ## Record from anywhere (global shortcut)
 
