@@ -9,8 +9,8 @@ import { readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import { openDb } from "../lib/db.js";
 import { LiveSession, type LiveEvent } from "./live.js";
-import { ensureApiKey } from "../lib/firstrun.js";
-import { processMeeting, reindexMeeting } from "../pipeline/extract.js";
+import { ensureApiKey, writeEnvVar } from "../lib/firstrun.js";
+import { processMeeting, reindexMeeting, type MeetingInput } from "../pipeline/extract.js";
 import { findOccurrences, applyCorrection, undoCorrection, detectWordSwap } from "../pipeline/corrections.js";
 import { chatAboutMeeting } from "../pipeline/notes.js";
 import { bulletAt, type StructuredSummary } from "../lib/summary.js";
@@ -71,10 +71,13 @@ const PORT = Number(process.env.PORT ?? 4640);
 const PUBLIC = path.resolve("public");
 const DOCS_DIR = path.resolve("data", "docs");
 
-const apiKey = await ensureApiKey().catch((e: Error) => {
+// A missing key must not kill the server: boot into a "setup needed" state so
+// the in-app onboarding wizard can mint or collect one.
+await ensureApiKey().catch((e: Error) => {
   console.error(e.message);
-  process.exit(1);
+  console.error(`Starting without a PyAI key — open http://localhost:${process.env.PORT ?? 4640} and run onboarding.`);
 });
+const pyaiKey = () => process.env.PYAI_API_KEY ?? "";
 let live: LiveSession | null = null;
 
 // Floating recording panel — a native always-on-top mini window that appears
@@ -89,10 +92,43 @@ if (existsSync("capture/threadline-panel")) {
 const sseClients = new Set<(e: LiveEvent) => void>();
 const recentEvents: LiveEvent[] = [];
 
+// ── Onboarding / setup state ────────────────────────────────────────────────
+const maskKey = (v?: string) => (v ? (v.length > 8 ? `${v.slice(0, 4)}…${v.slice(-4)}` : "…") : null);
+
+let sampleJob: {
+  running: boolean;
+  done: number;
+  total: number;
+  results: { id: string; title: string; exit: string }[];
+  error: string | null;
+} | null = null;
+
+// One aggregated readiness view for the onboarding wizard — the individual
+// signals all exist elsewhere; this is the only place they meet. Keys are
+// always masked: full values never cross the wire.
+function setupStatus() {
+  const profileRow = db.prepare("SELECT value FROM meta WHERE key = 'profile'").get() as { value: string } | undefined;
+  const profile = profileRow ? (JSON.parse(profileRow.value) as { first_name: string | null }) : null;
+  const via = googleConnected() ? "oauth" : icsUrl(db) ? "ics" : null;
+  return {
+    pyai: { configured: !!process.env.PYAI_API_KEY, masked: maskKey(process.env.PYAI_API_KEY) },
+    openai: { configured: hasOpenAI(), masked: maskKey(process.env.OPENAI_API_KEY) },
+    model: modelInfo(),
+    capture: { recorder_built: existsSync("capture/threadline-capture"), panel_built: existsSync("capture/threadline-panel") },
+    google: { configured: googleConfigured(), connected: !!via, via },
+    profile: { set: !!profile?.first_name, first_name: profile?.first_name ?? null },
+    meetings: (db.prepare("SELECT COUNT(*) AS n FROM meetings").get() as { n: number }).n,
+    onboarded: !!db.prepare("SELECT value FROM meta WHERE key = 'onboarded'").get(),
+    platform: process.platform,
+    node: process.version,
+  };
+}
+
 type Handler = (params: URLSearchParams, body: unknown) => unknown | Promise<unknown>;
 
 function startRecording(opts: { title?: string; mode?: string; meeting_id?: string }) {
   if (live) return { error: "already recording" };
+  if (!pyaiKey()) return { error: "PyAI key not configured — run onboarding from the profile menu" };
   recentEvents.length = 0;
   // Resume: keep recording into an existing meeting — new audio lands after
   // what's already there, and stop re-stitches the whole transcript.
@@ -104,9 +140,9 @@ function startRecording(opts: { title?: string; mode?: string; meeting_id?: stri
     const last = db
       .prepare(`SELECT COALESCE(MAX(offset_s + duration_s), 0) AS t FROM utterances WHERE meeting_id = ?`)
       .get(opts.meeting_id) as { t: number };
-    live = new LiveSession(db, apiKey, m.title, m.mode, { meetingId: m.id, offsetBase: last.t + 2 });
+    live = new LiveSession(db, pyaiKey(), m.title, m.mode, { meetingId: m.id, offsetBase: last.t + 2 });
   } else {
-    live = new LiveSession(db, apiKey, opts.title?.trim() || `Meeting ${new Date().toLocaleString()}`, opts.mode ?? "discovery");
+    live = new LiveSession(db, pyaiKey(), opts.title?.trim() || `Meeting ${new Date().toLocaleString()}`, opts.mode ?? "discovery");
   }
   live.onEvent((e) => {
     recentEvents.push(e);
@@ -132,7 +168,7 @@ async function stopRecording() {
     const tell = (message: string) => { const e = { type: "status" as const, message }; recentEvents.push(e); for (const send of sseClients) send(e); };
     (async () => {
       tell("identifying speakers…");
-      await diarizeMeeting(db, apiKey, r.meetingId);
+      await diarizeMeeting(db, pyaiKey(), r.meetingId);
       const run = db.prepare("SELECT status, speakers, reason FROM diarize_runs WHERE meeting_id = ?").get(r.meetingId) as { status: string; speakers: number | null; reason: string | null } | undefined;
       if (run?.status === "shipped" && (run.speakers ?? 0) > 1) tell(`${run.speakers} speakers identified — name them on the meeting page`);
       else if (run?.status === "failed") tell(`speaker ID failed: ${run.reason}`);
@@ -491,6 +527,86 @@ const api: Record<string, Handler> = {
       script: path.resolve("scripts/record-toggle.sh"),
       daemon: existsSync("capture/threadline-panel"),
     };
+  },
+
+  // ── Onboarding / setup ──────────────────────────────────────────────────
+  // Localhost-only server (listen() binds 127.0.0.1), so no auth — same
+  // exposure as every other mutating endpoint here. Saved keys land in .env
+  // AND process.env, so they take effect without a restart.
+
+  "GET /api/setup/status"() {
+    return setupStatus();
+  },
+
+  async "POST /api/setup/keys"(p, body) {
+    const { pyai_api_key, openai_api_key } = (body ?? {}) as { pyai_api_key?: string; openai_api_key?: string };
+    const save = async (name: "PYAI_API_KEY" | "OPENAI_API_KEY", raw: string, checkUrl: string): Promise<string | null> => {
+      const v = raw.trim();
+      if (!v || /\s/.test(v) || v.length > 500) return `${name} must be a single token under 500 chars`;
+      // Only a definite 401/403 rejects — the host may not serve /models, and
+      // being offline shouldn't block saving a key.
+      try {
+        const r = await fetch(checkUrl, { headers: { Authorization: `Bearer ${v}` } });
+        if (r.status === 401 || r.status === 403) return `${name} was rejected by the provider — check for typos`;
+      } catch {}
+      writeEnvVar(name, v);
+      return null;
+    };
+    if (pyai_api_key !== undefined) {
+      const base = process.env.PYAI_BASE_URL ?? "https://api.pyai.com/v1";
+      const err = await save("PYAI_API_KEY", pyai_api_key, `${base}/models`);
+      if (err) return { error: err };
+    }
+    if (openai_api_key !== undefined) {
+      const err = await save("OPENAI_API_KEY", openai_api_key, "https://api.openai.com/v1/models");
+      if (err) return { error: err };
+    }
+    return setupStatus();
+  },
+
+  async "POST /api/setup/mint"() {
+    try {
+      await ensureApiKey();
+      return { ok: true, masked: maskKey(process.env.PYAI_API_KEY) };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
+  },
+
+  "POST /api/setup/onboarded"(p, body) {
+    const { completed } = (body ?? {}) as { completed?: boolean };
+    if (completed) db.prepare("INSERT INTO meta (key, value) VALUES ('onboarded', '1') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
+    else db.prepare("DELETE FROM meta WHERE key = 'onboarded'").run();
+    return { ok: true };
+  },
+
+  // Sample meetings run through the normal pipeline in-process (same SQLite
+  // handle — no cross-process contention). Each takes several model calls, so
+  // this fires the job and the UI polls sample-status.
+  "POST /api/setup/sample-data"() {
+    if (!pyaiKey()) return { error: "PyAI key needed first — add one in the key step" };
+    if (sampleJob?.running) return { error: "already running" };
+    const meetings: MeetingInput[] = JSON.parse(readFileSync("samples/meetings.json", "utf8"));
+    const job = { running: true, done: 0, total: meetings.length, results: [] as { id: string; title: string; exit: string }[], error: null as string | null };
+    sampleJob = job;
+    (async () => {
+      for (const m of meetings) {
+        const already = db.prepare("SELECT exit FROM meetings WHERE id = ? AND exit IS NOT NULL AND exit != 'failed'").get(m.id) as { exit: string } | undefined;
+        if (already) job.results.push({ id: m.id, title: m.title, exit: `skipped (${already.exit})` });
+        else {
+          const res = await processMeeting(db, pyaiKey(), m);
+          job.results.push({ id: m.id, title: m.title, exit: res.exit });
+        }
+        job.done++;
+      }
+    })()
+      .catch((e) => { job.error = e instanceof Error ? e.message : String(e); })
+      .finally(() => { job.running = false; });
+    return { ok: true, total: meetings.length };
+  },
+
+  "GET /api/setup/sample-status"() {
+    return sampleJob ?? { running: false, done: 0, total: 0, results: [], error: null };
   },
 
   "GET /api/projects"() {
@@ -1007,7 +1123,7 @@ const api: Record<string, Handler> = {
     const { id } = (body ?? {}) as { id?: string };
     if (!id) return { error: "missing id" };
     db.prepare("DELETE FROM diarize_runs WHERE meeting_id = ?").run(id);
-    await diarizeMeeting(db, apiKey, id);
+    await diarizeMeeting(db, pyaiKey(), id);
     return db.prepare("SELECT * FROM diarize_runs WHERE meeting_id = ?").get(id) ?? { error: "no run recorded" };
   },
 
@@ -1467,7 +1583,7 @@ async function regenerateMeeting(id: string) {
   if (!utterances.length) return { error: "no transcript to regenerate from" };
   regenerating.add(id);
   try {
-    const { exit, steps, stored } = await processMeeting(db, apiKey, {
+    const { exit, steps, stored } = await processMeeting(db, pyaiKey(), {
       id: meeting.id,
       title: meeting.title,
       mode: meeting.mode,

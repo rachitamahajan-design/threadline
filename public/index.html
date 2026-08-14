@@ -824,6 +824,13 @@
     border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
   }
   .tl-modal label { font-size: 12.5px; font-weight: 650; color: var(--ink-2); }
+  /* Onboarding wizard */
+  .ob-dots { display: flex; gap: 6px; align-items: center; justify-content: center; flex: 1; }
+  .ob-dots .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+  .ob-dots .dot.on { background: var(--ink); }
+  .ob-check { padding: 4px 0; font-size: 13.5px; color: var(--ink-2); }
+  .ob-check.on { color: var(--pass); }
+  #onboard-pill { display: inline-flex; align-items: center; gap: 6px; margin: 10px 0 2px; }
   /* Suggestion chips: the model proposes, the user files. */
   .tag-chip.suggest { background: none; border-style: dashed; color: var(--ink-2); }
   .tag-chip.suggest button { font-weight: 700; }
@@ -1887,6 +1894,270 @@ function googleSetupModal(connectedViaLink = false) {
   modal.querySelector("#gcal-url")?.focus();
 }
 
+// ── Onboarding wizard: guided first-run setup, re-runnable from the profile menu ──
+async function onboardingModal(startStep = 0) {
+  document.getElementById("onboard-modal")?.remove();
+  let status = await api("/api/setup/status").catch(() => null);
+  if (!status) return tlAlert("Couldn't reach the local server — is npm run dev still running?");
+  let step = Math.max(0, startStep);
+  let pollTimer = null;
+
+  const modal = document.createElement("div");
+  modal.id = "onboard-modal";
+  modal.className = "tl-modal";
+  document.body.appendChild(modal);
+
+  const post = (p, body) => fetch(p, { method: "POST", body: JSON.stringify(body ?? {}) }).then((r) => r.json());
+  const refresh = async () => { status = await api("/api/setup/status").catch(() => status); };
+  const check = (on, label) => `<div class="ob-check ${on ? "on" : ""}">${on ? "✓" : "○"} ${label}</div>`;
+  const cmdBox = (id, content) => `
+    <div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px">
+      <code style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px;overflow-x:auto;white-space:nowrap">${esc(content)}</code>
+      <button class="copybtn" data-obcopy="${esc(content)}">Copy</button>
+    </div>`;
+  const checklist = () => [
+    check(status.pyai.configured, `PyAI speech key${status.pyai.masked ? ` <code>${esc(status.pyai.masked)}</code>` : ""} — required`),
+    check(status.openai.configured, "OpenAI key — optional, unlocks chat & Ask"),
+    check(status.capture.recorder_built, "Recording engine built"),
+    check(status.google.connected, "Calendar connected — optional"),
+    check(status.profile.set, "Your name on the greeting"),
+    check(status.meetings > 0, `Meetings in the brain (${status.meetings})`),
+  ].join("");
+  const saveKey = async (field, inputSel, btnSel) => {
+    const v = modal.querySelector(inputSel).value.trim();
+    if (!v) return;
+    const btn = modal.querySelector(btnSel);
+    btn.disabled = true; btn.textContent = "Checking…";
+    const r = await post("/api/setup/keys", { [field]: v });
+    if (r.error) { btn.disabled = false; btn.textContent = "Save"; return tlAlert(r.error, "API key"); }
+    status = r;
+    draw();
+    showToast("Key saved — no restart needed");
+  };
+
+  const steps = [
+    { title: "Welcome to Threadline",
+      body: () => `
+        <div class="t-meta" style="margin-bottom:12px">Threadline records your meetings locally and turns them into notes with receipts, a self-writing to-do list, and a searchable meeting brain. Audio goes to exactly one place — the speech API you configure — and everything else stays in a SQLite file on this machine.</div>
+        <div style="font-weight:650;margin-bottom:4px">Setup status</div>
+        ${checklist()}
+        <div class="t-meta" style="margin-top:10px">About 2 minutes. Every step can be skipped and re-run later from the profile menu.</div>` },
+
+    { title: "PyAI speech key · required",
+      body: () => `
+        ${status.pyai.configured
+          ? `<div class="ob-check on" style="margin-bottom:8px">✓ Configured <code>${esc(status.pyai.masked ?? "")}</code></div>
+             <div class="t-meta" style="margin-bottom:10px">Paste a different key below to replace it.</div>`
+          : `<div class="t-meta" style="margin-bottom:10px">Transcription and extraction run on PyAI. No account needed to try it:</div>
+             <button class="copybtn" id="ob-mint" style="background:var(--ink);color:var(--bg)">Mint a free sandbox key</button>
+             <div class="t-meta" style="margin:8px 0 12px">Sandbox keys cap at ~10 audio-minutes/day — create a free key at <a href="https://console.pyai.com" target="_blank" rel="noopener">console.pyai.com</a> for real use.</div>`}
+        <label>Or paste a key</label>
+        <input type="text" id="ob-pyai" placeholder="pyai-…" autocomplete="off">
+        <div style="display:flex;justify-content:flex-end"><button class="copybtn" id="ob-pyai-save">Save</button></div>
+        <div class="t-meta" style="margin-top:6px">Saved to <code>.env</code> and applied immediately — no restart needed.</div>`,
+      wire: () => {
+        modal.querySelector("#ob-mint")?.addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          btn.disabled = true; btn.textContent = "Minting…";
+          const r = await post("/api/setup/mint");
+          if (r.error) { btn.disabled = false; btn.textContent = "Mint a free sandbox key"; return tlAlert(r.error, "PyAI key"); }
+          await refresh(); draw();
+          showToast("Sandbox key minted and saved");
+        });
+        modal.querySelector("#ob-pyai-save").addEventListener("click", () => saveKey("pyai_api_key", "#ob-pyai", "#ob-pyai-save"));
+      } },
+
+    { title: "OpenAI key · optional",
+      body: () => `
+        ${status.openai.configured ? `<div class="ob-check on" style="margin-bottom:8px">✓ Configured <code>${esc(status.openai.masked ?? "")}</code></div>` : ""}
+        <div class="t-meta" style="margin-bottom:8px">An OpenAI key unlocks:</div>
+        <ul style="margin:0 0 10px 18px;line-height:1.8;font-size:13.5px">
+          <li>Chatting with a meeting's transcript</li>
+          <li>Ask &amp; Needle answers synthesized across meetings</li>
+          <li>A Whisper + GPT fallback when PyAI is down</li>
+        </ul>
+        <div class="t-meta" style="margin-bottom:10px">With both keys set, <code>agents.json</code> decides who answers; failover is automatic. Skip this freely — recording and notes work without it.</div>
+        <label>API key</label>
+        <input type="text" id="ob-openai" placeholder="sk-…" autocomplete="off">
+        <div style="display:flex;justify-content:flex-end"><button class="copybtn" id="ob-openai-save">Save</button></div>`,
+      wire: () => {
+        modal.querySelector("#ob-openai-save").addEventListener("click", () => saveKey("openai_api_key", "#ob-openai", "#ob-openai-save"));
+      } },
+
+    { title: "Recording setup",
+      body: () => `
+        ${status.capture.recorder_built
+          ? `<div class="ob-check on">✓ Capture engine built</div>`
+          : `<div class="ob-check">○ Capture engine not built — run this in the Threadline folder (needs Xcode command-line tools):</div>
+             ${cmdBox("cap", "npm run build:capture")}`}
+        ${status.capture.panel_built
+          ? `<div class="ob-check on">✓ Floating recording panel built</div>`
+          : `<div class="ob-check">○ Floating panel (optional always-on-top timer) comes from the same build command</div>`}
+        <div class="t-meta" style="margin:12px 0 4px"><b>macOS permissions</b> — grant the terminal app running <code>npm run dev</code> both <b>Microphone</b> and <b>Screen Recording</b> in System Settings → Privacy &amp; Security. macOS asks on the first capture; a silent, empty recording means a permission is missing.</div>
+        <div class="t-meta" style="margin-top:8px">No restart needed — the binaries are checked each time you hit ● Record.</div>
+        ${status.capture.recorder_built ? "" : `<button class="copybtn" id="ob-recheck" style="margin-top:8px">Re-check</button>`}`,
+      wire: () => {
+        modal.querySelector("#ob-recheck")?.addEventListener("click", async () => { await refresh(); draw(); });
+      } },
+
+    { title: "Calendar · optional",
+      body: () => status.google.connected
+        ? `<div class="ob-check on">✓ Connected via ${status.google.via === "oauth" ? "Google OAuth" : "calendar link"}</div>
+           <div class="t-meta" style="margin-top:8px">"Up next" on Home now shows your real meetings.</div>`
+        : `<div class="t-meta" style="margin-bottom:10px">Powers the "Up next" meeting notifications. Read-only and local-first.</div>
+           <ol style="margin:0 0 8px 18px;line-height:1.9;font-size:14px">
+             <li>Open <a href="https://calendar.google.com" target="_blank" rel="noopener">Google Calendar</a> → ⚙ <b>Settings</b> → pick your calendar</li>
+             <li>Scroll to <b>Integrate calendar</b> → copy the <b>Secret address in iCal format</b></li>
+             <li>Paste it here:</li>
+           </ol>
+           <input type="text" id="ob-gcal-url" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics">
+           <div style="display:flex;gap:8px;align-items:center">
+             <a href="#" id="ob-gcal-oauth" style="font-size:12.5px">Full Google OAuth instead</a>
+             <span style="flex:1"></span>
+             <button class="copybtn" id="ob-gcal-save" style="background:var(--ink);color:var(--bg)">Save &amp; connect</button>
+           </div>`,
+      wire: () => {
+        modal.querySelector("#ob-gcal-oauth")?.addEventListener("click", (e) => { e.preventDefault(); googleSetupModal(); });
+        modal.querySelector("#ob-gcal-save")?.addEventListener("click", async (e) => {
+          const url = modal.querySelector("#ob-gcal-url").value.trim();
+          if (!url) return;
+          const btn = e.currentTarget;
+          btn.disabled = true; btn.textContent = "Checking…";
+          const r = await post("/api/google/ics", { url });
+          if (r.error) { btn.disabled = false; btn.textContent = "Save & connect"; return tlAlert(r.error, "Calendar link"); }
+          if (r.free_busy_only) {
+            btn.disabled = false; btn.textContent = "Save & connect";
+            await post("/api/google/ics", { url: null }); // don't keep a titles-less feed
+            return tlAlert('This feed only says "Busy" — your Workspace admin caps external sharing at free/busy. Use the "Full Google OAuth instead" link: authenticated access as yourself returns full event details.', "Calendar link");
+          }
+          refreshGoogleButton();
+          await refresh(); draw();
+          showToast("Calendar connected");
+        });
+      } },
+
+    { title: "Your name",
+      body: () => `
+        <div class="t-meta" style="margin-bottom:10px">Shown on the Home greeting and wherever the product says "you". Photo and edits live under the profile chip later.</div>
+        <label>First name</label>
+        <input type="text" id="ob-first" placeholder="First name" value="${esc(PROFILE.first_name ?? "")}">
+        <label>Last name</label>
+        <input type="text" id="ob-last" placeholder="Last name" value="${esc(PROFILE.last_name ?? "")}">
+        <div style="display:flex;justify-content:flex-end"><button class="copybtn" id="ob-profile-save" style="background:var(--ink);color:var(--bg)">Save</button></div>`,
+      wire: () => {
+        modal.querySelector("#ob-profile-save").addEventListener("click", async () => {
+          const r = await post("/api/profile", {
+            first_name: modal.querySelector("#ob-first").value.trim(),
+            last_name: modal.querySelector("#ob-last").value.trim(),
+            photo: PROFILE.photo,
+          });
+          if (r.error) return tlAlert(r.error);
+          await loadProfile();
+          await refresh(); draw();
+          showToast("Profile updated");
+        });
+      } },
+
+    { title: "Sample meetings · optional",
+      body: () => `
+        ${status.meetings > 0 ? `<div class="ob-check on" style="margin-bottom:8px">✓ ${status.meetings} meeting${status.meetings === 1 ? "" : "s"} in the brain already</div>` : ""}
+        <div class="t-meta" style="margin-bottom:10px">Load 3 sample meetings through the real pipeline — notes with receipts, to-dos, and the graph, so every view has something to show before your first recording. Uses a few model calls against your key.</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="copybtn" id="ob-seed" style="background:var(--ink);color:var(--bg)" ${status.pyai.configured ? "" : "disabled"}>Load 3 sample meetings</button>
+          <span class="t-meta" id="ob-seed-progress">${status.pyai.configured ? "" : "needs the PyAI key from step 2"}</span>
+        </div>
+        <div class="t-meta" style="margin-top:10px">Want more? <code>npm run seed</code> loads 20.</div>`,
+      wire: () => {
+        modal.querySelector("#ob-seed")?.addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          btn.disabled = true;
+          const r = await post("/api/setup/sample-data");
+          if (r.error) { btn.disabled = false; return tlAlert(r.error, "Sample meetings"); }
+          const prog = modal.querySelector("#ob-seed-progress");
+          if (prog) prog.textContent = `Processing 0/${r.total}…`;
+          pollTimer = setInterval(async () => {
+            const st = await api("/api/setup/sample-status").catch(() => null);
+            if (!st || !modal.isConnected) return;
+            if (st.running) { if (prog?.isConnected) prog.textContent = `Processing ${st.done}/${st.total}…`; return; }
+            clearInterval(pollTimer); pollTimer = null;
+            if (st.error) { showToast("Sample meetings failed"); return tlAlert(st.error, "Sample meetings"); }
+            showToast("Sample meetings loaded");
+            await refresh(); draw();
+            loadSidebar?.();
+          }, 2000);
+        });
+      } },
+
+    { title: "You're set",
+      body: () => `
+        ${checklist()}
+        <div class="t-meta" style="margin:12px 0 4px">Two things worth doing next:</div>
+        <ul style="margin:0 0 4px 18px;line-height:1.8;font-size:13.5px">
+          <li><a href="#" id="ob-hotkey">Set up the global recording shortcut</a> — start/stop from any app</li>
+          <li><a href="#" id="ob-devdocs">Connect Claude via MCP</a> — ask your meeting brain questions from Claude</li>
+        </ul>
+        <div class="t-meta" style="margin-top:8px">Re-run this any time: profile chip → Start onboarding.</div>`,
+      wire: () => {
+        modal.querySelector("#ob-hotkey").addEventListener("click", (e) => { e.preventDefault(); finish().then(() => $("#hotkey-help").click()); });
+        modal.querySelector("#ob-devdocs").addEventListener("click", (e) => { e.preventDefault(); finish().then(() => { state.view = "devdocs"; state.meetingId = null; state.projectId = null; render(); }); });
+      } },
+  ];
+
+  const finish = async () => {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    localStorage.setItem("tl-onboarded", "1");
+    await post("/api/setup/onboarded", { completed: true }).catch(() => {});
+    modal.remove();
+    render();
+  };
+
+  function draw() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    const s = steps[step];
+    modal.innerHTML = `<div class="box" style="max-width:560px">
+      <h2>${s.title}</h2>
+      ${s.body()}
+      <div class="actions">
+        ${step > 0 ? `<button class="copybtn" id="ob-back">Back</button>` : ""}
+        <div class="ob-dots">${steps.map((_, i) => `<span class="dot ${i === step ? "on" : ""}"></span>`).join("")}</div>
+        ${step < steps.length - 1 ? `<button class="copybtn" id="ob-skip">Skip</button>` : ""}
+        <button class="copybtn" id="ob-next" style="background:var(--ink);color:var(--bg)">${step === steps.length - 1 ? "Finish" : "Continue"}</button>
+      </div>
+    </div>`;
+    modal.querySelectorAll("[data-obcopy]").forEach((b) =>
+      b.addEventListener("click", () => { navigator.clipboard.writeText(b.dataset.obcopy); b.textContent = "Copied ✓"; }));
+    modal.querySelector("#ob-back")?.addEventListener("click", () => { step--; draw(); });
+    modal.querySelector("#ob-skip")?.addEventListener("click", () => { step++; draw(); });
+    modal.querySelector("#ob-next").addEventListener("click", () => { if (step === steps.length - 1) finish(); else { step++; draw(); } });
+    s.wire?.();
+  }
+
+  modal.addEventListener("mousedown", async (e) => {
+    if (e.target !== modal) return;
+    if (await tlConfirm("Leave setup? You can restart it any time from the profile menu.", { okLabel: "Leave" })) finish();
+  });
+  draw();
+}
+
+/** Home-view nudge shown until the install has a key and at least one meeting. */
+async function maybeShowOnboardPill() {
+  if (sessionStorage.getItem("tl-onboard-pill-off")) return;
+  const s = await api("/api/setup/status").catch(() => null);
+  if (!s || (s.pyai.configured && s.meetings > 0)) return;
+  const sub = main.querySelector(".sub");
+  if (!sub || state.view !== "today" || document.getElementById("onboard-pill")) return;
+  sub.insertAdjacentHTML("afterend", `
+    <div id="onboard-pill">
+      <button class="copybtn" id="onboard-start" style="background:var(--ink);color:var(--bg)">✦ New to Threadline? Start onboarding</button>
+      <button class="icon-btn" id="onboard-off" title="Dismiss" aria-label="Dismiss" style="width:24px;height:24px">${icon("x", 13)}</button>
+    </div>`);
+  document.getElementById("onboard-start").addEventListener("click", () => onboardingModal());
+  document.getElementById("onboard-off").addEventListener("click", () => {
+    sessionStorage.setItem("tl-onboard-pill-off", "1");
+    document.getElementById("onboard-pill")?.remove();
+  });
+}
+
 $("#add-project").addEventListener("click", () => projectModal());
 
 // ── Appearance: Auto → Light → Dark, cycling ────────────────────────────────
@@ -1997,6 +2268,7 @@ $("#profile-chip").addEventListener("click", (e) => {
   if (e.target.closest("#theme-btn")) return; // the theme cycle lives inside the chip row
   openMenuPopover($("#profile-chip"), [
     { id: "profile", icon: "person", label: "Profile", run: profileModal },
+    { id: "onboard", icon: "sparkle", label: "Start onboarding", run: () => onboardingModal() },
     { id: "devdocs", icon: "doc", label: "Developer docs", run: () => { state.view = "devdocs"; state.meetingId = null; state.projectId = null; render(); } },
   ]);
 });
@@ -2103,7 +2375,7 @@ async function render() {
     Promise.resolve(out).then(() => meetExtras(mid));
     return out;
   }
-  if (state.view === "today") return renderToday();
+  if (state.view === "today") return renderToday().then(() => maybeShowOnboardPill());
   if (state.view === "meetings") return renderMeetings();
   if (state.view === "graph") return renderGraph();
   if (state.view === "needle") return renderNeedle();
@@ -6630,6 +6902,16 @@ palInput.addEventListener("keydown", async (e) => {
 });
 
 loadProfile().finally(() => render()); // profile first, so the greeting carries the right name
+
+// ── First-run: open onboarding when the install clearly isn't set up ──
+// The localStorage flag is only a fast-path skip; a missing PyAI key reopens
+// the wizard regardless, because the app is unusable without one.
+(async () => {
+  const seen = localStorage.getItem("tl-onboarded");
+  const s = await api("/api/setup/status").catch(() => null);
+  if (!s) return;
+  if (!s.pyai.configured || (!seen && !s.onboarded && s.meetings === 0)) onboardingModal();
+})();
 </script>
 </body>
 </html>
