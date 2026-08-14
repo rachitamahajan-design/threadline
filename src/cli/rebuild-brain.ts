@@ -6,7 +6,8 @@
  *   npm run rebuild-brain
  */
 import { openDb } from "../lib/db.js";
-import { candidates } from "../pipeline/candidates.js";
+import { candidates, curateTopics } from "../pipeline/candidates.js";
+import { modelConfigured } from "../lib/model.js";
 import { resolveCandidates, storeResolutions, relateEntities } from "../pipeline/resolve.js";
 import { projectGraph } from "../pipeline/project.js";
 import { indexMeeting } from "../pipeline/chunker.js";
@@ -33,6 +34,7 @@ function recFromClaims(rows: ClaimRow[]): RecapRecord {
 db.exec("BEGIN");
 db.exec("DELETE FROM entity_mentions; DELETE FROM entity_aliases; DELETE FROM entities;");
 db.exec("DELETE FROM edges;"); // fully derived; re-projected below
+db.exec("DELETE FROM nodes WHERE kind = 'topic';"); // stale labels would otherwise survive as orphans
 db.exec("COMMIT");
 
 const meetings = db.prepare("SELECT id, title FROM meetings").all() as { id: string; title: string }[];
@@ -47,7 +49,11 @@ for (const m of meetings) {
     .all(m.id) as ClaimRow[];
 
   const rec = recFromClaims(claims);
-  const cands = candidates(utterances, rec);
+  // LLM curation runs when a key is around; without one the deterministic
+  // gates still hold and the rebuild stays fully offline.
+  const cands = modelConfigured()
+    ? await curateTopics(candidates(utterances, rec), m.title)
+    : candidates(utterances, rec);
   const gate = groundedIn(utterances);
   const hasProof = (c: { quote?: string; offset_s?: number }) =>
     gate({ quote: c.quote, offset_s: c.offset_s }) === null;

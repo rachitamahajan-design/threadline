@@ -15,7 +15,7 @@ import { triggerRecap, awaitRecap, PyAIError, type Utterance, type RecapRecord }
 import { retry, groundedIn, applyGate, decideExit, type Budget, type StepRecord } from "../lib/harness.js";
 import { because } from "../lib/reasons.js";
 import { firstFailure, recordRun } from "../lib/runlog.js";
-import { candidates } from "./candidates.js";
+import { candidates, curateTopics } from "./candidates.js";
 import { resolveCandidates, storeResolutions, relateEntities } from "./resolve.js";
 import { projectGraph } from "./project.js";
 import { indexMeeting } from "./chunker.js";
@@ -219,7 +219,9 @@ async function processMeetingInner(db: DatabaseSync, apiKey: string, m: MeetingI
     // Canonical entities, then project them down into nodes/edges. Replaces
     // the old buildGraph(), whose topics were the first six words of a
     // decision — which is why reworded topics never joined across meetings.
-    const cands = candidates(m.utterances, rec);
+    const cands = modelConfigured()
+      ? await curateTopics(candidates(m.utterances, rec), m.title ?? "")
+      : candidates(m.utterances, rec);
     const gate = groundedIn(m.utterances);
     const hasProof = (c: { quote?: string; offset_s?: number }) =>
       gate({ quote: c.quote, offset_s: c.offset_s }) === null;

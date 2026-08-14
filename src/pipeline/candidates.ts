@@ -12,6 +12,7 @@
  */
 import type { RecapRecord, Utterance } from "../lib/pyai.js";
 import { normalize } from "../lib/harness.js";
+import { chatJson } from "../lib/model.js";
 
 export type Candidate = {
   kind: "person" | "topic";
@@ -78,6 +79,45 @@ export function nounPhrase(s: string): string | null {
 
 function usable(v: unknown): v is string {
   return typeof v === "string" && v.trim().length > 1 && v.trim().toLowerCase() !== "none";
+}
+
+/**
+ * A topic must read like a topic: words, not clock marks, figures or whole
+ * sentences. Transcripts with inline timestamps taught the ngram miner that
+ * "03:08" recurs — of course it does.
+ */
+export function plausibleTopic(surface: string): boolean {
+  const t = surface.trim();
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(t)) return false; // timestamps
+  const letters = (t.match(/[A-Za-z]/g) ?? []).length;
+  const digits = (t.match(/\d/g) ?? []).length;
+  if (letters < 3 || digits > letters) return false; // "0.99", "25,000"
+  if (t.split(/\s+/).length > 5) return false; // sentence fragments
+  return true;
+}
+
+/**
+ * LLM curation, best-effort: the model keeps only coherent, recognisable
+ * discussion topics out of the candidate strings. Deterministic gates have
+ * already run; a curation failure just means they stand alone.
+ */
+export async function curateTopics(cands: Candidate[], context: string): Promise<Candidate[]> {
+  const topics = cands.filter((c) => c.kind === "topic");
+  if (topics.length <= 1) return cands;
+  try {
+    const raw = await chatJson({
+      purpose: "topics.curate",
+      system:
+        'You curate topic nodes for a meeting knowledge graph. From the candidate strings, KEEP only specific, coherent discussion topics a team would recognise on a map — products, projects, workstreams, named concepts, decisions\' subjects. REJECT timestamps, bare numbers or prices, sentence fragments, filler ("medium confidence", "App"), and near-duplicates of a kept topic. Return JSON {"keep": ["..."]} repeating the exact candidate strings you keep.',
+      user: `Meeting: ${context}\n\nCandidates:\n${topics.map((t) => `- ${t.surface}`).join("\n")}`,
+      maxTokens: 400,
+    });
+    const keep = new Set((((raw as { keep?: string[] })?.keep) ?? []).map((s) => normalize(s)));
+    if (!keep.size) return cands; // a model that rejects everything is a model that failed
+    return cands.filter((c) => c.kind !== "topic" || keep.has(normalize(c.surface)));
+  } catch {
+    return cands;
+  }
 }
 
 /** Repeated multi-word phrases: the only source that catches a topic nobody decided on. */
@@ -156,5 +196,8 @@ export function candidates(utterances: Utterance[], rec: RecapRecord): Candidate
     if (!prev || c.weight > prev.weight) best.set(key, prev ? { ...c, weight: prev.weight + c.weight } : c);
     else prev.weight += c.weight;
   }
-  return [...best.values()].sort((a, b) => b.weight - a.weight).slice(0, 12);
+  return [...best.values()]
+    .filter((c) => c.kind !== "topic" || plausibleTopic(c.surface))
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 12);
 }

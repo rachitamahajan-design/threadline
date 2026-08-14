@@ -294,7 +294,7 @@
   .side-top { display: flex; align-items: center; justify-content: flex-end; padding: 0 2px 4px; }
   .side-collapsed .side-top { justify-content: center; }
   #side-toggle .ic { transition: transform .2s; }
-  .side-collapsed #side-toggle .ic { transform: rotate(180deg); }
+  .side-collapsed #side-toggle .ic { transform: scaleX(-1); } /* divider flips sides: panel now expands */
 
   /* the "Search ⌘K" pill in the rail */
   .side-search {
@@ -382,6 +382,14 @@
   }
 
   main { max-width: min(1120px, 100%); margin: 0 auto; padding: clamp(20px, 3.4vw, 40px) clamp(16px, 3vw, 36px) 90px; width: 100%; }
+  /* ── global back: top-left of any drilled-into page ── */
+  #tl-back {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; margin-bottom: 10px; border-radius: 9px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+    cursor: pointer; box-shadow: var(--shadow);
+  }
+  #tl-back:hover { border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); color: var(--thread); }
 
   /* ── typography ── */
   main h1, .page-title {
@@ -466,6 +474,38 @@
   .up-slim .s-time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
   .up-slim .s-title { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; min-width: 0; }
   .up-slim .s-people { font-size: 12px; color: var(--ink-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Up next: thread tag + prep from that thread's loose ends ── */
+  .up-topic { max-width: 150px; }
+  .up-slim .up-topic { align-self: center; max-width: 120px; }
+  .up-thread-chip {
+    font: inherit; font-size: 10.5px; font-weight: 600; letter-spacing: .01em; cursor: pointer;
+    color: var(--thread); background: var(--thread-soft); border: 1px solid transparent; border-radius: 6px;
+    padding: 1px 7px; margin-left: auto; flex: none;
+    max-width: 15ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .up-thread-chip.off { color: var(--ink-3); background: none; border-color: var(--line); font-weight: 500; }
+  .up-thread-chip:hover { border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); color: var(--thread); }
+  .thread-prep-slot:not(:empty) { margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .tp-head { font-size: 12px; font-weight: 650; color: var(--ink-2); letter-spacing: -0.005em; }
+  .tp-name { font-weight: 500; color: var(--ink-3); }
+  .tp-sub {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--ink-3); margin: 8px 0 2px;
+  }
+  .tp-item { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; min-width: 0; }
+  .tp-mark { font-size: 11px; color: var(--thread); flex: none; line-height: 1.5; }
+  .tp-body { min-width: 0; }
+  .tp-task { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; overflow-wrap: anywhere; }
+  .tp-meta { font-size: 11px; color: var(--ink-3); margin-top: 1px; overflow-wrap: anywhere; }
+  .tp-more {
+    font: inherit; font-size: 11.5px; font-weight: 600; color: var(--thread); background: none;
+    border: 0; padding: 5px 0 0; cursor: pointer; text-align: left;
+  }
+  .tp-more:hover { text-decoration: underline; }
+  .tp-done { font-size: 11.5px; color: var(--ink-3); margin-top: 7px; overflow-wrap: anywhere; }
+  .tp-done s { opacity: .75; }
+  .tp-empty { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
 
   /* ── Home: past meetings, grouped by day ── */
   .day-head { margin: 16px 0 2px; }
@@ -1465,6 +1505,8 @@
   <symbol id="i-google" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20.2 12H12"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.2v13.6M5.2 12h13.6"/></symbol>
   <symbol id="i-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 5.5-6.4 6.5 6.4 6.5"/></symbol>
+  <!-- sidebar toggle: a panel, not a chevron — a chevron reads as "back" -->
+  <symbol id="i-panel" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><line x1="9.2" y1="4.5" x2="9.2" y2="19.5"/></symbol>
   <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 5.5 6.4 6.5-6.4 6.5"/></symbol>
   <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5.5 9.5 6.5 6.4 6.5-6.4"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.2V12l3.2 2"/></symbol>
@@ -1524,7 +1566,7 @@
 <div class="shell">
   <aside id="side">
     <div class="side-top">
-      <button id="side-toggle" class="icon-btn" title="Collapse sidebar" aria-label="Collapse sidebar"><svg class="ic" width="17" height="17"><use href="#i-chevron-left"/></svg></button>
+      <button id="side-toggle" class="icon-btn" title="Collapse sidebar" aria-label="Collapse sidebar"><svg class="ic" width="17" height="17"><use href="#i-panel"/></svg></button>
     </div>
     <button id="side-search" class="side-search" title="Search every meeting (⌘K)">
       <svg class="ic" width="16" height="16"><use href="#i-search"/></svg>
@@ -2402,23 +2444,62 @@ async function loadSidebar() {
     b.addEventListener("click", () => { state.view = "project"; state.projectId = Number(b.dataset.project); state.meetingId = null; render(); }));
 }
 
+// ── Back navigation: every render snapshots where you were, so drill-in
+// pages (a meeting, a doc, a thread) carry a ← back to the page before.
+const navStack = [];
+let navPrev = null, navBack = false;
+const navSnap = () => JSON.stringify({ view: state.view, meetingId: state.meetingId, projectId: state.projectId ?? null, docId: state.docId ?? null });
+function tlBack() {
+  const prev = navStack.pop();
+  if (!prev) return;
+  Object.assign(state, { meetingId: null, projectId: null, docId: null }, JSON.parse(prev));
+  navBack = true;
+  render();
+  window.scrollTo(0, 0);
+}
+function injectBack() {
+  $("#tl-back")?.remove();
+  // root pages need no back; detail pages get one when there is a past
+  const atRoot = !state.meetingId && ["today", "meetings", "graph", "needle"].includes(state.view);
+  if (atRoot || !navStack.length) return;
+  const btn = document.createElement("button");
+  btn.id = "tl-back";
+  btn.title = "Back";
+  btn.setAttribute("aria-label", "Back");
+  btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m11 18-6-6 6-6"/></svg>`;
+  btn.addEventListener("click", tlBack);
+  main.prepend(btn);
+}
+
 async function render() {
+  // snapshot the page we're leaving (skip refreshes and the back step itself)
+  const here = navSnap();
+  if (!navBack && navPrev && navPrev !== here) {
+    navStack.push(navPrev);
+    if (navStack.length > 30) navStack.shift();
+  }
+  navBack = false;
+  navPrev = here;
+
   document.querySelectorAll(".side-link[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === state.view && !state.meetingId));
   loadSidebar();
   main.classList.toggle("wide", !!state.meetingId);
+  let out;
   if (state.meetingId) {
     const mid = state.meetingId;
-    const out = renderMeeting(mid);
+    out = renderMeeting(mid);
     Promise.resolve(out).then(() => meetExtras(mid));
-    return out;
   }
-  if (state.view === "today") return renderToday().then(() => maybeShowOnboardPill());
-  if (state.view === "meetings") return renderMeetings();
-  if (state.view === "graph") return renderGraph();
-  if (state.view === "needle") return renderNeedle();
-  if (state.view === "mcp" || state.view === "devdocs") return renderDevDocs();
-  if (state.view === "project") return renderProject(state.projectId);
-  if (state.view === "doc") return renderDoc(state.docId);
+else if (state.view === "today") out = renderToday().then(() => maybeShowOnboardPill());
+  else if (state.view === "meetings") out = renderMeetings();
+  else if (state.view === "graph") out = renderGraph();
+  else if (state.view === "needle") out = renderNeedle();
+  else if (state.view === "mcp" || state.view === "devdocs") out = renderDevDocs();
+  else if (state.view === "project") out = renderProject(state.projectId);
+  else if (state.view === "doc") out = renderDoc(state.docId);
+  await Promise.resolve(out).catch(() => {});
+  injectBack();
+  return out;
 }
 
 // ── Needle: a conversation threaded through every meeting ────────────────
@@ -2510,6 +2591,8 @@ async function renderNeedle() {
         <div style="display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);padding-bottom:11px;margin-bottom:13px">
           <div style="flex:1;min-width:0;font-weight:650;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             ${active ? esc(convs.find((c) => c.id === active)?.title ?? "Thread") : `<span style="color:var(--ink-3);font-weight:500">No thread open</span>`}</div>
+          <button class="copybtn" id="needle-branch" style="margin:0" ${active ? "" : "disabled"}
+            title="Branch this thread — the original stays intact while the copy pulls in a new direction">⑂ Branch</button>
           <button class="copybtn" id="needle-share" style="margin:0" ${active ? "" : "disabled"}
             title="Share this whole thread as a branded card">${icon("share", 14)}Share thread</button>
         </div>
@@ -2568,6 +2651,13 @@ async function renderNeedle() {
       if (state.needleId === id) state.needleId = null;
       renderNeedle();
     }));
+  $("#needle-branch").addEventListener("click", async () => {
+    const r = await fetch("/api/needle/fork", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ conversation_id: active }) }).then((x) => x.json());
+    if (r.error) return showToast(r.error);
+    state.needleId = r.id;
+    renderNeedle();
+    showToast("Branched — pull this copy in a new direction; the original is untouched");
+  });
   $("#needle-share").addEventListener("click", (e) =>
     openNeedleShare(e.currentTarget, convs.find((c) => c.id === active)?.title ?? "Needle thread"));
   if (active) await needleLoad(active);
@@ -3576,7 +3666,7 @@ async function renderToday() {
   });
   (async () => {
     const assigned = {};
-    for (const sel of main.querySelectorAll(".topic-select")) {
+    for (const sel of main.querySelectorAll(".topic-select[data-tmid]")) {
       const mid = sel.dataset.tmid;
       const det = await api(`/api/meeting?id=${encodeURIComponent(mid)}`);
       const { html } = await topicOptions(det.topicIds ?? []);
@@ -3602,11 +3692,15 @@ async function renderToday() {
       <label class="pop-lbl">When<input type="datetime-local" id="up-when" value="${toLocalInput(parseWhen(""))}"></label>
       <label class="pop-lbl">Duration (minutes)<input type="number" id="up-dur" min="0" step="5" value="30"></label>
       <label class="pop-lbl">Who's in it<input id="up-people" placeholder="Ana, Dev"></label>
+      <label class="pop-lbl">Thread<select class="topic-select" id="up-thread"></select></label>
       <div class="pop-actions">
         <button class="copybtn" data-cancel>Cancel</button>
         <button class="copybtn primary" data-save>Add</button>
       </div>`, (pop, close) => {
       pop.querySelector("[data-cancel]").addEventListener("click", close);
+      const thr = pop.querySelector("#up-thread");
+      topicOptions([]).then(({ html }) => { thr.innerHTML = html; });
+      thr.addEventListener("change", () => { if (thr.value === "__new") topicSelectChange(thr, () => {}); });
       pop.querySelector("[data-save]").addEventListener("click", async () => {
         const title = pop.querySelector("#up-title").value;
         if (!title.trim()) return pop.querySelector("#up-title").focus();
@@ -3614,10 +3708,11 @@ async function renderToday() {
         const at = whenVal ? new Date(whenVal).getTime() : parseWhen("");
         const dur = Number(pop.querySelector("#up-dur").value);
         const participants = pop.querySelector("#up-people").value;
+        const projectId = thr.value && thr.value !== "__new" ? Number(thr.value) : null;
         close();
         await fetch("/api/upcoming", {
           method: "POST",
-          body: JSON.stringify({ title, at_ms: at, participants, duration_minutes: dur }),
+          body: JSON.stringify({ title, at_ms: at, participants, duration_minutes: dur, project_id: projectId }),
         });
         loadUpcoming();
       });
@@ -3819,14 +3914,20 @@ async function loadUpcoming() {
     // "10:30 – 11:00 AM" with the meridiem set small
     const ampm = (ms) => fmtClock(ms).replace(/\s*([AaPp])\.?[Mm]\.?$/, (_, x) => `<span class="ampm">${x.toUpperCase()}M</span>`);
     const range = u.end_ms ? `${fmtClock(u.at_ms).replace(/\s*[AaPp]\.?[Mm]\.?$/, "")} – ${ampm(u.end_ms)}` : ampm(u.at_ms);
+    // Calendar events (negative ids) have no local row — tagging one adopts
+    // it into `upcoming`, so the controls render for every row. The adopt
+    // payload rides on data attributes.
+    const adopt = `data-title="${esc(u.title)}" data-at="${u.at_ms}" data-end="${u.end_ms ?? ""}" data-ppl="${esc(u.participants ?? "")}"`;
     if (i > 0)
       return `<div class="up-slim" data-up="${u.id}">
         <span class="up-tick"></span>
         <span class="s-time">${running ? "Now" : fmtClock(u.at_ms)}${dayStart(u.at_ms) !== dayStart(now) ? " · " + fmtDate(u.at_ms) : ""}</span>
         <span class="s-title">${esc(u.title)}</span>
         ${u.participants ? `<span class="s-people">${esc(u.participants)}</span>` : ""}
+        <button class="up-thread-chip ${u.project_id ? "" : "off"}" data-upchip="${u.id}" data-pid="${u.project_id ?? ""}" ${adopt}
+            title="${u.project_name ? `Thread: ${esc(u.project_name)}` : "Tag this meeting to a thread"}">${u.project_name ? esc(u.project_name) : "＋ thread"}</button>
       </div>`;
-    return `<div class="up-lead" data-up="${u.id}" data-people="${esc(u.participants ?? "")}">
+    return `<div class="up-lead" data-up="${u.id}" data-people="${esc(u.participants ?? "")}" data-pid="${u.project_id ?? ""}">
       <div class="up-cal">
         <div class="up-daynum">${d.getDate()}</div>
         <div class="up-mon">${d.toLocaleDateString(undefined, { month: "short" })}</div>
@@ -3840,9 +3941,11 @@ async function loadUpcoming() {
           ${durMin > 0 ? `<span class="up-chip">${icon("clock", 12)}${durMin} min</span>` : ""}
           ${running ? `<span class="up-chip now">Now</span>`
             : mins < 60 ? `<span class="up-chip soon">In ${mins} min</span>` : ""}
+          <select class="topic-select up-topic" data-upid="${u.id}" data-pid="${u.project_id ?? ""}" ${adopt} title="Thread"></select>
         </div>
         ${u.participants ? `<div class="up-people">${esc(u.participants)}</div>` : ""}
         <div class="prep-slot"></div>
+        <div class="thread-prep-slot"></div>
       </div>
     </div>`;
   }).join("");
@@ -3861,6 +3964,94 @@ async function loadUpcoming() {
     slot.querySelectorAll("[data-mid]").forEach((p) =>
       p.addEventListener("click", () => { state.meetingId = p.dataset.mid; render(); }));
   }
+  // thread tagging: same select + "＋ New thread…" flow as the meeting rows
+  for (const sel of box.querySelectorAll(".up-topic")) {
+    const pid = sel.dataset.pid ? Number(sel.dataset.pid) : null;
+    const { html } = await topicOptions(pid ? [pid] : []);
+    sel.innerHTML = html;
+    if (pid) sel.value = String(pid);
+    sel.addEventListener("click", (e) => e.stopPropagation());
+    sel.addEventListener("change", async () => {
+      const upId = Number(sel.dataset.upid);
+      const payload = (tid) => JSON.stringify(upId > 0
+        ? { id: upId, project_id: tid }
+        : { project_id: tid, adopt: { title: sel.dataset.title, at_ms: Number(sel.dataset.at), end_ms: sel.dataset.end ? Number(sel.dataset.end) : null, participants: sel.dataset.ppl || null } });
+      if (sel.value === "") {
+        await fetch("/api/upcoming/tag", { method: "POST", body: payload(null) });
+        loadUpcoming();
+        return;
+      }
+      await topicSelectChange(sel, async (tid) => {
+        await fetch("/api/upcoming/tag", { method: "POST", body: payload(tid) });
+        loadUpcoming();
+      });
+    });
+  }
+  // slim rows: the chip IS the control — it opens a popover holding the select
+  for (const chip of box.querySelectorAll("[data-upchip]")) {
+    chip.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const upId = Number(chip.dataset.upchip);
+      const pid = chip.dataset.pid ? Number(chip.dataset.pid) : null;
+      const { html } = await topicOptions(pid ? [pid] : []);
+      openPopover(chip, `
+        <div class="pop-title">${icon("tag", 13)}Thread</div>
+        <select class="topic-select" id="up-chip-topic">${html}</select>`, (pop, close) => {
+        const sel = pop.querySelector("#up-chip-topic");
+        if (pid) sel.value = String(pid);
+        sel.addEventListener("change", async () => {
+          const tag = async (tid) => {
+            const payload = upId > 0
+              ? { id: upId, project_id: tid }
+              : { project_id: tid, adopt: { title: chip.dataset.title, at_ms: Number(chip.dataset.at), end_ms: chip.dataset.end ? Number(chip.dataset.end) : null, participants: chip.dataset.ppl || null } };
+            await fetch("/api/upcoming/tag", { method: "POST", body: JSON.stringify(payload) });
+            close(); loadUpcoming();
+          };
+          if (sel.value === "") return tag(null);
+          await topicSelectChange(sel, tag);
+        });
+        setTimeout(() => sel.focus(), 0);
+      });
+    });
+  }
+  // prep from the tagged thread's loose ends — only the imminent meeting
+  const lead = box.querySelector(".up-lead");
+  if (lead?.dataset.pid) await renderThreadPrep(lead, Number(lead.dataset.pid));
+}
+
+/** "Thread prep" under the imminent meeting: what's still open in its thread. */
+async function renderThreadPrep(lead, pid) {
+  const slot = lead.querySelector(".thread-prep-slot");
+  if (!slot) return;
+  const sel = lead.querySelector(".up-topic");
+  const name = sel?.selectedOptions?.[0]?.textContent
+    ?? (await api("/api/projects")).find((t) => t.id === pid)?.name ?? "thread";
+  const loose = await api(`/api/project/loose?id=${pid}`).catch(() => null);
+  if (!loose || loose.error) return;
+  const open = loose.open ?? [], done = loose.done ?? [];
+  const head = `<div class="tp-head">Thread prep <span class="tp-name">— ${esc(name)}</span></div>`;
+  if (!open.length && !done.length) {
+    slot.innerHTML = `${head}<div class="tp-empty">No loose ends in this thread — clean slate.</div>`;
+    return;
+  }
+  const items = open.slice(0, 5).map((o) => `
+    <div class="tp-item">
+      <span class="tp-mark">○</span>
+      <div class="tp-body">
+        <div class="tp-task">${esc(o.task)}</div>
+        <div class="tp-meta">${o.owner ? esc(o.owner) : "unassigned"} · ${esc(o.meeting_title ?? "")}</div>
+      </div>
+    </div>`).join("");
+  const more = open.length > 5
+    ? `<button class="tp-more" data-pid="${pid}">+${open.length - 5} more in ${esc(name)}</button>` : "";
+  const doneLine = done.length
+    ? `<div class="tp-done">✓ ${done.length} done — <s>${esc(done[0].task)}</s>${done.length > 1 ? `, +${done.length - 1} more` : ""}</div>` : "";
+  slot.innerHTML = `${head}
+    ${open.length ? `<div class="tp-sub">Still open</div>${items}` : ""}
+    ${more}${doneLine}`;
+  slot.querySelector(".tp-more")?.addEventListener("click", () => {
+    state.view = "project"; state.projectId = pid; state.meetingId = null; render();
+  });
 }
 
 /** "4:00 PM · 32 min" — the clock line every meeting row and chip shares. */
@@ -5773,6 +5964,10 @@ async function renderGraph() {
 
   main.innerHTML = `<h1>Threads</h1>
     <div class="sub">${visible.filter((n) => n.kind === 'meeting').length} meetings · ${visible.filter((n) => n.kind === 'person').length} people · ${keptTopics.length} shared topic${keptTopics.length===1?'':'s'} (of ${totalTopics}). Drag to rotate · scroll to zoom · click a meeting to open it · shift-click picks a few to share together.</div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:9px">
+      <button class="copybtn" id="brain-mcp" style="margin:0" title="Give Claude, Cursor or any MCP client live access to this brain">
+        ${icon("doc", 13)} Connect your AI · MCP</button>
+    </div>
     <div class="card" id="graph-wrap">
       <canvas id="graph"></canvas>
       <div id="graph-tip"></div>
@@ -5797,6 +5992,7 @@ async function renderGraph() {
         Topic <i>· a knot with a loose end</i></span>
       <button class="copybtn" style="margin:0 0 0 auto" id="ctx-md">Copy context .md of selection</button></div>`;
 
+  $("#brain-mcp").addEventListener("click", () => { state.view = "mcp"; render(); window.scrollTo(0, 0); });
   const canvas = $("#graph"), wrap = $("#graph-wrap"), tip = $("#graph-tip"), panel = $("#graph-panel");
   const dpr = window.devicePixelRatio || 1;
   const W = wrap.clientWidth, H = wrap.clientHeight;
@@ -6504,7 +6700,7 @@ async function openCompanion(title, manual) {
     return;
   }
   try {
-    pipWin = await documentPictureInPicture.requestWindow({ width: 272, height: 74, disallowReturnToOpener: true });
+    pipWin = await documentPictureInPicture.requestWindow({ width: 340, height: 330, disallowReturnToOpener: true });
   } catch (e) {
     pipWin = null;
     if (manual) tlAlert("Couldn't open the floating window: " + (e && e.message ? e.message : e));
@@ -6560,15 +6756,20 @@ async function openCompanion(title, manual) {
   doc.body.innerHTML = `
     <header>
       <span class="dot"></span><span class="t">${esc(title)}</span><span class="clock" id="pc">00:00</span>
-      <button class="ib" id="px" title="Live transcription">⌄</button>
+      <button class="ib" id="px" title="Collapse to a pill / expand">⌃</button>
       <button class="ib stop" id="ps" title="Stop &amp; process">■</button>
     </header>
     <div id="pipbar">
       <select id="pmode" title="Meeting mode"></select>
       <span class="modelbl">mode</span>
+      <select id="ptopic" title="Thread — tags this meeting and scopes Ask to the thread's repo"><option value="">no thread</option></select>
+      <span class="modelbl">thread</span>
     </div>
     <div id="feed"></div>
     <div id="askrow"><input id="pq" placeholder="Ask your brain — this meeting &amp; past ones"><button id="pgo">Ask</button></div>`;
+  // Open by default: the live transcript and Ask box are the point of the
+  // companion — hiding them behind the ⌄ toggle read as "transcription broken".
+  doc.body.classList.add("open");
   const t0 = Date.now();
   const iv = setInterval(() => {
     if (!pipWin) return clearInterval(iv);
@@ -6584,7 +6785,46 @@ async function openCompanion(title, manual) {
     const lm = document.getElementById("live-mode");
     if (lm) lm.value = pm.value;
   });
+  // Thread select: tagging the live meeting AND scoping Ask to that thread's
+  // repo (its past meetings, decisions, docs) via /api/project/ask.
+  const pt = doc.getElementById("ptopic");
+  api("/api/projects").then((ps) => {
+    pt.insertAdjacentHTML("beforeend", ps.map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join(""));
+    const lt = document.getElementById("live-topic");
+    if (lt?.value) pt.value = lt.value;
+  }).catch(() => {});
+  pt.addEventListener("change", () => {
+    if (pt.value) fetch("/api/record/meta", { method: "POST", body: JSON.stringify({ topic_id: Number(pt.value) }) });
+    const lt = document.getElementById("live-topic");
+    if (lt) lt.value = pt.value;
+  });
   const feedEl = doc.getElementById("feed");
+  // Live transcript into the companion: its own SSE tap — the server fans out
+  // to every listener and replays the recent buffer on connect, so the pill
+  // stays live even if the main tab navigates away from the meeting view.
+  const pipPartials = {};
+  const pes = new EventSource("/api/record/events");
+  pes.onmessage = (ev) => {
+    const e = JSON.parse(ev.data);
+    if (e.type === "partial") {
+      let el = pipPartials[e.speaker];
+      if (!el) {
+        feedEl.insertAdjacentHTML("beforeend", `<div class="u partial"><b></b><span></span></div>`);
+        el = pipPartials[e.speaker] = feedEl.lastElementChild;
+        el.querySelector("b").textContent = e.speaker;
+      }
+      el.querySelector("span").textContent = e.text;
+    } else if (e.type === "final") {
+      const el = pipPartials[e.speaker];
+      if (el) { delete pipPartials[e.speaker]; el.remove(); }
+      const row = doc.createElement("div");
+      row.className = "u";
+      const who = doc.createElement("b"); who.textContent = e.speaker;
+      row.appendChild(who); row.appendChild(doc.createTextNode(e.text));
+      feedEl.appendChild(row);
+    } else return;
+    feedEl.scrollTop = 1e9;
+  };
   const ask = async () => {
     const q = doc.getElementById("pq").value.trim();
     if (!q) return;
@@ -6595,14 +6835,23 @@ async function openCompanion(title, manual) {
     box.innerHTML = `<b>${esc(q)}</b><div class="a" style="margin-top:3px">thinking…</div>`;
     feedEl.appendChild(box); feedEl.scrollTop = 1e9;
     try {
-      const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
-      const pts = (r.answer ?? []).slice(0, 3);
-      const srcs = [...new Set(pts.map((p) => p.meeting_title))];
-      box.querySelector(".a").innerHTML =
-        (r.summary ? esc(r.summary) : pts.map((p) => esc(p.text)).join(" ")) || "Nothing solid in the brain for that yet.";
-      if (srcs.length) box.insertAdjacentHTML("beforeend", `<div class="src">from: ${srcs.map(esc).join(" · ")}</div>`);
+      if (pt.value) {
+        // scoped to the selected thread: answers come from that thread's repo
+        const r = await fetch("/api/project/ask", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: Number(pt.value), question: q }) }).then((x) => x.json());
+        if (r.error) throw new Error(r.error);
+        box.querySelector(".a").textContent = r.answer || "Nothing in this thread's repo for that yet.";
+        if (r.sources?.length) box.insertAdjacentHTML("beforeend", `<div class="src">from ${esc(pt.options[pt.selectedIndex].text)}: ${r.sources.map(esc).join(" · ")}</div>`);
+      } else {
+        const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
+        const pts = (r.answer ?? []).slice(0, 3);
+        const srcs = [...new Set(pts.map((p) => p.meeting_title))];
+        box.querySelector(".a").innerHTML =
+          (r.summary ? esc(r.summary) : pts.map((p) => esc(p.text)).join(" ")) || "Nothing solid in the brain for that yet.";
+        if (srcs.length) box.insertAdjacentHTML("beforeend", `<div class="src">from: ${srcs.map(esc).join(" · ")}</div>`);
+      }
     } catch (e) {
-      box.querySelector(".a").textContent = "Ask failed — is the brain busy?";
+      box.querySelector(".a").textContent = e.message?.includes("OPENAI") ? e.message : "Ask failed — is the brain busy?";
     }
     feedEl.scrollTop = 1e9;
   };
@@ -6613,7 +6862,14 @@ async function openCompanion(title, manual) {
     doc.getElementById("px").textContent = open ? "⌃" : "⌄";
     try { pipWin.resizeTo(open ? 340 : 272, open ? 330 : 74); } catch (e) { /* browser may refuse; user can drag-resize */ }
   });
-  pipWin.addEventListener("pagehide", () => { pipWin = null; window.removeEventListener("tl-theme", syncPipTheme); });
+  // Dragging the pill taller is an intent to see the transcript — open it.
+  pipWin.addEventListener("resize", () => {
+    if (pipWin.innerHeight > 120 && !doc.body.classList.contains("open")) {
+      doc.body.classList.add("open");
+      doc.getElementById("px").textContent = "⌃";
+    }
+  });
+  pipWin.addEventListener("pagehide", () => { pipWin = null; pes.close(); window.removeEventListener("tl-theme", syncPipTheme); });
 }
 
 // ── Meeting-start notifications ─────────────────────────────────────────

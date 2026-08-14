@@ -59,9 +59,10 @@ const DEFAULT_TEMPERATURE = 0;
 
 /**
  * Provider resolution: explicit env wins, then the provider agents.json prefers
- * (when its key is actually configured), else whichever key exists. PyAI is the
- * product's model host; OpenAI stays reachable because the fallback path in
- * lib/openai.ts already depends on it.
+ * (when its key is actually configured), else whichever key exists. Text chat
+ * prefers OpenAI: PyAI hosts speech only (hear/speak/omni/amd — verified live
+ * 2026-08-14, /v1/chat/completions 404s), so routing chat there just buys a
+ * failed round-trip per call. The failover keeps either direction safe.
  */
 export function provider(): Provider {
   const forced = (process.env.MODEL_PROVIDER ?? "").toLowerCase();
