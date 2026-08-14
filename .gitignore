@@ -32,3 +32,14 @@ venv/
 # internal notes
 Untitled
 data/google-token.json
+
+# Local scratch / diagnostics (never ship)
+capture/tcc-doctor
+capture/tcc-doctor.swift
+set-pyai-key.sh
+*-probe.ts
+calibrate*.mjs
+embedtest.mjs
+
+# Meeting exports: sharing is an explicit act — never auto-committed
+shared-dataset/

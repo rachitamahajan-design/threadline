@@ -145,7 +145,7 @@ const api: Record<string, Handler> = {
   },
 
   "GET /api/meetings"() {
-    return db.prepare(MEETING_LIST_SQL).all();
+    return db.prepare(`${MEETING_LIST_SQL} LIMIT 500`).all();
   },
 
   "GET /api/meeting"(p) {
@@ -277,27 +277,6 @@ const api: Record<string, Handler> = {
     return "error" in r ? r : { action: "started", recording: true, ...r };
   },
 
-  /** Mid-meeting notes: extract from the transcript so far, keep recording. */
-  async "POST /api/record/notes"() {
-    if (!live) return { error: "not recording" };
-    const utts = live.snapshot();
-    if (utts.length < 1) return { error: "Not enough speech yet — give it a minute." };
-    const cid = `${live.meetingId}-sofar-${Date.now()}`;
-    const durationS = Math.max(...utts.map((u) => u.offset_s + u.duration_s));
-    try {
-      const { triggerRecap, awaitRecap } = await import("../lib/pyai.js");
-      await triggerRecap(apiKey, cid, utts, durationS);
-      const r = await awaitRecap(apiKey, cid, 30_000);
-      if (r.status !== "complete" || !r.record) throw new Error(r.error ?? "recap incomplete");
-      return { record: r.record, lines: utts.length };
-    } catch (e) {
-      const { hasOpenAI, openaiExtract } = await import("../lib/openai.js");
-      if (hasOpenAI()) {
-        try { return { record: await openaiExtract(utts), lines: utts.length, engine: "fallback" }; } catch {}
-      }
-      return { error: `Notes engine unavailable: ${e instanceof Error ? e.message : e}` };
-    }
-  },
 
   /** Mid-recording metadata: mode and topic, applied at stop. */
   "POST /api/record/meta"(p, body) {
@@ -328,15 +307,24 @@ const api: Record<string, Handler> = {
   "POST /api/meeting/delete"(p, body) {
     const { id } = (body ?? {}) as { id?: string };
     if (!id) return { error: "missing id" };
-    const tryRun = (sql: string, ...args: unknown[]) => { try { db.prepare(sql).run(...(args as [])); } catch {} };
-    tryRun("DELETE FROM chunk_fts WHERE rowid IN (SELECT id FROM chunks WHERE meeting_id = ?)", id);
-    for (const t of ["chunks", "entity_mentions", "claims", "utterances", "runs", "meeting_projects", "search",
-                     "summary_versions", "corrections", "notes_versions", "correction_events"])
-      tryRun(`DELETE FROM ${t} WHERE meeting_id = ?`, id);
-    tryRun("DELETE FROM edges WHERE meeting_id = ? OR src = ? OR dst = ?", id, id, id);
-    tryRun("DELETE FROM nodes WHERE id = ?", id);
-    tryRun("DELETE FROM meetings WHERE id = ?", id);
-    tryRun("DELETE FROM nodes WHERE kind != 'meeting' AND id NOT IN (SELECT src FROM edges UNION SELECT dst FROM edges)");
+    // One transaction, real errors. The old version ran ~15 deletes each in
+    // its own try{}catch{} and returned ok:true no matter what — a partial
+    // failure silently corrupted the graph. It also deleted from corrections
+    // by a meeting_id column that table doesn't have (rules are scoped via
+    // scope='meeting:<id>'), so rules survived their meeting.
+    db.exec("BEGIN");
+    try {
+      for (const t of ["entity_mentions", "chunks", "search", "edges", "claims", "utterances", "runs",
+        "summary_versions", "notes_versions", "project_suggestions", "meeting_projects"])
+        db.prepare(`DELETE FROM ${t} WHERE meeting_id = ?`).run(id);
+      db.prepare("DELETE FROM corrections WHERE scope = ?").run(`meeting:${id}`);
+      db.prepare("DELETE FROM nodes WHERE id = ?").run(id);
+      db.prepare("DELETE FROM meetings WHERE id = ?").run(id);
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      return { error: e instanceof Error ? e.message : String(e) };
+    }
     return { ok: true };
   },
 
@@ -548,11 +536,6 @@ const api: Record<string, Handler> = {
       .all();
   },
 
-  "POST /api/person"(p, body) {
-    const { name, team, notes } = (body ?? {}) as { name?: string; team?: string; notes?: string };
-    if (!name?.trim()) return { error: "missing name" };
-    return upsertPerson(name.trim(), team, notes);
-  },
 
   "POST /api/project/person"(p, body) {
     const { project_id, person_id, name, team, remove } = (body ?? {}) as {
@@ -677,7 +660,9 @@ const api: Record<string, Handler> = {
     if (!id) return { error: "missing id" };
     const doc = db.prepare(`SELECT path FROM documents WHERE id = ?`).get(id) as { path: string | null } | undefined;
     if (!doc) return { error: "not found" };
-    if (doc.path) { try { rmSync(path.resolve(doc.path)); } catch { /* already gone */ } }
+    if (doc.path) { try { const full = path.resolve(doc.path);
+    if (!full.startsWith(DOCS_DIR + path.sep)) return { error: "path outside docs dir" };
+    rmSync(path.resolve(full)); } catch { /* already gone */ } }
     db.prepare(`DELETE FROM document_versions WHERE document_id = ?`).run(id);
     db.prepare(`UPDATE claims SET document_id = NULL WHERE document_id = ?`).run(id);
     db.prepare(`DELETE FROM documents WHERE id = ?`).run(id);
@@ -754,7 +739,8 @@ const api: Record<string, Handler> = {
   },
 
   "POST /api/todo"(p, body) {
-    const { id, done } = body as { id: number; done: boolean };
+    const { id, done } = (body ?? {}) as { id?: number; done?: boolean };
+    if (id == null) return { error: "missing id" };
     db.prepare(`UPDATE claims SET done = ? WHERE id = ? AND kind = 'action_item'`).run(done ? 1 : 0, id);
     return { ok: true };
   },
@@ -898,14 +884,7 @@ const api: Record<string, Handler> = {
     });
   },
 
-  "GET /api/corrections"() {
-    return db.prepare(`SELECT * FROM corrections ORDER BY created_at DESC`).all();
-  },
 
-  /** Live transcript so far — lets Enhance run mid-recording. */
-  "GET /api/record/transcript"() {
-    return { utterances: live?.transcript ?? [], recording: !!live, meetingId: live?.meetingId ?? null };
-  },
 
   /** Ask-me chat: grounded answers; may rewrite the notes when asked. */
   async "POST /api/chat"(p, body) {
@@ -985,13 +964,7 @@ const api: Record<string, Handler> = {
     return { ok: true, correction };
   },
 
-  "POST /api/correction/delete"(p, body) {
-    const { id } = (body ?? {}) as { id?: number };
-    if (!id) return { error: "missing id" };
-    db.prepare(`DELETE FROM corrections WHERE id = ?`).run(id);
-    return { ok: true };
-  },
-
+  
   // ── Grounded notes & handoffs ──────────────────────────────────────────
   // The outline auto-generates; handoffs never do. Everything below returns
   // segment ids so the UI can point at the transcript line behind each claim.
