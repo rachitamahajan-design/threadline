@@ -207,6 +207,19 @@ export function openDb(dir = "data"): DatabaseSync {
     );
     CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, id);
 
+    -- Speaker identification runs: one diarization job per meeting, with the
+    -- visible status the UI chip + retry read. PK = one job per meeting.
+    CREATE TABLE IF NOT EXISTS diarize_runs (
+      meeting_id TEXT PRIMARY KEY REFERENCES meetings(id),
+      job_id TEXT,
+      status TEXT NOT NULL,           -- queued | running | done | failed | skipped
+      speakers INTEGER,
+      matched INTEGER,
+      total INTEGER,
+      reason TEXT,
+      updated_at INTEGER NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_alias_norm       ON entity_aliases(norm);
     CREATE INDEX IF NOT EXISTS idx_mentions_entity  ON entity_mentions(entity_id, meeting_id);
     CREATE INDEX IF NOT EXISTS idx_mentions_meeting ON entity_mentions(meeting_id, gate);
@@ -471,6 +484,9 @@ export function openDb(dir = "data"): DatabaseSync {
       /* column already exists */
     }
   }
+
+  // Vocabulary alignment: early diarize runs wrote 'done'; the UI reads 'shipped'.
+  try { db.exec("UPDATE diarize_runs SET status = 'shipped' WHERE status = 'done'"); } catch { /* table may be fresh */ }
 
   migrateEdgesPk(db);
 

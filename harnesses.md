@@ -34,14 +34,17 @@ all **config, not code**.
 | `src/lib/reasons.ts`       | The structured vocabulary: `Outcome`, `FailureCode`, `Reason`, error classification. Imports nothing; everything imports it.                           |
 | `src/lib/config.ts`        | Typed loader for `agents.json` (budgets, retry, gates, models, pricing, logging). Code defaults everywhere — a missing config degrades, never crashes. |
 | `src/lib/harness.ts`       | `Budget` (the governor), `retry` (silent, aimed), `decideExit`, gates plumbing, `StepRecord`.                                                          |
-| `src/lib/model.ts`         | THE network boundary for meeting content. Provider resolution, per-purpose overrides, token/cost capture, silent provider failover.                    |
+| `src/lib/model.ts`         | The network boundary for meeting *text*. Provider resolution, per-purpose overrides, token/cost capture, silent provider failover.
+| `src/lib/pyai.ts`          | The second sanctioned boundary: meeting *audio* to PyAI speech surfaces (Hear stream, Recap, diarization jobs). Nothing else ships audio.
+| `src/mcp/server.ts`        | The exposure boundary, inverted: read-only receipted evidence served to local AI clients over stdio. No model calls of its own — deliberately outside this harness (nothing to budget, retry or gate); the consuming model does the reasoning. |                    |
 | `src/lib/runlog.ts`        | Failure invariance: run records written at start, finalized at exit. `recordRun` wraps every workflow.                                                 |
 | `src/lib/log.ts`           | JSON Lines log files with size-based rotation. Never throws, never logs meeting content.                                                               |
 | `src/lib/prompts.ts`       |                                                                                                                                                        |
 | `src/lib/grounding.ts`     | \                                                                                                                                                      |
 | `src/pipeline/entail.ts`   | The model-assisted entailment gate — blocking/advisory/off per config.                                                                                 |
 | `src/pipeline/grounded.ts` | The compose loop: model → parse → validate → aimed retry → prune.                                                                                      |
-| `src/pipeline/handoff.ts`  | Orchestrators (`ensureNotes`, `runHandoff`, `runCrossHandoff`) — all wrapped in `recordRun`, all fail closed.                                          |
+| `src/pipeline/handoff.ts`  | Orchestrators (`ensureNotes`, `runHandoff`, `runCrossHandoff`) — all wrapped in `recordRun`, all fail closed.
+| `src/pipeline/diarize.ts`  | Speaker identification (kind `diarize`): recordRun-wrapped; `diarize_runs` is UI chip state only, vocabulary aligned to outcomes.                                          |
 
 
 

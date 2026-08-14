@@ -125,6 +125,13 @@ export class LiveSession {
       let msg: { type: string; text?: string; utterance_id?: string; t_ms?: number; audio_ms?: number };
       try { msg = JSON.parse(String(raw)); } catch { return; }
       if (msg.type === "partial" && msg.text) {
+        // Partials were never echo-gated, so speaker bleed paraded through the
+        // live view even when the final got blocked. Them-partials also feed
+        // the recent-lines memory: they arrive BEFORE the mic's echo does.
+        if (speaker === "Them") {
+          this.themRecent.push({ text: msg.text, at: Date.now() });
+          if (this.themRecent.length > 30) this.themRecent.shift();
+        } else if (this.isEcho(msg.text)) return;
         this.emit({ type: "partial", speaker, text: msg.text, utteranceId: msg.utterance_id ?? "" });
       } else if (msg.type === "final" && msg.text?.trim()) {
         const offsetS = this.offsetBase + Math.max(0, ((msg.t_ms ?? 0) - (msg.audio_ms ?? 0)) / 1000);
@@ -134,10 +141,21 @@ export class LiveSession {
           if (this.themRecent.length > 30) this.themRecent.shift();
         }
         // Echo gate: a mic line that repeats a recent system-audio line is the
-        // speakers leaking into the mic, not the user talking. Block it.
-        if (speaker === "You" && this.isEcho(msg.text)) {
-          this.emit({ type: "status", message: `echo gate blocked a duplicated mic line` });
-          return;
+        // speakers leaking into the mic, not the user talking. Block it — and
+        // when bleed and real speech land MERGED in one utterance (no OS echo
+        // cancellation), trim the duplicated span instead of judging the whole
+        // line, so the user's actual words survive.
+        if (speaker === "You") {
+          if (this.isEcho(msg.text)) {
+            this.emit({ type: "status", message: `echo gate blocked a duplicated mic line` });
+            return;
+          }
+          const trimmed = this.trimEcho(msg.text);
+          if (trimmed !== msg.text) {
+            this.emit({ type: "status", message: "echo gate trimmed speaker bleed from a mic line" });
+            if (trimmed.split(/\s+/).length < 4) return; // nothing real left
+            msg.text = trimmed;
+          }
         }
         this.finals.push({ speaker, speaker_role: ROLE[speaker], text: msg.text, offset_s: offsetS, duration_s: durationS });
         this.emit({ type: "final", speaker, text: msg.text, offsetS, durationS });
@@ -183,6 +201,24 @@ export class LiveSession {
     return false;
   }
   private themRecent: { text: string; at: number }[] = [];
+
+  /** Remove any recent Them line that appears verbatim inside a mic line. */
+  private trimEcho(text: string): string {
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    let out = text;
+    const cutoff = Date.now() - 20_000;
+    for (const f of this.themRecent) {
+      if (f.at < cutoff || f.text.split(/\s+/).length < 6) continue;
+      const i = norm(out).indexOf(norm(f.text));
+      if (i < 0) continue;
+      // map the normalized hit back by word count — approximate but safe
+      const beforeWords = norm(out).slice(0, i).split(" ").filter(Boolean).length;
+      const dupWords = norm(f.text).split(" ").length;
+      const words = out.split(/\s+/);
+      out = [...words.slice(0, beforeWords), ...words.slice(beforeWords + dupWords)].join(" ").trim();
+    }
+    return out;
+  }
 
   /** Mode / topic chosen mid-recording; applied when the meeting is stitched. */
   pendingMode: string | null = null;

@@ -1498,6 +1498,37 @@ async function renderMcp() {
     b.addEventListener("click", () => { navigator.clipboard.writeText(copies[b.dataset.copy]); b.textContent = "Copied ✓"; }));
 }
 
+// ── Speaker identification chips: name Speaker N, or retry a failed run ──
+async function loadSpeakerChips(meetingId) {
+  const host = document.getElementById("speaker-chips");
+  if (!host) return;
+  const { run, speakers } = await api(`/api/speaker/status?id=${encodeURIComponent(meetingId)}`).catch(() => ({ run: null, speakers: [] }));
+  const unnamed = (speakers ?? []).filter((s) => /^(Speaker|Room) \d+$/.test(s.speaker));
+  let html = "";
+  if (run?.status === "running" || run?.status === "queued")
+    html = `<span class="up-chip" style="border-color:var(--thread);color:var(--thread)">🎙 Speaker identification in progress — this page isn't final yet</span>`;
+  else if (run?.status === "failed") html = `<button class="up-chip" id="diar-retry" title="${esc(run.reason ?? "")}">🎙 speaker ID failed — retry</button>`;
+  else if (unnamed.length)
+    html = unnamed.map((sp) =>
+      `<button class="up-chip diar-name" data-sp="${esc(sp.speaker)}" title="First line: ${esc(sp.first_line ?? "")}\nClick to name">🎙 ${esc(sp.speaker)} · ${sp.lines} lines — name?</button>`).join("");
+  else if (run?.status === "shipped" && run.reason) html = `<span class="up-chip" title="${esc(run.reason)}">🎙 ${esc(run.reason)}</span>`;
+  host.innerHTML = html;
+  document.getElementById("diar-retry")?.addEventListener("click", async (e) => {
+    e.target.textContent = "🎙 retrying…";
+    await fetch("/api/speaker/retry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: meetingId }) });
+    renderMeeting(meetingId);
+  });
+  host.querySelectorAll(".diar-name").forEach((b) =>
+    b.addEventListener("click", async () => {
+      const from = b.dataset.sp;
+      const to = prompt(`Who is ${from}?\nTheir first line: "${(b.title.split("\n")[0] || "").replace("First line: ", "")}"`);
+      if (!to?.trim()) return;
+      const r = await fetch("/api/speaker/rename", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meeting_id: meetingId, from, to: to.trim() }) }).then((x) => x.json());
+      if (r.error) alert(r.error); else renderMeeting(meetingId);
+    }));
+}
+
 async function renderNeedle() {
   const convs = await api("/api/needle/conversations");
   const active = state.needleId ?? convs[0]?.id ?? null;
@@ -2548,12 +2579,14 @@ async function renderMeeting(id, opts = {}) {
   // The chip row under the title: who was in it, when it ran, how long, where it files.
   const durMin = meeting.duration_minutes ?? (meeting.duration_s ? Math.round(meeting.duration_s / 60) : 0);
   const speakers = [...new Set(utterances.map((u) => u.speaker).filter(Boolean))];
+  setTimeout(() => loadSpeakerChips(id), 0);
   const chipRow = `
     <div class="chip-row" id="meta-chips">
       ${speakers.length ? `<span class="up-chip" title="${esc(speakers.join(", "))}">${icon("people", 12)}<span class="who">${esc(speakers.join(", "))}</span></span>` : ""}
       <span class="up-chip">${icon("calendar", 12)}${esc(fmtDate(meeting.started_at))} · ${esc(fmtClock(meeting.started_at))}</span>
       ${durMin ? `<span class="up-chip">${icon("hourglass", 12)}${durMin} min</span>` : ""}
       <button class="up-chip" id="edit-time" title="Edit the date, start time and duration">${icon("clock", 12)}Edit time</button>
+      <span id="speaker-chips"></span>
       <button class="up-chip" id="chip-topic" title="File this meeting in a topic">${icon("folder-plus", 12)}Add to topic</button>
     </div>`;
 
@@ -4564,6 +4597,9 @@ async function showNamingModal(meetingId) {
   src.onmessage = (ev) => {
     let e; try { e = JSON.parse(ev.data); } catch { return; }
     if (e.type === "stopped" && e.exit !== "failed" && e.exit !== "discarded") showNamingModal(e.meetingId);
+    // Diarization lands ~a minute after stop — re-render so the speaker
+    // chips and the substituted transcript appear without a manual refresh.
+    else if (e.type === "status" && /speakers identified|speaker ID failed/.test(e.message ?? "") && state.meetingId) render();
   };
 })();
 

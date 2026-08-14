@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 /** Every closed-loop workflow the app runs. Budgets and run records key on this. */
-export const WORKFLOW_KINDS = ["process-meeting", "notes", "handoff", "cross-handoff", "ask", "needle", "chat"] as const;
+export const WORKFLOW_KINDS = ["process-meeting", "notes", "handoff", "cross-handoff", "ask", "needle", "chat", "diarize"] as const;
 export type WorkflowKind = (typeof WORKFLOW_KINDS)[number];
 
 export type BudgetSpec = { units: number; ms: number };
@@ -77,6 +77,7 @@ const DEFAULT_BUDGETS: Record<WorkflowKind, BudgetSpec> = {
   handoff: { units: 12, ms: 150_000 },
   "cross-handoff": { units: 16, ms: 180_000 },
   ask: { units: 3, ms: 15_000 },
+  diarize: { units: 2, ms: 600_000 }, // up to two batch jobs (hybrid); audio-length dominates
   needle: { units: 4, ms: 20_000 },
   chat: { units: 4, ms: 30_000 },
 };
