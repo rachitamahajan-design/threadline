@@ -74,13 +74,14 @@ const apiKey = await ensureApiKey().catch((e: Error) => {
 });
 let live: LiveSession | null = null;
 
-// Global hotkey daemon (double-Fn toggles recording). Best-effort companion
-// process; absence or permission problems must never affect the server.
+// Floating recording panel — a native always-on-top mini window that appears
+// while a take is live (any start path) with a timer and Stop. Best-effort
+// companion process; its absence must never affect the server.
 import { spawn as spawnProc } from "node:child_process";
-if (existsSync("capture/threadline-hotkey")) {
-  const hk = spawnProc("capture/threadline-hotkey", [], { stdio: ["pipe", "ignore", "pipe"] });
-  hk.stderr?.on("data", (d: Buffer) => console.log(d.toString().trim()));
-  hk.on("error", () => console.log("[hotkey] failed to start"));
+if (existsSync("capture/threadline-panel")) {
+  const panel = spawnProc("capture/threadline-panel", [], { stdio: ["pipe", "ignore", "pipe"] });
+  panel.stderr?.on("data", (d: Buffer) => console.log(d.toString().trim()));
+  panel.on("error", () => console.log("[panel] failed to start"));
 }
 const sseClients = new Set<(e: LiveEvent) => void>();
 const recentEvents: LiveEvent[] = [];
@@ -311,8 +312,8 @@ const api: Record<string, Handler> = {
     return await stopRecording();
   },
 
-  // One route, every hotkey: starts when idle, stops when recording. Both the
-  // double-Fn native daemon and the macOS Shortcuts script curl this, so the
+  // One route, every trigger: starts when idle, stops when recording. The
+  // macOS Shortcuts script curls this, so the
   // response carries both vocabularies ({action} and {recording}). Meetings
   // started here get a default title and are renamed from their own content
   // after processing (autoTitle in extract.ts).
@@ -453,7 +454,7 @@ const api: Record<string, Handler> = {
   },
 
   "GET /api/record/state"() {
-    return { recording: !!live, meetingId: live?.meetingId ?? null, title: live?.title ?? null };
+    return { recording: !!live, meetingId: live?.meetingId ?? null, title: live?.title ?? null, startedAt: live?.startedAt ?? null };
   },
 
   // The MCP setup page needs this machine's absolute server path + tool list.
@@ -461,12 +462,32 @@ const api: Record<string, Handler> = {
     return { server_path: path.resolve("src/mcp/server.ts"), tools: MCP_TOOLS };
   },
 
-  // The in-app hotkey guide needs this machine's absolute script path and
-  // whether the double-Fn daemon is actually alive.
+  // The user's own identity — first/last name plus a small avatar kept as a
+  // data URI in the meta kv table, rendered wherever the product shows "you".
+  "GET /api/profile"() {
+    const row = db.prepare("SELECT value FROM meta WHERE key = 'profile'").get() as { value: string } | undefined;
+    return row ? JSON.parse(row.value) : { first_name: null, last_name: null, photo: null };
+  },
+
+  "POST /api/profile"(p, body) {
+    const { first_name, last_name, photo } = (body ?? {}) as { first_name?: string; last_name?: string; photo?: string | null };
+    if (photo && (!/^data:image\//.test(photo) || photo.length > 500_000))
+      return { error: "photo must be a data:image/* URI under 500KB" };
+    const value = JSON.stringify({
+      first_name: (first_name ?? "").trim().slice(0, 80) || null,
+      last_name: (last_name ?? "").trim().slice(0, 80) || null,
+      photo: photo || null,
+    });
+    db.prepare("INSERT INTO meta (key, value) VALUES ('profile', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(value);
+    return { ok: true };
+  },
+
+  // The in-app shortcut guide needs this machine's absolute script path and
+  // whether the floating-panel companion is built.
   "GET /api/hotkey/info"() {
     return {
       script: path.resolve("scripts/record-toggle.sh"),
-      daemon: existsSync("capture/threadline-hotkey"),
+      daemon: existsSync("capture/threadline-panel"),
     };
   },
 

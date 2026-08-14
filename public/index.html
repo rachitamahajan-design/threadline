@@ -248,12 +248,8 @@
   #nav-toggle { display: none; }
 
   /* ── the record button: one component, everywhere ── */
-  /* the header pill hides at rest — recording starts via double-Fn or in-page
-     buttons; it surfaces only as the Stop control while a take is live */
-  #rec { display: none; }
-  #rec.on { display: inline-flex; }
-  #hotkey-help.rec-live { border-color: var(--rec); color: var(--rec); animation: recpulse 1.6s ease-in-out infinite; }
-  @keyframes recpulse { 0%,100% { box-shadow: 0 0 0 0 rgb(224 68 62 / .35); } 50% { box-shadow: 0 0 0 6px rgb(224 68 62 / 0); } }
+  /* the header pill is always visible: Record at rest, the red Stop control
+     while a take is live (however it was started) */
   .rec-btn {
     display: inline-flex; align-items: center; gap: 8px; flex: none;
     border: 1px solid var(--glass-border); border-radius: 999px;
@@ -346,13 +342,15 @@
   .side-link.active > .ic { color: var(--thread); }
   .side-empty { padding: 2px 12px; font-size: 12.5px; color: var(--ink-3); }
 
-  /* profile block, pinned bottom */
-  .profile { display: flex; align-items: center; gap: 9px; padding: 4px 6px 8px; }
+  /* profile block, pinned bottom — click opens Profile / Developer docs */
+  .profile { display: flex; align-items: center; gap: 9px; padding: 4px 6px 8px; cursor: pointer; border-radius: 10px; transition: background .14s; }
+  .profile:hover { background: var(--hover); }
   .avatar {
     width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-content: center;
     background: var(--grad-blue); color: var(--thread); font-weight: 700; font-size: 12.5px;
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--glass-border); overflow: hidden;
   }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
   .pname { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #google-btn {
     display: flex; align-items: center; gap: 9px; width: 100%;
@@ -1492,7 +1490,7 @@
     Threadline
   </div>
   <span class="hspacer"></span>
-  <button id="hotkey-help" class="icon-btn bordered" style="width:auto;padding:0 13px 0 10px;gap:7px" title="Global recording — double-tap Fn to record from any app (click for setup)" aria-label="Global recording guide"><svg class="ic" width="19" height="19"><use href="#i-needle-rec"/></svg><span style="font-size:13.5px;font-weight:600">Record</span></button>
+  <button id="hotkey-help" class="icon-btn bordered" style="width:auto;padding:0 13px 0 10px;gap:7px" title="Set up a global shortcut — record from any app via the macOS Shortcuts app" aria-label="Set up global recording shortcut"><svg class="ic" width="19" height="19"><use href="#i-needle-rec"/></svg><span style="font-size:13.5px;font-weight:600">Set-up Shortcut</span></button>
   <button id="pip-btn" class="icon-btn bordered" title="Pop out the floating companion" aria-label="Pop out the floating companion" style="display:none"><svg class="ic" width="17" height="17"><use href="#i-pip"/></svg></button>
   <button id="rec" class="rec-btn">Record</button>
 </header>
@@ -1510,16 +1508,15 @@
       <button class="side-link" data-view="meetings" title="Meetings"><svg class="ic" width="17" height="17"><use href="#i-doc"/></svg><span class="lbl">Meetings</span></button>
       <button class="side-link" data-view="graph" title="Brain"><svg class="ic" width="17" height="17"><use href="#i-brain"/></svg><span class="lbl">Brain</span></button>
       <button class="side-link" data-view="needle" title="Needle"><svg class="ic" width="17" height="17"><use href="#i-needle"/></svg><span class="lbl">Needle</span></button>
-      <button class="side-link" data-view="mcp" title="Connect your AI"><svg class="ic" width="17" height="17"><use href="#i-needle"/></svg><span class="lbl">MCP setup</span></button>
     </div>
     <div class="side-section">
       <div class="side-head"><span class="lbl"><svg class="ic" width="13" height="13" aria-hidden="true"><use href="#i-thread"/></svg> Threads</span> <button id="add-project" title="New thread" aria-label="New thread"><svg class="ic" width="15" height="15"><use href="#i-plus"/></svg></button></div>
       <div id="project-list"></div>
     </div>
     <div class="side-foot">
-      <div class="profile">
-        <div class="avatar" aria-hidden="true">R</div>
-        <div class="pname">Rachita</div>
+      <div class="profile" id="profile-chip" role="button" tabindex="0" title="Profile & more">
+        <div class="avatar" id="profile-avatar" aria-hidden="true">R</div>
+        <div class="pname" id="profile-name">Rachita</div>
         <span style="flex:1"></span>
         <button id="theme-btn" class="icon-btn" title="Appearance" aria-label="Appearance" style="width:26px;height:26px"><svg class="ic" width="15" height="15"><use href="#i-sun"/></svg></button>
       </div>
@@ -1645,7 +1642,11 @@ function openPopover(anchor, html, wire, extraClass = "") {
   // keep the panel on screen on narrow viewports
   const left = Math.max(10, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 12));
   pop.style.left = `${left}px`;
-  pop.style.top = `${r.bottom + window.scrollY + 6}px`;
+  // open upward when the anchor sits near the bottom of the viewport (e.g. the identity chip)
+  const below = r.bottom + pop.offsetHeight + 6 > document.documentElement.clientHeight;
+  pop.style.top = below
+    ? `${Math.max(10, r.top + window.scrollY - pop.offsetHeight - 6)}px`
+    : `${r.bottom + window.scrollY + 6}px`;
   pop.style.visibility = "";
   const close = () => {
     pop.remove();
@@ -1828,6 +1829,113 @@ function projectModal(onCreated) {
   modal.querySelector("#pm-name").focus();
 }
 
+// ── Profile: the user's own name + avatar, shown wherever the product says "you" ──
+let PROFILE = { first_name: null, last_name: null, photo: null };
+
+async function loadProfile() {
+  PROFILE = await api("/api/profile").catch(() => PROFILE);
+  applyProfile();
+}
+
+function applyProfile() {
+  const first = PROFILE.first_name || "Rachita"; // pre-profile default keeps the original look
+  const full = [PROFILE.first_name, PROFILE.last_name].filter(Boolean).join(" ") || first;
+  $("#profile-name").textContent = first;
+  $("#profile-chip").title = `${full} — Profile & more`;
+  const av = $("#profile-avatar");
+  if (PROFILE.photo) av.innerHTML = `<img src="${PROFILE.photo}" alt="">`;
+  else { av.innerHTML = ""; av.textContent = (first[0] || "?").toUpperCase(); }
+}
+
+$("#profile-chip").addEventListener("click", (e) => {
+  if (e.target.closest("#theme-btn")) return; // the theme cycle lives inside the chip row
+  openMenuPopover($("#profile-chip"), [
+    { id: "profile", icon: "person", label: "Profile", run: profileModal },
+    { id: "devdocs", icon: "doc", label: "Developer docs", run: () => { state.view = "devdocs"; state.meetingId = null; state.projectId = null; render(); } },
+  ]);
+});
+$("#profile-chip").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.target.click(); } });
+
+/** Downscale to a 128px cover-cropped JPEG data URI so the avatar stays tiny. */
+function shrinkImage(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const S = 128;
+      const c = document.createElement("canvas");
+      c.width = S; c.height = S;
+      const side = Math.min(img.width, img.height);
+      c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);
+      URL.revokeObjectURL(img.src);
+      res(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(img.src); rej(new Error("unreadable image")); };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function profileModal() {
+  document.getElementById("profile-modal")?.remove();
+  const modal = document.createElement("div");
+  modal.id = "profile-modal";
+  modal.className = "tl-modal";
+  let photo = PROFILE.photo;
+  modal.innerHTML = `<div class="box" style="max-width:440px">
+    <h2>Profile</h2>
+    <div style="display:flex;align-items:center;gap:14px;margin:6px 0 14px">
+      <div class="avatar" id="pf-preview" style="width:56px;height:56px;font-size:22px"></div>
+      <button class="copybtn" id="pf-photo-btn">Choose photo</button>
+      <button class="copybtn" id="pf-photo-clear">Remove</button>
+      <input type="file" id="pf-photo" accept="image/*" style="display:none">
+    </div>
+    <label>First name</label>
+    <input type="text" id="pf-first" placeholder="First name">
+    <label>Last name</label>
+    <input type="text" id="pf-last" placeholder="Last name">
+    <div class="actions">
+      <span style="flex:1"></span>
+      <button class="copybtn" id="pf-cancel">Cancel</button>
+      <button class="copybtn" id="pf-save" style="background:var(--ink);color:var(--bg)">Save</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  const paint = () => {
+    const pv = modal.querySelector("#pf-preview");
+    if (photo) pv.innerHTML = `<img src="${photo}" alt="">`;
+    else { pv.innerHTML = ""; pv.textContent = ((modal.querySelector("#pf-first").value.trim() || "?")[0]).toUpperCase(); }
+  };
+  modal.querySelector("#pf-first").value = PROFILE.first_name ?? "";
+  modal.querySelector("#pf-last").value = PROFILE.last_name ?? "";
+  paint();
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+  modal.querySelector("#pf-cancel").addEventListener("click", () => modal.remove());
+  modal.querySelector("#pf-photo-btn").addEventListener("click", () => modal.querySelector("#pf-photo").click());
+  modal.querySelector("#pf-photo-clear").addEventListener("click", () => { photo = null; paint(); });
+  modal.querySelector("#pf-photo").addEventListener("change", async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    photo = await shrinkImage(f).catch(() => { alert("Couldn't read that image"); return photo; });
+    paint();
+  });
+  modal.querySelector("#pf-first").addEventListener("input", paint);
+  const save = async () => {
+    const body = {
+      first_name: modal.querySelector("#pf-first").value.trim(),
+      last_name: modal.querySelector("#pf-last").value.trim(),
+      photo,
+    };
+    const r = await fetch("/api/profile", { method: "POST", body: JSON.stringify(body) }).then((x) => x.json());
+    if (r.error) return alert(r.error);
+    modal.remove();
+    await loadProfile();
+    render(); // the Home greeting carries the name too
+    showToast("Profile updated");
+  };
+  modal.querySelector("#pf-save").addEventListener("click", save);
+  modal.querySelector("#pf-first").addEventListener("keydown", (e) => { if (e.key === "Enter") save(); });
+  modal.querySelector("#pf-first").focus();
+}
+
 async function loadSidebar() {
   const projects = await api("/api/projects");
   $("#project-list").innerHTML = projects.map((p) => `
@@ -1853,14 +1961,14 @@ async function render() {
   if (state.view === "meetings") return renderMeetings();
   if (state.view === "graph") return renderGraph();
   if (state.view === "needle") return renderNeedle();
-  if (state.view === "mcp") return renderMcp();
+  if (state.view === "mcp" || state.view === "devdocs") return renderDevDocs();
   if (state.view === "project") return renderProject(state.projectId);
   if (state.view === "doc") return renderDoc(state.docId);
 }
 
 // ── Needle: a conversation threaded through every meeting ────────────────
-// ── MCP setup: connect your AI to this brain ─────────────────────────────
-async function renderMcp() {
+// ── Developer docs: MCP setup & integration reference ────────────────────
+async function renderDevDocs() {
   const info = await api("/api/mcp/info").catch(() => ({ server_path: "src/mcp/server.ts", tools: [] }));
   // shell-quote the path — spaces (like "py hack") would split it into two args
   const shPath = /[\s'"$`\\]/.test(info.server_path) ? `"${info.server_path.replace(/(["$`\\])/g, "\\$1")}"` : info.server_path;
@@ -1871,8 +1979,10 @@ async function renderMcp() {
       <pre style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:12px;overflow-x:auto;margin:0;white-space:pre-wrap">${esc(content)}</pre>
       <button class="copybtn" data-copy="${id}">Copy</button>
     </div>`;
-  main.innerHTML = `<h1>Connect your AI</h1>
-    <div class="sub">Give your AI — Claude, Cursor, any MCP client — live access to this brain — search, claims, entities, receipts. Runs locally over stdio, needs no API keys, and never exposes raw transcripts: evidence only.</div>
+  main.innerHTML = `<h1>Developer docs</h1>
+    <div class="sub">Technical setup and integration reference for this brain.</div>
+    <div class="card"><h2>Connect your AI (MCP)</h2>
+      <div class="t-meta">Give your AI — Claude, Cursor, any MCP client — live access to this brain — search, claims, entities, receipts. Runs locally over stdio, needs no API keys, and never exposes raw transcripts: evidence only.</div></div>
     <div class="card"><h2>Claude Code</h2>
       <div class="t-meta" style="margin-bottom:8px">Run once in any terminal, then ask Claude about your meetings in any session. Verify with <code>/mcp</code>.</div>
       ${codeBox("cmd", cmd)}</div>
@@ -2791,7 +2901,7 @@ async function renderToday() {
   const open = todos.filter((t) => !t.done);
   const mins = Math.round((stats?.seconds ?? 0) / 60);
   main.innerHTML = `
-    <h1>${greeting()}, Rachita</h1>
+    <h1>${greeting()}, ${esc(PROFILE.first_name || "Rachita")}</h1>
     <div class="sub">${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
     ${searchPill()}
     <div class="stats">
@@ -3384,7 +3494,6 @@ function setRecordingUI(on) {
   recBtn.classList.toggle("on", on);          // .rec-btn.on = red pill + pulsing dot
   recBtn.classList.toggle("recording", on);
   recBtn.disabled = false;
-  $("#hotkey-help")?.classList.toggle("rec-live", on);
 }
 
 /** Project tags on the meeting: add/remove, picked from the projects list.
@@ -5437,18 +5546,26 @@ async function renderGraph() {
     return { blob, canvas: c };
   }
 
-  shareBtn.addEventListener("click", async () => {
-    const q = $("#brain-q").value.trim();
-    const sub = ns.filter((n) => spot?.has(n.id));
-    if (!q || !sub.length || shareBtn.disabled) return;
-    shareBtn.disabled = true;
-    const busy = (t) => { shareBtn.textContent = t; };
+  /** One node and everything threaded straight to it. */
+  const hood = (n) => {
+    const out = [n];
+    for (const e of es) {
+      if (e.a === n && !out.includes(e.b)) out.push(e.b);
+      else if (e.b === n && !out.includes(e.a)) out.push(e.a);
+    }
+    return out;
+  };
+
+  /** The shared weave: summarize, render the loop, offer the exports. */
+  async function weaveShare(anchor, q, sub, summaryHint, busy, done) {
     busy("Summarizing…");
-    let summary = "";
-    try {
-      const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
-      summary = r?.summary || (r?.answer ?? r?.points ?? []).map((p) => p.text).join(" ");
-    } catch {}
+    let summary = summaryHint || "";
+    if (!summary) {
+      try {
+        const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
+        summary = r?.summary || (r?.answer ?? r?.points ?? []).map((p) => p.text).join(" ");
+      } catch {}
+    }
     if (!summary) {
       const mts = sub.filter((n) => n.kind === "meeting").map((n) => n.label);
       summary = `Threads in this brain touching “${q}”: ${mts.join(" · ") || sub.map((n) => n.label).join(" · ")}.`;
@@ -5457,7 +5574,7 @@ async function renderGraph() {
       const { blob, canvas: still } = await brainSnippetGif(q, sub, summary, busy);
       const slug = q.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "spotlight";
       const url = URL.createObjectURL(blob);
-      openPopover(shareBtn, `
+      openPopover(anchor, `
         <div class="pop-title">${icon("share", 13)}Share this spotlight</div>
         <div style="width:300px;border-radius:12px;border:1px solid var(--glass-border);overflow:hidden">
           <img src="${url}" alt="Animated brain snippet" style="display:block;width:100%"></div>
@@ -5485,8 +5602,27 @@ async function renderGraph() {
     } catch (err) {
       showToast("Couldn't weave the snippet — try again?");
       console.error(err);
-    } finally { shareIdle(); }
+    } finally { done(); }
+  }
+
+  shareBtn.addEventListener("click", () => {
+    const q = $("#brain-q").value.trim();
+    const sub = ns.filter((n) => spot?.has(n.id));
+    if (!q || !sub.length || shareBtn.disabled) return;
+    weaveShare(shareBtn, q, sub, "",
+      (t) => { shareBtn.disabled = true; shareBtn.textContent = t; }, shareIdle);
   });
+
+  /** Panel buttons share a node's own neighborhood. */
+  function wirePanelShare(node, summaryHint) {
+    const btn = $("#gp-share");
+    if (!btn || !node) return;
+    const orig = btn.textContent;
+    btn.addEventListener("click", () =>
+      weaveShare(btn, node.label, hood(node), summaryHint,
+        (t) => { btn.disabled = true; btn.textContent = t; },
+        () => { btn.disabled = false; btn.textContent = orig; }));
+  }
 
   async function ctxActions(nodeId) {
     const r = await api(`/api/node/context?id=${encodeURIComponent(nodeId)}`);
@@ -5521,7 +5657,8 @@ async function renderGraph() {
         </div>
         <button id="gp-close" style="margin-left:auto;flex:none;border:1px solid var(--line);background:var(--surface);width:26px;height:26px;border-radius:8px;cursor:pointer;color:var(--ink-3);font-size:14px;line-height:1">✕</button>
       </div>
-      <pre style="white-space:pre-wrap;font:12px/1.55 ui-monospace,monospace;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:16px;max-height:52vh;overflow-y:auto">${esc(r.markdown)}</pre>
+      <button class="copybtn" style="margin:12px 0 0" id="gp-share">${icon("share", 13)} Share GIF</button>
+      <pre style="white-space:pre-wrap;font:12px/1.55 ui-monospace,monospace;color:var(--ink-2);background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-top:14px;max-height:52vh;overflow-y:auto">${esc(r.markdown)}</pre>
       <div style="display:flex;gap:8px;margin-top:14px">
         <button class="copybtn" style="margin:0" id="gp-copy">Copy .md for your LLM</button>
         <button class="copybtn" style="margin:0" id="gp-dl">Download</button>
@@ -5530,6 +5667,7 @@ async function renderGraph() {
     $("#gp-close").addEventListener("click", () => { selected = null; panel.classList.remove("open"); });
     $("#gp-copy").addEventListener("click", (e) => window.__brainCtxCopy(n.id, e.currentTarget));
     $("#gp-dl").addEventListener("click", () => window.__brainCtxDownload(n.id));
+    wirePanelShare(n, "");
   }
 
   async function openPanel(id) {
@@ -5547,6 +5685,7 @@ async function renderGraph() {
         </div>
         <button id="gp-close" style="margin-left:auto;flex:none;border:1px solid var(--line);background:var(--surface);width:26px;height:26px;border-radius:8px;cursor:pointer;color:var(--ink-3);font-size:14px;line-height:1">✕</button>
       </div>
+      <button class="copybtn" style="margin:12px 0 0" id="gp-share">${icon("share", 13)} Share GIF</button>
       ${meeting.summary ? `<div style="margin-top:20px"><div class="gp-k">Summary</div><div style="font-size:13.5px;line-height:1.6">${esc(meeting.summary)}</div></div>` : ""}
       <div style="margin-top:22px"><div class="gp-k">Pending · by stakeholder</div>
       ${Object.keys(byOwner).length ? Object.entries(byOwner).map(([owner, items]) => `
@@ -5576,6 +5715,7 @@ async function renderGraph() {
     $("#gp-open").addEventListener("click", () => { state.meetingId = id; render(); });
     $("#gp-copy").addEventListener("click", (e) => window.__brainCtxCopy(id, e.currentTarget));
     $("#gp-dl").addEventListener("click", () => window.__brainCtxDownload(id));
+    wirePanelShare(byId[id], meeting.summary ?? "");
   }
 
   $("#ctx-md").addEventListener("click", (e) => {
@@ -5594,14 +5734,11 @@ recBtn.addEventListener("click", async () => {
   try {
   if (!recording) {
     // No pre-record dialog: naming happens at stop, prefilled from the
-    // conversation itself. Starting is one click / one hotkey.
+    // conversation itself. Starting is one click / one shortcut press.
     await startRecording();
   } else await stopRecording();
   } catch (err) {
-    recording = false;
-    recBtn.disabled = false;
-    recBtn.textContent = "Record";
-    recBtn.classList.remove("recording");
+    setRecordingUI(false);
     console.error("record click failed:", err);
     alert(`Recording failed: ${err.message}\n\nMake sure you opened http://localhost:4640 (served by \`npm run dev\`), not the file directly or another preview server.`);
   }
@@ -5612,10 +5749,8 @@ async function startRecording(title) {
   if (!resp.ok) throw new Error(`server responded ${resp.status}`);
   const r = await resp.json();
   if (r.error) { alert(r.error); return false; }
-  recording = true;
+  setRecordingUI(true);
   recTitle = title;
-  recBtn.textContent = "Stop & stitch";
-  recBtn.classList.add("recording");
   $("#pip-btn").style.display = "";
   state.meetingId = r.meetingId;
   renderMeeting(r.meetingId, { live: true });
@@ -5628,10 +5763,7 @@ async function stopRecording() {
   recBtn.textContent = "Stitching…";
   recBtn.disabled = true;
   const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
-  recording = false;
-  recBtn.disabled = false;
-  recBtn.textContent = "Record";
-  recBtn.classList.remove("recording");
+  setRecordingUI(false);
   $("#pip-btn").style.display = "none";
   evtSource?.close();
   try { pipWin?.close(); } catch (e) {}
@@ -5659,7 +5791,7 @@ async function openCompanion(title, manual) {
   } catch (e) {
     pipWin = null;
     if (manual) alert("Couldn't open the floating window: " + (e && e.message ? e.message : e));
-    const b = $("#popout-btn");
+    const b = $("#pip-btn");
     if (b) { b.style.color = "var(--thread)"; b.style.borderColor = "var(--thread)"; }
     return; // needs a fresh click — the Pop out button provides one
   }
@@ -5785,22 +5917,18 @@ async function checkUpcomingNotifications() {
 }
 setInterval(checkUpcomingNotifications, 30_000);
 
-// If a recording is started/stopped from outside (the double-Fn hotkey),
-// the page notices within a few seconds and syncs its UI.
+// If a recording is started/stopped from outside (the global Shortcut, the
+// native panel, another tab), the page notices within a few seconds and syncs.
 setInterval(async () => {
   const s = await api("/api/record/state").catch(() => null);
   if (!s) return;
   if (s.recording && !recording) {
-    recording = true;
+    setRecordingUI(true);
     recTitle = s.title ?? "Recording";
-    recBtn.textContent = "Stop";
-    recBtn.classList.add("recording");
     $("#pip-btn").style.display = "";
     if (s.meetingId) { state.meetingId = s.meetingId; renderMeeting(s.meetingId, { live: true }); liveMetaBar(); }
   } else if (!s.recording && recording && !recBtn.disabled) {
-    recording = false;
-    recBtn.textContent = "Record";
-    recBtn.classList.remove("recording");
+    setRecordingUI(false);
     $("#pip-btn").style.display = "none";
     evtSource?.close();
     try { pipWin?.close(); } catch (e) {}
@@ -5809,23 +5937,15 @@ setInterval(async () => {
   }
 }, 4000);
 
-// ── Hotkey guide (⌨ in the header): both record-from-anywhere methods ────
+// ── Shortcut guide (Set-up Shortcut in the header) ────
 $("#hotkey-help").addEventListener("click", async () => {
   const info = await api("/api/hotkey/info").catch(() => ({ script: "scripts/record-toggle.sh", daemon: false }));
   document.getElementById("hotkey-modal")?.remove();
   document.body.insertAdjacentHTML("beforeend", `
     <div class="tl-modal" id="hotkey-modal"><div class="box" style="max-width:560px">
-      <h2>Global recording</h2>
-      <div class="t-meta" style="margin-bottom:14px">Start or stop recording from any app — Zoom, Slack, anywhere — without switching to this window. Two ways to set it up; both show notifications for every step: ● Recording · ■ Stopped — stitching · ✓ Saved with the meeting's name.</div>
+      <h2>Global recording shortcut</h2>
+      <div class="t-meta" style="margin-bottom:14px">Start or stop recording from any app — Zoom, Slack, anywhere — without switching to this window. One key combo toggles it; notifications narrate every step: ● Recording · ■ Stopped — stitching · ✓ Saved with the meeting's name. While a take is live, a small floating panel${info.daemon ? "" : " <span class='pill block'>panel not built — run npm run build:capture</span>"} stays on top of every app with the timer and a Stop button.</div>
 
-      <div style="font-weight:650;margin-bottom:4px">1 · Double-tap the Fn key ${info.daemon ? "" : "<span class='pill block'>daemon not built</span>"}</div>
-      <div class="t-meta" style="margin-bottom:12px;line-height:1.7">
-        Zero setup if your machine cooperates. Two prerequisites:<br>
-        · <b>Accessibility</b> permission for the app that runs <code>npm run dev</code> (macOS prompts on first launch)<br>
-        · System Settings → Keyboard → “Press 🌐 key to” must be <b>Do Nothing</b> (default is often Show Emoji; a logout may be needed after changing)
-      </div>
-
-      <div style="font-weight:650;margin-bottom:4px">2 · Your own key combo (any key, any machine)</div>
       <ol style="margin:0 0 8px 18px;line-height:1.9;font-size:14px">
         <li>macOS <b>Shortcuts</b> app → <b>+</b> new Shortcut → add <b>Run Shell Script</b>, paste:
           <div style="display:flex;gap:8px;margin-top:6px;align-items:center">
@@ -5844,7 +5964,7 @@ $("#hotkey-help").addEventListener("click", async () => {
   modal.addEventListener("mousedown", (e) => { if (e.target === modal) modal.remove(); });
 });
 
-// ── Post-stop naming (works for button, double-Fn hotkey, or another tab) ──
+// ── Post-stop naming (works for button, global Shortcut, or another tab) ──
 // The stopped SSE event fires AFTER processing, so the content-derived
 // auto-name already exists and becomes the prefill.
 function namedAlready(mid) {
@@ -6101,7 +6221,7 @@ palInput.addEventListener("keydown", async (e) => {
     el.addEventListener("click", () => palGoto(el.dataset.pmid, el.dataset.poff)));
 });
 
-render();
+loadProfile().finally(() => render()); // profile first, so the greeting carries the right name
 </script>
 </body>
 </html>
