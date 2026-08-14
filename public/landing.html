@@ -520,6 +520,100 @@
   }
   .gate-note .lock { color: var(--thread); flex: none; margin-top: 1px; }
 
+  /* ---------- scene: type your own notes ---------- */
+  .editor-card { padding: 0; }
+  .editor-doc { padding: 16px 20px 8px; font-size: 14px; line-height: 1.65; min-height: 150px; }
+  .own-line { margin: 8px 0; }
+  .own-line.h { font-weight: 650; font-size: 15px; }
+  .own-line .type-wrap {
+    display: inline-block;
+    overflow: hidden;
+    white-space: nowrap;
+    vertical-align: bottom;
+    max-width: var(--reveal, 100%);
+  }
+  .woven-line {
+    margin: 12px 0 4px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--thread-soft);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity .45s ease, transform .45s ease;
+  }
+  .woven-line.in { opacity: 1; transform: none; }
+  .woven-line .lt { font-weight: 550; font-size: 13.5px; }
+  .woven-line .receipt-chip { margin-top: 6px; }
+  .editor-foot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 12px 20px 18px;
+    border-top: 1px solid var(--line);
+  }
+  .structure-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    background: var(--card-solid);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 13px;
+    box-shadow: var(--shadow-soft);
+    transition: color .2s, border-color .2s, transform .2s;
+  }
+  .structure-btn.hot { color: var(--thread); border-color: var(--thread); transform: translateY(-1px); }
+  .editor-foot .hint { font-size: 12px; color: var(--ink-3); }
+
+  /* ---------- scene: meeting modes ---------- */
+  .modes-card { padding: 20px; display: grid; gap: 16px; }
+  .mode-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mode-pill {
+    border: 1px solid var(--line);
+    background: var(--card-solid);
+    color: var(--ink-2);
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 7px 14px;
+    transition: color .2s, border-color .2s, background .2s, transform .2s;
+  }
+  .mode-pill.on {
+    color: var(--thread);
+    border-color: var(--thread);
+    background: var(--thread-soft);
+    transform: translateY(-1px);
+  }
+  .mode-sections { display: grid; gap: 8px; min-height: 132px; align-content: start; }
+  .mode-sections .ms {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13.5px;
+    color: var(--ink-2);
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: opacity .35s ease, transform .35s ease;
+  }
+  .mode-sections .ms.in { opacity: 1; transform: none; }
+  .mode-sections .ms i {
+    width: 22px; height: 22px;
+    border-radius: 7px;
+    flex: none;
+    background: var(--thread-soft);
+    color: var(--thread);
+    display: grid;
+    place-items: center;
+    font-style: normal;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .mode-note { font-size: 12px; color: var(--ink-3); }
+
   /* ---------- scene: todos ---------- */
   .todo-row {
     display: grid;
@@ -693,7 +787,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .word, .journey-word span, .tilt, .transcript-card, .bubble.needle { transform: none !important; opacity: 1 !important; filter: none !important; }
+    .word, .journey-word span, .tilt, .transcript-card, .bubble.needle, .woven-line, .mode-sections .ms { transform: none !important; opacity: 1 !important; filter: none !important; }
     .hero-hint .stem, .flow-arrow .lane i, .caret { animation: none; }
     #needle { display: none; }
   }
@@ -738,6 +832,8 @@
   <div class="links">
     <a href="#local">Local-first</a>
     <a href="#receipts">Receipts</a>
+    <a href="#type">Your notes</a>
+    <a href="#modes">Modes</a>
     <a href="#todos">To-dos</a>
     <a href="#graph">Graph</a>
     <a href="#ask">Needle</a>
@@ -848,6 +944,60 @@
               <div class="ts-row" data-ts="2"><span class="who">Maya</span><div>“I'll draft the comparison table before launch.” <span class="ts-time">27:44</span></div></div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TYPE YOUR OWN NOTES ============ -->
+  <section class="scene" id="type" data-len="230">
+    <div class="pin">
+      <div class="journey-word"><span data-journey>in your words</span></div>
+      <div class="pin-inner split">
+        <div>
+          <div class="kicker">Type your own notes</div>
+          <h2 class="headline serif" data-words>Your half-sentences, woven into the record.</h2>
+          <p class="lede" data-words data-stagger="1">The notes doc is yours — type before, during or after the call. Hit “Structure my notes” and Threadline rebuilds the readout around what you wrote, transcript receipts included. Nothing you typed gets lost.</p>
+        </div>
+        <div class="tilt-space">
+          <div class="glass tilt editor-card" data-tilt data-pose="left">
+            <div class="card-head"><h3>Pricing call — your notes</h3><span class="tag">yours</span></div>
+            <div class="editor-doc">
+              <div class="own-line h" data-own="0"><span class="type-wrap">Pricing call — prep</span><span class="caret"></span></div>
+              <div class="own-line" data-own="1"><span class="type-wrap">ask about the enterprise tier??</span><span class="caret"></span></div>
+              <div class="own-line" data-own="2"><span class="type-wrap">maya sounded unsure re: rollout speed</span><span class="caret"></span></div>
+              <div class="woven-line" id="woven-line">
+                <div class="lt">Enterprise tier is still open — Maya owns pricing it by next sprint.</div>
+                <button class="receipt-chip">¶ 18:20 · your note + transcript</button>
+              </div>
+            </div>
+            <div class="editor-foot">
+              <span class="structure-btn" id="structure-btn">☰ Structure my notes</span>
+              <span class="hint">your lines + what was said, one thread</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MEETING MODES ============ -->
+  <section class="scene" id="modes" data-len="240">
+    <div class="pin">
+      <div class="journey-word"><span data-journey>pick a mode</span></div>
+      <div class="pin-inner split">
+        <div class="tilt-space" style="order: 0;">
+          <div class="glass tilt modes-card" data-tilt data-pose="right">
+            <div class="card-head" style="padding:0 0 12px; margin:-4px 0 0;"><h3>What kind of meeting is this?</h3><span class="tag">mode</span></div>
+            <div class="mode-row" id="mode-row"></div>
+            <div class="mode-sections" id="mode-sections"></div>
+            <div class="mode-note">the mode rides with the meeting — switch it any time and “Structure my notes” reshapes the readout</div>
+          </div>
+        </div>
+        <div style="order: 1;">
+          <div class="kicker">Meeting modes</div>
+          <h2 class="headline serif" data-words>Tell it what room you're in. The notes change shape.</h2>
+          <p class="lede" data-words data-stagger="1">Investor, vendor, customer, team or 1:1 — the mode picks the sections the notes reach for, and which handoff gets suggested after. An investor call surfaces traction and asks; a 1:1 surfaces signals and growth. Same meeting brain, different lens.</p>
         </div>
       </div>
     </div>
@@ -1136,6 +1286,49 @@
     chip.addEventListener("blur", function () { lit(false); });
   });
 
+  /* ---------- type-your-own-notes scene ---------- */
+  var typeScene = Array.prototype.findIndex.call(document.querySelectorAll(".scene"), function (s) { return s.id === "type"; });
+  var ownLines = document.querySelectorAll(".own-line");
+  var wovenLine = document.getElementById("woven-line");
+  var structureBtn = document.getElementById("structure-btn");
+
+  /* ---------- modes scene ---------- */
+  var modesScene = Array.prototype.findIndex.call(document.querySelectorAll(".scene"), function (s) { return s.id === "modes"; });
+  var MODE_DATA = [
+    { label: "Investor", sections: ["Traction & metrics quoted", "Pricing & GTM", "Asks & commitments", "Risks raised"] },
+    { label: "Vendor", sections: ["Pricing & commercial terms", "Scope & integration", "Security & compliance", "Open questions"] },
+    { label: "Customer", sections: ["What they need", "Blockers & objections", "How they work today", "Next steps"] },
+    { label: "Team", sections: ["Decisions taken", "Blockers", "Timelines & ownership", "Open questions"] },
+    { label: "1:1", sections: ["Signals & examples", "Strengths shown", "Concerns & gaps", "Growth & next steps"] }
+  ];
+  var modeRow = document.getElementById("mode-row");
+  var modeSections = document.getElementById("mode-sections");
+  var activeMode = -1, pinnedMode = -1;
+  function setMode(i) {
+    if (i === activeMode || !modeRow) return;
+    activeMode = i;
+    var pills = modeRow.querySelectorAll(".mode-pill");
+    pills.forEach(function (b, j) { b.classList.toggle("on", j === i); });
+    modeSections.innerHTML = MODE_DATA[i].sections.map(function (s) {
+      return '<div class="ms"><i>¶</i>' + s + "</div>";
+    }).join("");
+    Array.prototype.forEach.call(modeSections.children, function (el, j) {
+      setTimeout(function () { el.classList.add("in"); }, 40 + j * 90);
+    });
+  }
+  if (modeRow) {
+    MODE_DATA.forEach(function (m, i) {
+      var b = document.createElement("button");
+      b.className = "mode-pill";
+      b.textContent = m.label;
+      b.addEventListener("mouseenter", function () { pinnedMode = i; setMode(i); });
+      b.addEventListener("mouseleave", function () { pinnedMode = -1; });
+      b.addEventListener("focus", function () { pinnedMode = i; setMode(i); });
+      b.addEventListener("click", function () { pinnedMode = i; setMode(i); });
+      modeRow.appendChild(b);
+    });
+  }
+
   /* ---------- todos scene ---------- */
   var todoRows = document.querySelectorAll(".todo-row");
   var todosScene = Array.prototype.findIndex.call(document.querySelectorAll(".scene"), function (s) { return s.id === "todos"; });
@@ -1348,6 +1541,28 @@
           lastTsIdx = autoLit;
         }
       }
+      // your own notes: lines type, the button lights, the woven line lands
+      if (typeScene >= 0) {
+        var yp = progs[typeScene];
+        ownLines.forEach(function (row, i) {
+          var base = 0.24 + i * 0.13;
+          var typed = win(yp, base, base + 0.1);
+          var wrap = row.querySelector(".type-wrap");
+          var caret = row.querySelector(".caret");
+          wrap.style.setProperty("--reveal", (typed * 100) + "%");
+          wrap.style.maxWidth = "var(--reveal)";
+          caret.style.display = typed > 0.02 && typed < 1 ? "inline-block" : "none";
+        });
+        if (structureBtn) structureBtn.classList.toggle("hot", win(yp, 0.6, 0.66) > 0.5);
+        if (wovenLine) wovenLine.classList.toggle("in", win(yp, 0.66, 0.76) > 0.3);
+      }
+      // modes: walk through the rooms as you scroll; hover or click pins one
+      if (modesScene >= 0) {
+        var mp = progs[modesScene];
+        if (pinnedMode >= 0) setMode(pinnedMode);
+        else if (mp > 0.14) setMode(Math.min(MODE_DATA.length - 1, Math.floor(win(mp, 0.14, 0.9) * MODE_DATA.length)));
+        else if (activeMode < 0) setMode(0);
+      }
       // todos write themselves then tick
       if (todosScene >= 0) {
         var tp = progs[todosScene];
@@ -1380,6 +1595,10 @@
         r.classList.add("done");
         r.querySelector(".caret").style.display = "none";
       });
+      ownLines.forEach(function (r) { r.querySelector(".caret").style.display = "none"; });
+      if (wovenLine) wovenLine.classList.add("in");
+      if (structureBtn) structureBtn.classList.add("hot");
+      if (activeMode < 0) setMode(0);
       drawGraph(1, 0);
       pathEl.style.strokeDashoffset = 0;
     }
