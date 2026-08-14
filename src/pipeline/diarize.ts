@@ -24,7 +24,8 @@ import { generateBrainMd } from "./brain-md.js";
 import type { RecapRecord } from "../lib/pyai.js";
 
 const MIN_TAPE_BYTES = 960_000; // ~30s @ 32KB/s — shorter isn't worth a job
-const MIN_THEM_LINES = 4;
+const MIN_LINES = 2;            // need something to relabel
+const MIN_SPOKEN_S = 20;        // duration is the content measure — line count is an endpointing artifact
 const OVERLAP_MIN = 0.5; // segment must cover ≥50% of the utterance span
 const DRIFT_TOLERANCE_S = 2;
 
@@ -37,26 +38,6 @@ function setRun(db: DatabaseSync, meetingId: string, fields: Record<string, unkn
   const keys = Object.keys(fields);
   db.prepare(`UPDATE diarize_runs SET ${keys.map((k) => `${k} = ?`).join(", ")}, updated_at = ? WHERE meeting_id = ?`)
     .run(...keys.map((k) => fields[k] as string | number | null), Date.now(), meetingId);
-}
-
-/**
- * Match diarized segments to stored "Them" utterances by time overlap.
- * Pure — unit-testable. Returns idx -> speaker label for confident matches.
- */
-export function matchSegments(utterances: UttRow[], segments: DiarizedSegment[]): Map<number, string> {
-  const out = new Map<number, string>();
-  for (const u of utterances) {
-    const uStart = u.offset_s, uEnd = u.offset_s + Math.max(u.duration_s, 0.5);
-    let best: { speaker: string; overlap: number } | null = null;
-    for (const s of segments) {
-      const start = Math.max(uStart, s.start - DRIFT_TOLERANCE_S);
-      const end = Math.min(uEnd, s.end + DRIFT_TOLERANCE_S);
-      const overlap = Math.max(0, end - start) / (uEnd - uStart);
-      if (overlap >= OVERLAP_MIN && (!best || overlap > best.overlap)) best = { speaker: s.speaker, overlap };
-    }
-    if (best) out.set(u.idx, best.speaker);
-  }
-  return out;
 }
 
 /** Re-derive everything downstream of utterances — zero paid calls. */
@@ -152,6 +133,13 @@ async function diarizeInner(db: DatabaseSync, apiKey: string, meetingId: string,
   const plans = planChannels(dir, meetingId);
   if ("reason" in plans) return skip(plans.reason);
 
+  // Substitution consumes the Them/You labels — a second pass has nothing to
+  // split. Say so instead of a misleading under-Ns message.
+  const already = db.prepare(
+    "SELECT count(*) n FROM utterances WHERE meeting_id = ? AND (speaker LIKE 'Speaker %' OR speaker LIKE 'Room %')",
+  ).get(meetingId) as { n: number };
+  if (already.n > 0) return skip("already diarized — rename speakers instead of re-running");
+
   setRun(db, meetingId, { status: "running", reason: null });
   let totalSpeakers = 0, totalMatched = 0, totalLines = 0, anyRewrite = false;
   const notes: string[] = [];
@@ -160,7 +148,8 @@ async function diarizeInner(db: DatabaseSync, apiKey: string, meetingId: string,
       const lines = db
         .prepare("SELECT idx, speaker, offset_s, duration_s FROM utterances WHERE meeting_id = ? AND speaker = ? ORDER BY idx")
         .all(meetingId, plan.target) as UttRow[];
-      if (lines.length < MIN_THEM_LINES) { notes.push(`${plan.target}: too few lines to split`); continue; }
+      const spokenS = lines.reduce((a, u) => a + u.duration_s, 0);
+      if (lines.length < MIN_LINES || spokenS < MIN_SPOKEN_S) { notes.push(`${plan.target}: under ${MIN_SPOKEN_S}s of speech — nothing to split`); continue; }
       totalLines += lines.length;
 
       spend();
@@ -170,17 +159,37 @@ async function diarizeInner(db: DatabaseSync, apiKey: string, meetingId: string,
       if (speakers <= 1) { notes.push(`${plan.target}: one voice`); continue; }
       totalSpeakers += speakers;
 
-      // Distinct namespace per channel: job labels are "Speaker K" — the mic
-      // channel's become "Room K" so hybrid meetings stay legible.
-      const matches = matchSegments(lines, segments);
-      const upd = db.prepare("UPDATE utterances SET speaker = ? WHERE meeting_id = ? AND idx = ?");
+      // SUBSTITUTE, don't relabel: stream endpointing yields paragraph-length
+      // utterances spanning several voices — no single label can be right.
+      // The diarized job returns per-turn segments WITH text, so the channel's
+      // transcript is replaced by the finer one. Distinct namespace per
+      // channel: call side "Speaker K", mic side "Room K".
+      const role = plan.target === "Them" ? "customer" : "agent";
+      const replacement = segments
+        .filter((g) => g.text?.trim())
+        .map((g) => ({
+          // PyAI labels arrive as "speaker_1" — normalize into the channel's
+          // namespace so call and room voices can never collide.
+          speaker: `${plan.prefix} ${(g.speaker.match(/(\d+)/)?.[1] ?? "1")}`,
+          speaker_role: role,
+          text: g.text.trim(),
+          offset_s: g.start,
+          duration_s: Math.max(0.3, g.end - g.start),
+        }));
+      const keep = db
+        .prepare("SELECT speaker, speaker_role, text, offset_s, duration_s FROM utterances WHERE meeting_id = ? AND speaker != ? ORDER BY idx")
+        .all(meetingId, plan.target) as { speaker: string; speaker_role: string; text: string; offset_s: number; duration_s: number }[];
+      const merged = [...keep, ...replacement].sort((a, b) => a.offset_s - b.offset_s);
       db.exec("BEGIN");
       try {
-        for (const [idx, label] of matches)
-          upd.run(plan.prefix === "Speaker" ? label : label.replace(/^Speaker/, plan.prefix), meetingId, idx);
+        db.prepare("DELETE FROM utterances WHERE meeting_id = ?").run(meetingId);
+        const ins = db.prepare(
+          "INSERT INTO utterances (meeting_id, idx, speaker, speaker_role, text, offset_s, duration_s) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        );
+        merged.forEach((u, i) => ins.run(meetingId, i, u.speaker, u.speaker_role, u.text, u.offset_s, u.duration_s));
         db.exec("COMMIT");
       } catch (e) { db.exec("ROLLBACK"); throw e; }
-      totalMatched += matches.size;
+      totalMatched += replacement.length;
       anyRewrite = true;
       steps.push({ name: `diarize:${plan.target === "Them" ? "call" : "room"}`, status: "ok", attempts: 1, ms: 0 });
       if (plan.target === "You") notes.push("one of the Room voices is you — name yourself too");
@@ -190,7 +199,7 @@ async function diarizeInner(db: DatabaseSync, apiKey: string, meetingId: string,
     const rate = totalLines ? totalMatched / totalLines : 0;
     if (anyRewrite && rate < 0.7) notes.unshift("low match — offsets may have drifted (mid-call reconnects?)");
     setRun(db, meetingId, {
-      status: "done", speakers: totalSpeakers, matched: totalMatched, total: totalLines,
+      status: "shipped", speakers: totalSpeakers, matched: totalMatched, total: totalLines,
       reason: notes.length ? notes.join("; ") : null,
     });
   } catch (e) {

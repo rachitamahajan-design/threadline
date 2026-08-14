@@ -4,32 +4,8 @@ import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { matchSegments, rederiveMeeting } from "../src/pipeline/diarize.js";
+import { rederiveMeeting } from "../src/pipeline/diarize.js";
 import { openDb } from "../src/lib/db.js";
-
-test("matchSegments assigns speakers by time overlap", () => {
-  const utts = [
-    { idx: 0, speaker: "Them", offset_s: 0, duration_s: 4 },
-    { idx: 1, speaker: "Them", offset_s: 5, duration_s: 3 },
-    { idx: 2, speaker: "Them", offset_s: 20, duration_s: 2 },
-  ];
-  const segs = [
-    { id: 0, start: 0, end: 4.5, text: "", speaker: "Speaker 1" },
-    { id: 1, start: 4.8, end: 8.2, text: "", speaker: "Speaker 2" },
-    // nothing near t=20 — utterance 2 must stay unmatched
-  ];
-  const m = matchSegments(utts, segs);
-  assert.equal(m.get(0), "Speaker 1");
-  assert.equal(m.get(1), "Speaker 2");
-  assert.equal(m.has(2), false);
-});
-
-test("matchSegments tolerates small offset drift", () => {
-  const utts = [{ idx: 0, speaker: "Them", offset_s: 10, duration_s: 4 }];
-  // segment shifted 1.5s late (reconnect drift) — within the ±2s tolerance
-  const m = matchSegments(utts, [{ id: 0, start: 11.5, end: 15.5, text: "", speaker: "Speaker 3" }]);
-  assert.equal(m.get(0), "Speaker 3");
-});
 
 test("rename + rederive propagates a named speaker into entities", () => {
   const db = openDb(mkdtempSync(path.join(tmpdir(), "diar-")));

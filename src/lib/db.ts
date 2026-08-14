@@ -485,6 +485,9 @@ export function openDb(dir = "data"): DatabaseSync {
     }
   }
 
+  // Vocabulary alignment: early diarize runs wrote 'done'; the UI reads 'shipped'.
+  try { db.exec("UPDATE diarize_runs SET status = 'shipped' WHERE status = 'done'"); } catch { /* table may be fresh */ }
+
   migrateEdgesPk(db);
 
   return db;
