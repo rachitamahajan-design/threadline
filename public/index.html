@@ -372,7 +372,7 @@
   .side-collapsed .side-head { justify-content: center; padding: 0 0 6px; }
   .side-collapsed .side-head .lbl { display: none; }
   .side-collapsed .profile { justify-content: center; padding: 4px 0 8px; }
-  .side-collapsed .pname, .side-collapsed #settings-btn, .side-collapsed #theme-btn { display: none; }
+  .side-collapsed .pname, .side-collapsed #theme-btn { display: none; }
   .side-collapsed #google-btn { justify-content: center; padding: 7px 0; }
   .side-collapsed #google-btn .gb-label { display: none; }
   .side-collapsed .side-empty { display: none; }
@@ -577,7 +577,7 @@
     .side-collapsed .side-head .lbl, .side-collapsed .side-empty { display: revert; }
     .side-collapsed .side-search, .side-collapsed #google-btn { justify-content: flex-start; padding: 7px 10px; }
     .side-collapsed .profile { justify-content: flex-start; padding: 4px 6px 8px; }
-    .side-collapsed #settings-btn, .side-collapsed #theme-btn { display: inline-flex; }
+    .side-collapsed #theme-btn { display: inline-flex; }
     .side-top { display: none; }
     body.drawer-open #side { transform: none; }
     body.drawer-open #side-scrim { opacity: 1; pointer-events: auto; }
@@ -1326,7 +1326,6 @@
         <div class="pname">Rachita</div>
         <span style="flex:1"></span>
         <button id="theme-btn" class="icon-btn" title="Appearance" aria-label="Appearance" style="width:26px;height:26px"><svg class="ic" width="15" height="15"><use href="#i-sun"/></svg></button>
-        <button id="settings-btn" class="icon-btn" title="Settings — coming soon" aria-label="Settings — coming soon" style="width:26px;height:26px"><svg class="ic" width="15" height="15"><use href="#i-gear"/></svg></button>
       </div>
       <button id="google-btn" title="Google Workspace"><svg class="ic" width="16" height="16"><use href="#i-google"/></svg><span class="gb-label">Connect Google</span></button>
     </div>
@@ -1546,7 +1545,6 @@ $("#google-btn").addEventListener("click", () => {
 });
 
 $("#add-project").addEventListener("click", () => projectModal());
-$("#settings-btn").addEventListener("click", () => showToast("Settings are coming soon."));
 
 // ── Appearance: Auto → Light → Dark, cycling ────────────────────────────────
 // The <head> boot script already stamped data-theme before first paint; this
@@ -2459,14 +2457,26 @@ function needleRunTo(checkbox) {
       <path d="M37.1 4.2 C 38.8 5.1, 38.8 9.9, 37.1 10.8 L 29 9.9 L 7 8.15 L 1.6 7.5 L 7 6.85 L 29 5.1 Z" fill="url(#${mid}-n)"/>
       <path d="M36.6 5.1 L 8 6.95" stroke="#fff" stroke-width="0.7" stroke-linecap="round" opacity="0.75"/>
       <ellipse cx="33.6" cy="7.5" rx="1.05" ry="2.15" fill="var(--bg)" stroke="#7d838d" stroke-width="0.55"/></svg>`;
+    // pin a sane default: with no offset-path support the flyer must not fall
+    // back to its static position (the bottom of the list)
+    flyer.style.top = "0"; flyer.style.left = "0";
     flyer.style.offsetPath = `path('${d.replace(/\s+/g, " ").trim()}')`;
     flyer.style.offsetRotate = "auto";
     flyer.style.offsetAnchor = "84% 50%";
     rail.appendChild(flyer);
     if (rest) rest.style.opacity = "0";
+    // register before anything can fail: every exit path below goes through
+    // endWeave, which only cleans up needles it knows about
+    _flyers[id] = { node: flyer, anim: null };
+    // safety net FIRST: whatever happens below, the flyer dies and the resting
+    // needle comes back — a browser that rejects the animation must not strand it
+    setTimeout(() => { endWeave(id); done(); }, DUR + 600);
+    if (!CSS.supports("offset-path", "path('M 0 0 L 1 1')")) { endWeave(id); return done(); }
 
     // dips: the needle vanishes under the sheet between stitches, then surfaces
-    const fa = flyer.animate(
+    let fa;
+    try {
+    fa = flyer.animate(
       [
         { offsetDistance: "0%", opacity: 1 },
         { offsetDistance: "52%", opacity: 1, offset: 0.52 },
@@ -2478,11 +2488,10 @@ function needleRunTo(checkbox) {
       ],
       { duration: DUR, easing: EASE, fill: "forwards" },
     );
-    _flyers[id] = { node: flyer, anim: fa };
+    } catch (e) { endWeave(id); return done(); }
+    if (_flyers[id]) _flyers[id].anim = fa;
     fa.onfinish = () => { endWeave(id); done(); };
     fa.oncancel = () => endWeave(id);
-    // belt-and-braces: never leave the resting needle hidden if onfinish never fires
-    setTimeout(() => { endWeave(id); done(); }, DUR + 600);
   });
 }
 
