@@ -1615,7 +1615,7 @@ async function topicOptions(selectedIds = []) {
 async function topicSelectChange(sel, onPick) {
   let v = sel.value;
   if (v === "__new") {
-    const name = prompt("Thread name?", "");
+    const name = await tlPrompt("Thread name?", "", { title: "New thread", okLabel: "Create" });
     if (!name?.trim()) { sel.value = ""; return; }
     const t = await fetch("/api/project", { method: "POST", body: JSON.stringify({ name }) }).then((x) => x.json());
     loadSidebar();
@@ -1661,6 +1661,50 @@ function openPopover(anchor, html, wire, extraClass = "") {
   return pop;
 }
 
+/**
+ * Styled in-app dialogs replacing native alert/confirm/prompt — the browser's
+ * "localhost says" chrome has no place in the product. Promise-based:
+ * tlAlert resolves void, tlConfirm resolves boolean, tlPrompt resolves the
+ * string or null. Esc / backdrop click cancels; Enter confirms.
+ */
+function tlDialog({ title = "", message, input = null, okLabel = "OK", cancel = false, danger = false }) {
+  return new Promise((resolve) => {
+    document.getElementById("tl-dialog")?.remove();
+    const modal = document.createElement("div");
+    modal.id = "tl-dialog";
+    modal.className = "tl-modal";
+    modal.innerHTML = `<div class="box" style="max-width:420px">
+      ${title ? `<h2>${esc(title)}</h2>` : ""}
+      <div style="white-space:pre-wrap;line-height:1.6;font-size:14px;color:var(--ink-2)">${esc(message)}</div>
+      ${input !== null ? `<input type="text" id="tld-input" style="margin-top:12px">` : ""}
+      <div class="actions">
+        <span style="flex:1"></span>
+        ${cancel ? `<button class="copybtn" id="tld-cancel">Cancel</button>` : ""}
+        <button class="copybtn" id="tld-ok" style="background:${danger ? "var(--rec)" : "var(--ink)"};color:#fff">${esc(okLabel)}</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+    const inp = modal.querySelector("#tld-input");
+    if (inp) inp.value = input;
+    const done = (val) => { modal.remove(); document.removeEventListener("keydown", onKey); resolve(val); };
+    const ok = () => done(inp ? inp.value : true);
+    const dismiss = () => done(inp ? null : cancel ? false : undefined);
+    const onKey = (e) => {
+      if (e.key === "Escape") { e.stopPropagation(); dismiss(); }
+      if (e.key === "Enter") { e.stopPropagation(); ok(); }
+    };
+    document.addEventListener("keydown", onKey);
+    modal.addEventListener("mousedown", (e) => { if (e.target === modal) dismiss(); });
+    modal.querySelector("#tld-ok").addEventListener("click", ok);
+    modal.querySelector("#tld-cancel")?.addEventListener("click", () => dismiss());
+    (inp ?? modal.querySelector("#tld-ok")).focus();
+    inp?.select();
+  });
+}
+const tlAlert = (message, title = "") => tlDialog({ title, message });
+const tlConfirm = (message, opts = {}) => tlDialog({ message, cancel: true, ...opts });
+const tlPrompt = (message, def = "", opts = {}) => tlDialog({ message, input: def ?? "", cancel: true, ...opts });
+
 /** Same shape, styled as a dropdown of icon+label rows. */
 function openMenuPopover(anchor, rows) {
   const html = rows.map((r) => r.sep
@@ -1703,7 +1747,7 @@ function openTimeEditor(anchor, meeting, onSaved) {
       if (dur !== "") payload.duration_minutes = Number(dur);
       const out = await fetch("/api/meeting/time", { method: "POST", body: JSON.stringify(payload) }).then((r) => r.json());
       close();
-      if (out.error) return alert(out.error);
+      if (out.error) return tlAlert(out.error);
       showToast("Meeting time updated");
       onSaved?.();
     });
@@ -1737,9 +1781,43 @@ if (new URLSearchParams(location.search).get("google") === "connected") history.
 $("#google-btn").addEventListener("click", () => {
   const state = $("#google-btn").dataset.state;
   if (state === "ready") location.href = "/api/google/connect";
-  else if (state === "unconfigured")
-    alert("Google Calendar needs credentials first: add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env (see README), then restart Threadline.\n\nGmail and Drive are on the roadmap.");
+  else if (state === "unconfigured") googleSetupModal();
 });
+
+/** One-time Google Cloud setup, walked through in-app instead of "see README". */
+function googleSetupModal() {
+  document.getElementById("google-modal")?.remove();
+  const REDIRECT = "http://localhost:4640/oauth2/callback";
+  const ENV = "GOOGLE_CLIENT_ID=your-client-id\nGOOGLE_CLIENT_SECRET=your-client-secret";
+  const codeBox = (id, content) => `
+    <div style="display:flex;gap:8px;align-items:flex-start;margin-top:6px">
+      <code style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px;overflow-x:auto;white-space:pre">${esc(content)}</code>
+      <button class="copybtn" data-gcopy="${id}">Copy</button>
+    </div>`;
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="tl-modal" id="google-modal"><div class="box" style="max-width:560px">
+      <h2>Connect Google Calendar</h2>
+      <div class="t-meta" style="margin-bottom:14px">Powers the "Up next" meeting notifications. One-time setup, ~5 minutes: Threadline talks to Google directly from this machine — read-only calendar access, token stored locally, no middleman server.</div>
+      <ol style="margin:0 0 8px 18px;line-height:1.9;font-size:14px">
+        <li>Open <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a> → create (or pick) a project</li>
+        <li><b>APIs &amp; Services → Library</b> → enable <b>Google Calendar API</b></li>
+        <li><b>OAuth consent screen</b> → External → stay in <b>Testing</b> mode → add your own Google account as a test user</li>
+        <li><b>Credentials → Create credentials → OAuth client ID</b> → type <b>Web application</b> → add this authorized redirect URI:
+          ${codeBox("redirect", REDIRECT)}</li>
+        <li>Copy the client ID and secret into <code>.env</code> in the Threadline folder:
+          ${codeBox("env", ENV)}</li>
+        <li>Restart Threadline (<code>npm run dev</code>), then click <b>Connect Google</b> again</li>
+      </ol>
+      <div class="t-meta" style="margin-bottom:14px">Gmail and Drive are on the roadmap.</div>
+      <div style="display:flex;justify-content:flex-end"><button class="copybtn" id="google-done">Done</button></div>
+    </div></div>`);
+  const modal = $("#google-modal");
+  const copies = { redirect: REDIRECT, env: ENV };
+  modal.querySelectorAll("[data-gcopy]").forEach((b) =>
+    b.addEventListener("click", () => { navigator.clipboard.writeText(copies[b.dataset.gcopy]); b.textContent = "Copied ✓"; }));
+  $("#google-done").addEventListener("click", () => modal.remove());
+  modal.addEventListener("mousedown", (e) => { if (e.target === modal) modal.remove(); });
+}
 
 $("#add-project").addEventListener("click", () => projectModal());
 
@@ -1820,7 +1898,7 @@ function projectModal(onCreated) {
     const description = modal.querySelector("#pm-desc").value.trim();
     const proj = await fetch("/api/project", { method: "POST", body: JSON.stringify({ name, description }) }).then((r) => r.json());
     modal.remove();
-    if (proj?.error || !proj?.id) return alert(proj?.error ?? "Could not create thread");
+    if (proj?.error || !proj?.id) return tlAlert(proj?.error ?? "Could not create thread");
     loadSidebar();
     onCreated?.(proj);
   };
@@ -1914,7 +1992,7 @@ function profileModal() {
   modal.querySelector("#pf-photo").addEventListener("change", async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    photo = await shrinkImage(f).catch(() => { alert("Couldn't read that image"); return photo; });
+    photo = await shrinkImage(f).catch(() => { tlAlert("Couldn't read that image"); return photo; });
     paint();
   });
   modal.querySelector("#pf-first").addEventListener("input", paint);
@@ -1925,7 +2003,7 @@ function profileModal() {
       photo,
     };
     const r = await fetch("/api/profile", { method: "POST", body: JSON.stringify(body) }).then((x) => x.json());
-    if (r.error) return alert(r.error);
+    if (r.error) return tlAlert(r.error);
     modal.remove();
     await loadProfile();
     render(); // the Home greeting carries the name too
@@ -2025,11 +2103,11 @@ async function loadSpeakerChips(meetingId) {
   host.querySelectorAll(".diar-name").forEach((b) =>
     b.addEventListener("click", async () => {
       const from = b.dataset.sp;
-      const to = prompt(`Who is ${from}?\nTheir first line: "${(b.title.split("\n")[0] || "").replace("First line: ", "")}"`);
+      const to = await tlPrompt(`Who is ${from}?\nTheir first line: "${(b.title.split("\n")[0] || "").replace("First line: ", "")}"`, "", { title: "Name this speaker", okLabel: "Rename" });
       if (!to?.trim()) return;
       const r = await fetch("/api/speaker/rename", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ meeting_id: meetingId, from, to: to.trim() }) }).then((x) => x.json());
-      if (r.error) alert(r.error); else renderMeeting(meetingId);
+      if (r.error) tlAlert(r.error); else renderMeeting(meetingId);
     }));
 }
 
@@ -2108,7 +2186,7 @@ async function renderNeedle() {
     el.addEventListener("click", async (e) => {
       e.stopPropagation();
       const id = Number(el.dataset.del);
-      if (!confirm("Delete this thread and its messages?")) return;
+      if (!(await tlConfirm("Delete this thread and its messages?", { okLabel: "Delete", danger: true }))) return;
       await fetch("/api/needle/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
       if (state.needleId === id) state.needleId = null;
       renderNeedle();
@@ -2919,16 +2997,16 @@ function wireProject(id, project) {
     b.addEventListener("click", async (e) => {
       e.stopPropagation();
       const title = b.closest(".doc-row")?.querySelector(".doc-title")?.textContent ?? "this document";
-      if (!confirm(`Remove "${title}" from the thread? This deletes the file too.`)) return;
+      if (!(await tlConfirm(`Remove "${title}" from the thread? This deletes the file too.`, { okLabel: "Remove", danger: true }))) return;
       const out = await fetch("/api/doc/delete", { method: "POST", body: JSON.stringify({ id: Number(b.dataset.delDoc) }) }).then((r) => r.json());
-      if (out?.error) return alert(out.error);
+      if (out?.error) return tlAlert(out.error);
       refresh();
     }));
   $("#doc-new").addEventListener("click", async () => {
-    const title = prompt("Doc title?", "");
+    const title = await tlPrompt("Doc title?", "", { title: "New doc", okLabel: "Create" });
     if (!title?.trim()) return;
     const doc = await fetch("/api/project/doc", { method: "POST", body: JSON.stringify({ project_id: id, title }) }).then((r) => r.json());
-    if (doc?.error || !doc?.id) return alert(doc?.error ?? "Could not create doc");
+    if (doc?.error || !doc?.id) return tlAlert(doc?.error ?? "Could not create doc");
     state.view = "doc"; state.docId = doc.id; state.projectId = id; render();
   });
   $("#doc-upload").addEventListener("click", () => $("#doc-file").click());
@@ -2945,7 +3023,7 @@ function wireProject(id, project) {
       method: "POST",
       body: JSON.stringify({ project_id: id, filename: f.name, mime: f.type || "application/octet-stream", data_b64 }),
     }).then((r) => r.json());
-    if (out?.error) return alert(out.error);
+    if (out?.error) return tlAlert(out.error);
     showToast(`"${f.name}" added to the thread's context`);
     refresh();
   });
@@ -2972,7 +3050,7 @@ function wireProject(id, project) {
     // project's context right away, titled after the task.
     if ($("#item-doc").value === "new") {
       const doc = await fetch("/api/project/doc", { method: "POST", body: JSON.stringify({ project_id: id, title: task }) }).then((r) => r.json());
-      if (doc?.error || !doc?.id) return alert(doc?.error ?? "Could not create doc");
+      if (doc?.error || !doc?.id) return tlAlert(doc?.error ?? "Could not create doc");
       document_id = doc.id;
     }
     const out = await fetch("/api/project/item", {
@@ -2984,7 +3062,7 @@ function wireProject(id, project) {
         document_id,
       }),
     }).then((r) => r.json());
-    if (out?.error) return alert(out.error);
+    if (out?.error) return tlAlert(out.error);
     refresh();
   };
   $("#item-add").addEventListener("click", addItem);
@@ -3136,7 +3214,7 @@ async function renderToday() {
   loadUpcoming();
   $("#notify-bell")?.addEventListener("click", async () => {
     const p = await Notification.requestPermission();
-    alert(p === "granted" ? "You'll get a notification when an Up next meeting starts." : "Notifications are blocked for this site — enable them in the browser's site settings.");
+    tlAlert(p === "granted" ? "You'll get a notification when an Up next meeting starts." : "Notifications are blocked for this site — enable them in the browser's site settings.");
   });
   if (Notification.permission === "granted") { const b = $("#notify-bell"); if (b) b.style.opacity = ".45"; }
   $("#add-upcoming").addEventListener("click", (e) => {
@@ -3845,7 +3923,7 @@ async function renderMeeting(id, opts = {}) {
   });
   $("#rec-inline")?.addEventListener("click", async () => {
     const r = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ meeting_id: id }) }).then((x) => x.json());
-    if (r.error) return alert(r.error);
+    if (r.error) return tlAlert(r.error);
     setRecordingUI(true);
     renderMeeting(id, { live: true });
   });
@@ -3898,26 +3976,26 @@ async function renderMeeting(id, opts = {}) {
   const moreActions = {
     async regenerate() {
       const out = await fetch("/api/meeting/regenerate", { method: "POST", body: JSON.stringify({ id }) }).then((r) => r.json());
-      if (out.error) return alert(out.error);
+      if (out.error) return tlAlert(out.error);
       renderMeeting(id);
     },
     async tagTopic() {
       const projects = await api("/api/projects");
-      if (!projects.length) return alert("No threads yet — create one with + in the sidebar first.");
-      const p = projects[Number(prompt("Tag this meeting with which thread?\n" + projects.map((x, i) => `${i + 1}. ${x.name}`).join("\n"), "1")) - 1];
+      if (!projects.length) return tlAlert("No threads yet — create one with + in the sidebar first.");
+      const p = projects[Number(await tlPrompt("Tag this meeting with which thread?\n" + projects.map((x, i) => `${i + 1}. ${x.name}`).join("\n"), "1", { title: "Tag thread" })) - 1];
       if (!p) return;
       await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: p.id, meeting_id: id }) });
       loadSidebar();
     },
     async findReplace() {
-      const from = prompt("Find:", ""); if (!from?.trim()) return;
-      const to = prompt(`Replace "${from}" with:`, ""); if (!to?.trim()) return;
+      const from = await tlPrompt("Find:", "", { title: "Find & replace" }); if (!from?.trim()) return;
+      const to = await tlPrompt(`Replace "${from}" with:`, "", { title: "Find & replace" }); if (!to?.trim()) return;
       const { occurrences } = await fetch("/api/correction/preview", { method: "POST", body: JSON.stringify({ meeting_id: id, from_text: from, to_text: to }) }).then((r) => r.json());
-      if (!occurrences?.length) return alert("No occurrences found.");
+      if (!occurrences?.length) return tlAlert("No occurrences found.");
       correctionModal(id, from.trim(), to.trim(), occurrences);
     },
     async deleteMeeting() {
-      if (!confirm("Delete this meeting and its notes, transcript and threads? This cannot be undone.")) return;
+      if (!(await tlConfirm("Delete this meeting and its notes, transcript and threads? This cannot be undone.", { okLabel: "Delete", danger: true }))) return;
       await fetch("/api/meeting/delete", { method: "POST", body: JSON.stringify({ id }) });
       state.meetingId = null; state.view = "today"; render();
     },
@@ -3937,9 +4015,9 @@ async function renderMeeting(id, opts = {}) {
 }
 
 /** Replace the notes doc with an AI result — guarded against mid-flight typing. */
-function applyNotesUpdate(doc, meetingId, beforeMd, newMd, toastMsg) {
+async function applyNotesUpdate(doc, meetingId, beforeMd, newMd, toastMsg) {
   const currentMd = domToMd(doc);
-  if (currentMd !== beforeMd && !confirm("You edited the notes while AI was working. Replace with the AI version?")) return;
+  if (currentMd !== beforeMd && !(await tlConfirm("You edited the notes while AI was working. Replace with the AI version?", { okLabel: "Replace" }))) return;
   doc.innerHTML = mdToDom(newMd);
   doc.dataset.lastSaved = newMd;
   doc.classList.remove("flash"); void doc.offsetWidth; doc.classList.add("flash");
@@ -4162,7 +4240,7 @@ function wireOutline(meetingId, data) {
   }
 
   $("#out-structure")?.addEventListener("click", async (e) => {
-    if (outline?.edited && !confirm("You've edited these notes. Structuring again replaces them with a fresh pass. Continue?")) return;
+    if (outline?.edited && !(await tlConfirm("You've edited these notes. Structuring again replaces them with a fresh pass. Continue?", { okLabel: "Structure again" }))) return;
     const btn = e.currentTarget;
     btn.disabled = true;
     btn.textContent = "☰ Structuring…";
@@ -4240,7 +4318,7 @@ function wireOutline(meetingId, data) {
         node.text = text;
         node.edited = true;
         const out = await post("/api/outline/edit", { id: meetingId, markdown: outlineToMarkdown(outline.notes, true) });
-        if (out.error) { alert(out.error); el.textContent = original; return; }
+        if (out.error) { tlAlert(out.error); el.textContent = original; return; }
         el.classList.add("edited");
         outline.edited = true;
       };
@@ -4278,7 +4356,7 @@ function openModePicker(meetingId, data, anchor) {
       const mode = b.dataset.mode;
       if (mode === data.meeting_type) return;
       const out = await post("/api/meeting/type", { id: meetingId, type: mode });
-      if (out.error) return alert(out.error);
+      if (out.error) return tlAlert(out.error);
       data.meeting_type = out.meeting_type;
       data.catalog = out.catalog ?? data.catalog;
       renderModeChip(meetingId, data);
@@ -4314,7 +4392,7 @@ function openOutlineEditor(meetingId, data) {
   });
   $("#out-save").addEventListener("click", async () => {
     const out = await post("/api/outline/edit", { id: meetingId, markdown: $("#out-md").value });
-    if (out.error) return alert(out.error);
+    if (out.error) return tlAlert(out.error);
     const next = { ...data, outline: out.outline };
     box.innerHTML = notesCard(next);
     wireOutline(meetingId, next);
@@ -4699,7 +4777,7 @@ function wireHandoffCard(meetingId, run, el) {
     });
     foot.querySelector('[data-act="save"]').addEventListener("click", async () => {
       const out = await post("/api/handoff/edit", { id: run.id, markdown: ta.value });
-      if (out.error) return alert(out.error);
+      if (out.error) return tlAlert(out.error);
       el.innerHTML = handoffCardInner(out.run);
       wireHandoffCard(meetingId, out.run, el);
       showToast("Edit saved");
@@ -4708,7 +4786,7 @@ function wireHandoffCard(meetingId, run, el) {
 
   act("regen").addEventListener("click", async () => {
     // An edit is never silently thrown away.
-    if (run.edited && !confirm("You've edited this. Regenerating replaces your version. Continue?")) return;
+    if (run.edited && !(await tlConfirm("You've edited this. Regenerating replaces your version. Continue?", { okLabel: "Regenerate" }))) return;
     el.classList.add("pending");
     const fresh = await runHandoffFromUI(meetingId, run.handoffId);
     if (fresh) el.remove();
@@ -4716,7 +4794,7 @@ function wireHandoffCard(meetingId, run, el) {
   });
 
   act("refine").addEventListener("click", async () => {
-    const instruction = prompt("How should this change?\n(e.g. \"shorter\", \"group by team\", \"warmer opening\")");
+    const instruction = await tlPrompt("How should this change?\n(e.g. \"shorter\", \"group by team\", \"warmer opening\")", "", { title: "Refine", okLabel: "Refine" });
     if (!instruction?.trim()) return;
     el.classList.add("pending");
     const fresh = await runHandoffFromUI(meetingId, run.handoffId, null, { refine: instruction.trim() });
@@ -4736,7 +4814,7 @@ function wireHandoffCard(meetingId, run, el) {
       ...(mine.failures ?? run.failures ?? []).slice(0, 8).map((f) => `[${f.rule}] ${f.detail}`),
       ...(dbg.statements?.dropped ?? []).slice(0, 5).map((d) => `[extraction] "${d.text.slice(0, 60)}" — ${d.reason}`),
     ];
-    alert(lines.join("\n"));
+    tlAlert(lines.join("\n"));
   });
 
   act("dismiss").addEventListener("click", async () => {
@@ -5010,7 +5088,7 @@ function wireTranscriptEdits(meetingId, body) {
           method: "POST",
           body: JSON.stringify({ meeting_id: meetingId, idx, text }),
         }).then((r) => r.json());
-        if (out.error) { alert(out.error); el.textContent = original; return; }
+        if (out.error) { tlAlert(out.error); el.textContent = original; return; }
         if (out.correction?.applied > 0)
           showToast(`“${out.correction.from}” → “${out.correction.to}” · fixed ${out.correction.applied} other place${out.correction.applied === 1 ? "" : "s"}`, "Undo", async () => {
             await fetch("/api/correction/undo", { method: "POST", body: JSON.stringify({ event_id: out.correction.eventId }) });
@@ -5116,7 +5194,7 @@ function wireCorrections(meetingId) {
           method: "POST",
           body: JSON.stringify({ meeting_id: correctionMeetingId, from_text: text, to_text: to }),
         }).then((r) => r.json());
-        if (out.error) return alert(out.error);
+        if (out.error) return tlAlert(out.error);
         if (!out.applied) return showToast("Nothing to fix — no occurrences found");
         const mid = correctionMeetingId;
         showToast(`“${text}” → “${to}” · fixed ${out.applied} place${out.applied === 1 ? "" : "s"}`, "Undo", async () => {
@@ -5170,7 +5248,7 @@ function correctionModal(meetingId, from, to, occurrences) {
       }),
     }).then((r) => r.json());
     modal.remove();
-    if (out.error) { alert(out.error); return; }
+    if (out.error) { tlAlert(out.error); return; }
     renderMeeting(meetingId);
   });
 }
@@ -5792,7 +5870,7 @@ async function renderGraph() {
 
   async function ctxActions(nodeId) {
     const r = await api(`/api/node/context?id=${encodeURIComponent(nodeId)}`);
-    if (r.error) { alert(r.error); return null; }
+    if (r.error) { tlAlert(r.error); return null; }
     return r;
   }
   window.__brainCtxDownload = async (nodeId) => {
@@ -5885,7 +5963,7 @@ async function renderGraph() {
   }
 
   $("#ctx-md").addEventListener("click", (e) => {
-    if (!selected) { alert("Click a node first — then this copies its context as markdown for your LLM."); return; }
+    if (!selected) { tlAlert("Click a node first — then this copies its context as markdown for your LLM."); return; }
     window.__brainCtxCopy(selected, e.currentTarget);
   });
 }
@@ -5906,7 +5984,7 @@ recBtn.addEventListener("click", async () => {
   } catch (err) {
     setRecordingUI(false);
     console.error("record click failed:", err);
-    alert(`Recording failed: ${err.message}\n\nMake sure you opened http://localhost:4640 (served by \`npm run dev\`), not the file directly or another preview server.`);
+    tlAlert(`Recording failed: ${err.message}\n\nMake sure you opened http://localhost:4640 (served by \`npm run dev\`), not the file directly or another preview server.`);
   }
 });
 
@@ -5914,7 +5992,7 @@ async function startRecording(title) {
   const resp = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
   if (!resp.ok) throw new Error(`server responded ${resp.status}`);
   const r = await resp.json();
-  if (r.error) { alert(r.error); return false; }
+  if (r.error) { tlAlert(r.error); return false; }
   setRecordingUI(true);
   recTitle = title;
   $("#pip-btn").style.display = "";
@@ -5938,7 +6016,7 @@ async function stopRecording() {
     sessionStorage.setItem("tl-thread-anim", "1"); // Home plays the needle run: meeting → loose ends
     state.meetingId = r.meetingId; render();
   }
-  else { alert(r.reason ?? "Nothing was captured."); render(); }
+  else { tlAlert(r.reason ?? "Nothing was captured."); render(); }
 }
 
 /**
@@ -5949,14 +6027,14 @@ async function stopRecording() {
 async function openCompanion(title, manual) {
   if (pipWin) return;
   if (!("documentPictureInPicture" in window)) {
-    if (manual) alert("This browser can't make always-on-top windows (needs Chrome, Arc or Edge, version 116+). The recording itself is unaffected.");
+    if (manual) tlAlert("This browser can't make always-on-top windows (needs Chrome, Arc or Edge, version 116+). The recording itself is unaffected.");
     return;
   }
   try {
     pipWin = await documentPictureInPicture.requestWindow({ width: 272, height: 74, disallowReturnToOpener: true });
   } catch (e) {
     pipWin = null;
-    if (manual) alert("Couldn't open the floating window: " + (e && e.message ? e.message : e));
+    if (manual) tlAlert("Couldn't open the floating window: " + (e && e.message ? e.message : e));
     const b = $("#pip-btn");
     if (b) { b.style.color = "var(--thread)"; b.style.borderColor = "var(--thread)"; }
     return; // needs a fresh click — the Pop out button provides one
