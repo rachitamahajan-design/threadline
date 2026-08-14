@@ -641,7 +641,50 @@
     <div class="stop">
       <div class="dot"></div>
       <div class="stop-card">
-        <h3><span class="n">8</span>Every run is on the record</h3>
+        <h3><span class="n">8</span>The model is a config entry</h3>
+        <p>Swap providers or models in <code>agents.json</code> — no code change, no rebuild. If the chosen host dies mid-call, the other answers silently; the record names who really produced it.</p>
+        <div class="snip term">
+          <span><span class="k">"models"</span>: { <span class="k">"chat"</span>: {</span>
+          <span>&nbsp;&nbsp;<span class="k">"provider"</span>: <span class="s">"pyai"</span>,  <span class="d"># resolution: env → config → code default</span></span>
+          <span>&nbsp;&nbsp;<span class="k">"model"</span>: { <span class="k">"pyai"</span>: <span class="s">"pyai-think"</span>, <span class="k">"openai"</span>: <span class="s">"gpt-4o-mini"</span> } <span class="d"># the silent failover pair</span></span>
+          <span>} }</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stop">
+      <div class="dot"></div>
+      <div class="stop-card">
+        <h3><span class="n">9</span>The prompt is config, versioned like code</h3>
+        <p>All prompt text lives in <code>config/prompts.json</code>. Change the words, bump the version — every output carries the stamp, so a regression traces to a prompt diff instead of an archaeology project.</p>
+        <div class="snip term">
+          <span><span class="k">"notes.compose"</span>: { <span class="k">"version"</span>: 9, <span class="k">"text"</span>: <span class="s">"You produce grounded meeting notes…"</span> }</span>
+          <span><span class="d">every output stamped →</span> <span class="s">notes.compose@v9+r2</span> <span class="d"># template version + grounding-rules version</span></span>
+        </div>
+        <div class="snip note">
+          <div class="row keep"><i>✓</i><span>when a prompt and a validator disagree, the validator wins <span class="why">— the prompt is what gets rewritten</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stop">
+      <div class="dot"></div>
+      <div class="stop-card">
+        <h3><span class="n">10</span>One budget governs every workflow</h3>
+        <p>Each run spends API units and wall-clock from a central governor, sized per kind in <code>agents.json</code> and checked before every step and every retry. No unmetered model call exists.</p>
+        <div class="snip term">
+          <span><span class="k">"budgets"</span>: { <span class="k">"workflows"</span>: {</span>
+          <span>&nbsp;&nbsp;<span class="k">"notes"</span>:&nbsp;&nbsp;&nbsp;{ <span class="k">"units"</span>: 12, <span class="k">"ms"</span>: 150000 },</span>
+          <span>&nbsp;&nbsp;<span class="k">"handoff"</span>: { <span class="k">"units"</span>: 12, <span class="k">"ms"</span>: 150000 } } }</span>
+          <span><span class="d">exhausted ≠ crashed →</span> the run ends as <span class="s">"deadline"</span><span class="d">, on the record</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stop">
+      <div class="dot"></div>
+      <div class="stop-card">
+        <h3><span class="n">11</span>Every run is on the record</h3>
         <p>Budgeted, four possible endings, logged even if the process dies mid-run.</p>
         <div class="snip term">
           <span>{ <span class="k">"event"</span>: <span class="s">"run.finish"</span>, <span class="k">"kind"</span>: <span class="s">"notes"</span>,</span>
