@@ -5303,18 +5303,26 @@ async function renderGraph() {
     return { blob, canvas: c };
   }
 
-  shareBtn.addEventListener("click", async () => {
-    const q = $("#brain-q").value.trim();
-    const sub = ns.filter((n) => spot?.has(n.id));
-    if (!q || !sub.length || shareBtn.disabled) return;
-    shareBtn.disabled = true;
-    const busy = (t) => { shareBtn.textContent = t; };
+  /** One node and everything threaded straight to it. */
+  const hood = (n) => {
+    const out = [n];
+    for (const e of es) {
+      if (e.a === n && !out.includes(e.b)) out.push(e.b);
+      else if (e.b === n && !out.includes(e.a)) out.push(e.a);
+    }
+    return out;
+  };
+
+  /** The shared weave: summarize, render the loop, offer the exports. */
+  async function weaveShare(anchor, q, sub, summaryHint, busy, done) {
     busy("Summarizing…");
-    let summary = "";
-    try {
-      const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
-      summary = r?.summary || (r?.answer ?? r?.points ?? []).map((p) => p.text).join(" ");
-    } catch {}
+    let summary = summaryHint || "";
+    if (!summary) {
+      try {
+        const r = await api(`/api/ask?q=${encodeURIComponent(q)}`);
+        summary = r?.summary || (r?.answer ?? r?.points ?? []).map((p) => p.text).join(" ");
+      } catch {}
+    }
     if (!summary) {
       const mts = sub.filter((n) => n.kind === "meeting").map((n) => n.label);
       summary = `Threads in this brain touching “${q}”: ${mts.join(" · ") || sub.map((n) => n.label).join(" · ")}.`;
@@ -5323,7 +5331,7 @@ async function renderGraph() {
       const { blob, canvas: still } = await brainSnippetGif(q, sub, summary, busy);
       const slug = q.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "spotlight";
       const url = URL.createObjectURL(blob);
-      openPopover(shareBtn, `
+      openPopover(anchor, `
         <div class="pop-title">${icon("share", 13)}Share this spotlight</div>
         <div style="width:300px;border-radius:12px;border:1px solid var(--glass-border);overflow:hidden">
           <img src="${url}" alt="Animated brain snippet" style="display:block;width:100%"></div>
@@ -5351,8 +5359,27 @@ async function renderGraph() {
     } catch (err) {
       showToast("Couldn't weave the snippet — try again?");
       console.error(err);
-    } finally { shareIdle(); }
+    } finally { done(); }
+  }
+
+  shareBtn.addEventListener("click", () => {
+    const q = $("#brain-q").value.trim();
+    const sub = ns.filter((n) => spot?.has(n.id));
+    if (!q || !sub.length || shareBtn.disabled) return;
+    weaveShare(shareBtn, q, sub, "",
+      (t) => { shareBtn.disabled = true; shareBtn.textContent = t; }, shareIdle);
   });
+
+  /** Panel buttons share a node's own neighborhood. */
+  function wirePanelShare(node, summaryHint) {
+    const btn = $("#gp-share");
+    if (!btn || !node) return;
+    const orig = btn.textContent;
+    btn.addEventListener("click", () =>
+      weaveShare(btn, node.label, hood(node), summaryHint,
+        (t) => { btn.disabled = true; btn.textContent = t; },
+        () => { btn.disabled = false; btn.textContent = orig; }));
+  }
 
   async function ctxActions(nodeId) {
     const r = await api(`/api/node/context?id=${encodeURIComponent(nodeId)}`);
@@ -5391,11 +5418,13 @@ async function renderGraph() {
       <div style="display:flex;gap:8px;margin-top:14px">
         <button class="copybtn" style="margin:0" id="gp-copy">Copy .md for your LLM</button>
         <button class="copybtn" style="margin:0" id="gp-dl">Download</button>
+        <button class="copybtn" style="margin:0" id="gp-share">Share GIF</button>
       </div>`;
     panel.classList.add("open");
     $("#gp-close").addEventListener("click", () => { selected = null; panel.classList.remove("open"); });
     $("#gp-copy").addEventListener("click", (e) => window.__brainCtxCopy(n.id, e.currentTarget));
     $("#gp-dl").addEventListener("click", () => window.__brainCtxDownload(n.id));
+    wirePanelShare(n, "");
   }
 
   async function openPanel(id) {
@@ -5436,12 +5465,14 @@ async function renderGraph() {
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="copybtn" style="margin:0" id="gp-copy">Copy .md for your LLM</button>
         <button class="copybtn" style="margin:0" id="gp-dl">Download</button>
+        <button class="copybtn" style="margin:0" id="gp-share">Share GIF</button>
       </div>`;
     panel.classList.add("open");
     $("#gp-close").addEventListener("click", () => { selected = null; panel.classList.remove("open"); draw(); });
     $("#gp-open").addEventListener("click", () => { state.meetingId = id; render(); });
     $("#gp-copy").addEventListener("click", (e) => window.__brainCtxCopy(id, e.currentTarget));
     $("#gp-dl").addEventListener("click", () => window.__brainCtxDownload(id));
+    wirePanelShare(byId[id], meeting.summary ?? "");
   }
 
   $("#ctx-md").addEventListener("click", (e) => {
