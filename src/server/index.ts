@@ -802,8 +802,11 @@ const api: Record<string, Handler> = {
               "You answer questions about one project workspace using ONLY the provided context: its filed " +
               "meetings, decisions, action items, people, and documents. Be concrete and cite facts from the " +
               "context. If the context does not contain the answer, say so plainly instead of guessing. " +
-              'Reply with JSON: {"answer": string, "sources": string[]} where sources lists the meeting or ' +
-              "document titles you drew the answer from (empty if none).",
+              "Format the answer for a small chat bubble: ONE short lead sentence, then a newline, then " +
+              "'• ' bullet lines — one fact or action item each, under 14 words, max 6 bullets. " +
+              "No preamble, no repetition of the question, never a paragraph. " +
+              'Reply with JSON: {"answer": string, "sources": string[]} where answer uses \\n between lines ' +
+              "and sources lists the meeting or document titles you drew from (empty if none).",
             user: `Question: ${question.trim()}\n\nProject context:\n${ctx}`,
           })) as { answer?: unknown; sources?: unknown };
           if (typeof out.answer !== "string" || !out.answer.trim()) return { error: "The model returned no answer — try rephrasing." };
