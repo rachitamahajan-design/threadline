@@ -36,6 +36,23 @@ becomes notes with receipts, a to-do list that writes itself, and a node in a
   you configured. Transcripts, notes, graph and search live in a SQLite file
   on your machine. Teams that ban cloud notetakers can run this.
 
+## Threadline vs Granola
+
+Granola is the bar for meeting notes. Threadline starts where it stops:
+
+|  | **Granola** | **Threadline** |
+|---|---|---|
+| Bot joins your call | No bot (audio via the Mac app) | No bot — and recording starts from **any app** with a double-tap of `fn` |
+| Where your data lives | Their cloud | **Your laptop** — one SQLite file; audio goes only to the speech API you configured |
+| Notes | AI-enhanced notes | Notes where **every claim carries a receipt** — click it, land on the transcript line; ungrounded claims are blocked, not shipped |
+| Honesty about AI output | — | Four named exits per run (`shipped / partial / deadline / failed`) shown in the UI; gates, budgets, capped retries |
+| Memory across meetings | Folders + chat | A **Brain**: a rotating atlas of meetings, people and topics, spotlight search, per-node context export, decision lineage drawn as a git graph |
+| Ask your history | Chat over notes | **Needle** — cross-meeting Q&A with receipts, plus **live assist in-call**, scoped to the meeting's thread |
+| Your AI tools | Closed | **MCP server built in** — Claude Code, Claude Desktop or Cursor query your brain locally, no API keys, evidence-only |
+| To-dos | In the notes | A **loose-ends list that writes itself**, threaded across meetings, prepping your next meeting automatically |
+| Speaker ID | Per-meeting | Batch diarization on the local tape; name a voice once, it propagates everywhere |
+| Price / license | $18/user/mo | **MIT, open source, self-hosted** |
+
 ![Notes with receipts — every claim cites its transcript line](docs/receipts.png)
 
 ![The Brain — your meetings as an atlas](docs/brain-atlas.png)
