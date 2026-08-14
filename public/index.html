@@ -1924,16 +1924,56 @@ async function onboardingModal(startStep = 0) {
     check(status.profile.set, "Your name on the greeting"),
     check(status.meetings > 0, `Meetings in the brain (${status.meetings})`),
   ].join("");
+  // Save routines shared by each step's own button AND the Continue button —
+  // Continue commits whatever is typed, so filling a field and clicking
+  // Continue never silently discards it (Skip is the explicit discard). Each
+  // returns true when it's safe to advance (saved, or nothing to save) and
+  // false when a save was rejected.
   const saveKey = async (field, inputSel, btnSel) => {
-    const v = modal.querySelector(inputSel).value.trim();
-    if (!v) return;
+    const v = modal.querySelector(inputSel)?.value.trim();
+    if (!v) return true;
     const btn = modal.querySelector(btnSel);
     btn.disabled = true; btn.textContent = "Checking…";
     const r = await post("/api/setup/keys", { [field]: v });
-    if (r.error) { btn.disabled = false; btn.textContent = "Save"; return tlAlert(r.error, "API key"); }
+    if (r.error) { btn.disabled = false; btn.textContent = "Save"; tlAlert(r.error, "API key"); return false; }
     status = r;
     draw();
     showToast("Key saved — no restart needed");
+    return true;
+  };
+  const saveProfile = async () => {
+    const firstEl = modal.querySelector("#ob-first");
+    if (!firstEl) return true;
+    const first = firstEl.value.trim();
+    const last = modal.querySelector("#ob-last").value.trim();
+    if (first === (PROFILE.first_name ?? "") && last === (PROFILE.last_name ?? "")) return true;
+    const r = await post("/api/profile", { first_name: first, last_name: last, photo: PROFILE.photo });
+    if (r.error) { tlAlert(r.error); return false; }
+    await loadProfile();
+    render(); // the Home greeting behind the modal carries the name too
+    await refresh();
+    draw();
+    showToast("Profile updated");
+    return true;
+  };
+  const saveIcs = async () => {
+    const url = modal.querySelector("#ob-gcal-url")?.value.trim();
+    if (!url) return true;
+    const btn = modal.querySelector("#ob-gcal-save");
+    if (btn) { btn.disabled = true; btn.textContent = "Checking…"; }
+    const r = await post("/api/google/ics", { url });
+    if (r.error) { if (btn) { btn.disabled = false; btn.textContent = "Save & connect"; } tlAlert(r.error, "Calendar link"); return false; }
+    if (r.free_busy_only) {
+      if (btn) { btn.disabled = false; btn.textContent = "Save & connect"; }
+      await post("/api/google/ics", { url: null }); // don't keep a titles-less feed
+      tlAlert('This feed only says "Busy" — your Workspace admin caps external sharing at free/busy. Use the "Full Google OAuth instead" link: authenticated access as yourself returns full event details.', "Calendar link");
+      return false;
+    }
+    refreshGoogleButton();
+    await refresh();
+    draw();
+    showToast("Calendar connected");
+    return true;
   };
 
   const steps = [
@@ -1971,7 +2011,8 @@ async function onboardingModal(startStep = 0) {
           showToast("Sandbox key minted and saved");
         });
         modal.querySelector("#ob-pyai-save").addEventListener("click", () => saveKey("pyai_api_key", "#ob-pyai", "#ob-pyai-save"));
-      } },
+      },
+      commit: () => saveKey("pyai_api_key", "#ob-pyai", "#ob-pyai-save") },
 
     { title: "OpenAI key · optional",
       body: () => `
@@ -1988,7 +2029,8 @@ async function onboardingModal(startStep = 0) {
         <div style="display:flex;justify-content:flex-end"><button class="copybtn" id="ob-openai-save">Save</button></div>`,
       wire: () => {
         modal.querySelector("#ob-openai-save").addEventListener("click", () => saveKey("openai_api_key", "#ob-openai", "#ob-openai-save"));
-      } },
+      },
+      commit: () => saveKey("openai_api_key", "#ob-openai", "#ob-openai-save") },
 
     { title: "Recording setup",
       body: () => `
@@ -2024,23 +2066,9 @@ async function onboardingModal(startStep = 0) {
            </div>`,
       wire: () => {
         modal.querySelector("#ob-gcal-oauth")?.addEventListener("click", (e) => { e.preventDefault(); googleSetupModal(); });
-        modal.querySelector("#ob-gcal-save")?.addEventListener("click", async (e) => {
-          const url = modal.querySelector("#ob-gcal-url").value.trim();
-          if (!url) return;
-          const btn = e.currentTarget;
-          btn.disabled = true; btn.textContent = "Checking…";
-          const r = await post("/api/google/ics", { url });
-          if (r.error) { btn.disabled = false; btn.textContent = "Save & connect"; return tlAlert(r.error, "Calendar link"); }
-          if (r.free_busy_only) {
-            btn.disabled = false; btn.textContent = "Save & connect";
-            await post("/api/google/ics", { url: null }); // don't keep a titles-less feed
-            return tlAlert('This feed only says "Busy" — your Workspace admin caps external sharing at free/busy. Use the "Full Google OAuth instead" link: authenticated access as yourself returns full event details.', "Calendar link");
-          }
-          refreshGoogleButton();
-          await refresh(); draw();
-          showToast("Calendar connected");
-        });
-      } },
+        modal.querySelector("#ob-gcal-save")?.addEventListener("click", () => saveIcs());
+      },
+      commit: () => saveIcs() },
 
     { title: "Your name",
       body: () => `
@@ -2051,18 +2079,9 @@ async function onboardingModal(startStep = 0) {
         <input type="text" id="ob-last" placeholder="Last name" value="${esc(PROFILE.last_name ?? "")}">
         <div style="display:flex;justify-content:flex-end"><button class="copybtn" id="ob-profile-save" style="background:var(--ink);color:var(--bg)">Save</button></div>`,
       wire: () => {
-        modal.querySelector("#ob-profile-save").addEventListener("click", async () => {
-          const r = await post("/api/profile", {
-            first_name: modal.querySelector("#ob-first").value.trim(),
-            last_name: modal.querySelector("#ob-last").value.trim(),
-            photo: PROFILE.photo,
-          });
-          if (r.error) return tlAlert(r.error);
-          await loadProfile();
-          await refresh(); draw();
-          showToast("Profile updated");
-        });
-      } },
+        modal.querySelector("#ob-profile-save").addEventListener("click", () => saveProfile());
+      },
+      commit: () => saveProfile() },
 
     { title: "Sample meetings · optional",
       body: () => `
@@ -2134,7 +2153,16 @@ async function onboardingModal(startStep = 0) {
       b.addEventListener("click", () => { navigator.clipboard.writeText(b.dataset.obcopy); b.textContent = "Copied ✓"; }));
     modal.querySelector("#ob-back")?.addEventListener("click", () => { step--; draw(); });
     modal.querySelector("#ob-skip")?.addEventListener("click", () => { step++; draw(); });
-    modal.querySelector("#ob-next").addEventListener("click", () => { if (step === steps.length - 1) finish(); else { step++; draw(); } });
+    modal.querySelector("#ob-next").addEventListener("click", async (e) => {
+      // Continue first commits whatever the step's inputs hold; a rejected
+      // save keeps the user on the step instead of quietly dropping it.
+      if (s.commit) {
+        e.currentTarget.disabled = true;
+        const ok = await s.commit().catch(() => false);
+        if (!ok) { const b = modal.querySelector("#ob-next"); if (b) b.disabled = false; return; }
+      }
+      if (step === steps.length - 1) finish(); else { step++; draw(); }
+    });
     s.wire?.();
   }
 
