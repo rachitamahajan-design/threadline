@@ -342,13 +342,15 @@
   .side-link.active > .ic { color: var(--thread); }
   .side-empty { padding: 2px 12px; font-size: 12.5px; color: var(--ink-3); }
 
-  /* profile block, pinned bottom */
-  .profile { display: flex; align-items: center; gap: 9px; padding: 4px 6px 8px; }
+  /* profile block, pinned bottom — click opens Profile / Developer docs */
+  .profile { display: flex; align-items: center; gap: 9px; padding: 4px 6px 8px; cursor: pointer; border-radius: 10px; transition: background .14s; }
+  .profile:hover { background: var(--hover); }
   .avatar {
     width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-content: center;
     background: var(--grad-blue); color: var(--thread); font-weight: 700; font-size: 12.5px;
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--glass-border); overflow: hidden;
   }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
   .pname { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #google-btn {
     display: flex; align-items: center; gap: 9px; width: 100%;
@@ -1372,16 +1374,15 @@
       <button class="side-link" data-view="meetings" title="Meetings"><svg class="ic" width="17" height="17"><use href="#i-doc"/></svg><span class="lbl">Meetings</span></button>
       <button class="side-link" data-view="graph" title="Brain"><svg class="ic" width="17" height="17"><use href="#i-brain"/></svg><span class="lbl">Brain</span></button>
       <button class="side-link" data-view="needle" title="Needle"><svg class="ic" width="17" height="17"><use href="#i-needle"/></svg><span class="lbl">Needle</span></button>
-      <button class="side-link" data-view="mcp" title="Connect your AI"><svg class="ic" width="17" height="17"><use href="#i-needle"/></svg><span class="lbl">MCP setup</span></button>
     </div>
     <div class="side-section">
       <div class="side-head"><span class="lbl"><svg class="ic" width="13" height="13" aria-hidden="true"><use href="#i-thread"/></svg> Threads</span> <button id="add-project" title="New thread" aria-label="New thread"><svg class="ic" width="15" height="15"><use href="#i-plus"/></svg></button></div>
       <div id="project-list"></div>
     </div>
     <div class="side-foot">
-      <div class="profile">
-        <div class="avatar" aria-hidden="true">R</div>
-        <div class="pname">Rachita</div>
+      <div class="profile" id="profile-chip" role="button" tabindex="0" title="Profile & more">
+        <div class="avatar" id="profile-avatar" aria-hidden="true">R</div>
+        <div class="pname" id="profile-name">Rachita</div>
         <span style="flex:1"></span>
         <button id="theme-btn" class="icon-btn" title="Appearance" aria-label="Appearance" style="width:26px;height:26px"><svg class="ic" width="15" height="15"><use href="#i-sun"/></svg></button>
       </div>
@@ -1507,7 +1508,11 @@ function openPopover(anchor, html, wire, extraClass = "") {
   // keep the panel on screen on narrow viewports
   const left = Math.max(10, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 12));
   pop.style.left = `${left}px`;
-  pop.style.top = `${r.bottom + window.scrollY + 6}px`;
+  // open upward when the anchor sits near the bottom of the viewport (e.g. the identity chip)
+  const below = r.bottom + pop.offsetHeight + 6 > document.documentElement.clientHeight;
+  pop.style.top = below
+    ? `${Math.max(10, r.top + window.scrollY - pop.offsetHeight - 6)}px`
+    : `${r.bottom + window.scrollY + 6}px`;
   pop.style.visibility = "";
   const close = () => {
     pop.remove();
@@ -1690,6 +1695,113 @@ function projectModal(onCreated) {
   modal.querySelector("#pm-name").focus();
 }
 
+// ── Profile: the user's own name + avatar, shown wherever the product says "you" ──
+let PROFILE = { first_name: null, last_name: null, photo: null };
+
+async function loadProfile() {
+  PROFILE = await api("/api/profile").catch(() => PROFILE);
+  applyProfile();
+}
+
+function applyProfile() {
+  const first = PROFILE.first_name || "Rachita"; // pre-profile default keeps the original look
+  const full = [PROFILE.first_name, PROFILE.last_name].filter(Boolean).join(" ") || first;
+  $("#profile-name").textContent = first;
+  $("#profile-chip").title = `${full} — Profile & more`;
+  const av = $("#profile-avatar");
+  if (PROFILE.photo) av.innerHTML = `<img src="${PROFILE.photo}" alt="">`;
+  else { av.innerHTML = ""; av.textContent = (first[0] || "?").toUpperCase(); }
+}
+
+$("#profile-chip").addEventListener("click", (e) => {
+  if (e.target.closest("#theme-btn")) return; // the theme cycle lives inside the chip row
+  openMenuPopover($("#profile-chip"), [
+    { id: "profile", icon: "person", label: "Profile", run: profileModal },
+    { id: "devdocs", icon: "doc", label: "Developer docs", run: () => { state.view = "devdocs"; state.meetingId = null; state.projectId = null; render(); } },
+  ]);
+});
+$("#profile-chip").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.target.click(); } });
+
+/** Downscale to a 128px cover-cropped JPEG data URI so the avatar stays tiny. */
+function shrinkImage(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const S = 128;
+      const c = document.createElement("canvas");
+      c.width = S; c.height = S;
+      const side = Math.min(img.width, img.height);
+      c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, S, S);
+      URL.revokeObjectURL(img.src);
+      res(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(img.src); rej(new Error("unreadable image")); };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function profileModal() {
+  document.getElementById("profile-modal")?.remove();
+  const modal = document.createElement("div");
+  modal.id = "profile-modal";
+  modal.className = "tl-modal";
+  let photo = PROFILE.photo;
+  modal.innerHTML = `<div class="box" style="max-width:440px">
+    <h2>Profile</h2>
+    <div style="display:flex;align-items:center;gap:14px;margin:6px 0 14px">
+      <div class="avatar" id="pf-preview" style="width:56px;height:56px;font-size:22px"></div>
+      <button class="copybtn" id="pf-photo-btn">Choose photo</button>
+      <button class="copybtn" id="pf-photo-clear">Remove</button>
+      <input type="file" id="pf-photo" accept="image/*" style="display:none">
+    </div>
+    <label>First name</label>
+    <input type="text" id="pf-first" placeholder="First name">
+    <label>Last name</label>
+    <input type="text" id="pf-last" placeholder="Last name">
+    <div class="actions">
+      <span style="flex:1"></span>
+      <button class="copybtn" id="pf-cancel">Cancel</button>
+      <button class="copybtn" id="pf-save" style="background:var(--ink);color:var(--bg)">Save</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  const paint = () => {
+    const pv = modal.querySelector("#pf-preview");
+    if (photo) pv.innerHTML = `<img src="${photo}" alt="">`;
+    else { pv.innerHTML = ""; pv.textContent = ((modal.querySelector("#pf-first").value.trim() || "?")[0]).toUpperCase(); }
+  };
+  modal.querySelector("#pf-first").value = PROFILE.first_name ?? "";
+  modal.querySelector("#pf-last").value = PROFILE.last_name ?? "";
+  paint();
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+  modal.querySelector("#pf-cancel").addEventListener("click", () => modal.remove());
+  modal.querySelector("#pf-photo-btn").addEventListener("click", () => modal.querySelector("#pf-photo").click());
+  modal.querySelector("#pf-photo-clear").addEventListener("click", () => { photo = null; paint(); });
+  modal.querySelector("#pf-photo").addEventListener("change", async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    photo = await shrinkImage(f).catch(() => { alert("Couldn't read that image"); return photo; });
+    paint();
+  });
+  modal.querySelector("#pf-first").addEventListener("input", paint);
+  const save = async () => {
+    const body = {
+      first_name: modal.querySelector("#pf-first").value.trim(),
+      last_name: modal.querySelector("#pf-last").value.trim(),
+      photo,
+    };
+    const r = await fetch("/api/profile", { method: "POST", body: JSON.stringify(body) }).then((x) => x.json());
+    if (r.error) return alert(r.error);
+    modal.remove();
+    await loadProfile();
+    render(); // the Home greeting carries the name too
+    showToast("Profile updated");
+  };
+  modal.querySelector("#pf-save").addEventListener("click", save);
+  modal.querySelector("#pf-first").addEventListener("keydown", (e) => { if (e.key === "Enter") save(); });
+  modal.querySelector("#pf-first").focus();
+}
+
 async function loadSidebar() {
   const projects = await api("/api/projects");
   $("#project-list").innerHTML = projects.map((p) => `
@@ -1715,14 +1827,14 @@ async function render() {
   if (state.view === "meetings") return renderMeetings();
   if (state.view === "graph") return renderGraph();
   if (state.view === "needle") return renderNeedle();
-  if (state.view === "mcp") return renderMcp();
+  if (state.view === "mcp" || state.view === "devdocs") return renderDevDocs();
   if (state.view === "project") return renderProject(state.projectId);
   if (state.view === "doc") return renderDoc(state.docId);
 }
 
 // ── Needle: a conversation threaded through every meeting ────────────────
-// ── MCP setup: connect your AI to this brain ─────────────────────────────
-async function renderMcp() {
+// ── Developer docs: MCP setup & integration reference ────────────────────
+async function renderDevDocs() {
   const info = await api("/api/mcp/info").catch(() => ({ server_path: "src/mcp/server.ts", tools: [] }));
   // shell-quote the path — spaces (like "py hack") would split it into two args
   const shPath = /[\s'"$`\\]/.test(info.server_path) ? `"${info.server_path.replace(/(["$`\\])/g, "\\$1")}"` : info.server_path;
@@ -1733,8 +1845,10 @@ async function renderMcp() {
       <pre style="flex:1;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:12px;overflow-x:auto;margin:0;white-space:pre-wrap">${esc(content)}</pre>
       <button class="copybtn" data-copy="${id}">Copy</button>
     </div>`;
-  main.innerHTML = `<h1>Connect your AI</h1>
-    <div class="sub">Give your AI — Claude, Cursor, any MCP client — live access to this brain — search, claims, entities, receipts. Runs locally over stdio, needs no API keys, and never exposes raw transcripts: evidence only.</div>
+  main.innerHTML = `<h1>Developer docs</h1>
+    <div class="sub">Technical setup and integration reference for this brain.</div>
+    <div class="card"><h2>Connect your AI (MCP)</h2>
+      <div class="t-meta">Give your AI — Claude, Cursor, any MCP client — live access to this brain — search, claims, entities, receipts. Runs locally over stdio, needs no API keys, and never exposes raw transcripts: evidence only.</div></div>
     <div class="card"><h2>Claude Code</h2>
       <div class="t-meta" style="margin-bottom:8px">Run once in any terminal, then ask Claude about your meetings in any session. Verify with <code>/mcp</code>.</div>
       ${codeBox("cmd", cmd)}</div>
@@ -2653,7 +2767,7 @@ async function renderToday() {
   const open = todos.filter((t) => !t.done);
   const mins = Math.round((stats?.seconds ?? 0) / 60);
   main.innerHTML = `
-    <h1>${greeting()}, Rachita</h1>
+    <h1>${greeting()}, ${esc(PROFILE.first_name || "Rachita")}</h1>
     <div class="sub">${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
     ${searchPill()}
     <div class="stats">
@@ -5973,7 +6087,7 @@ palInput.addEventListener("keydown", async (e) => {
     el.addEventListener("click", () => palGoto(el.dataset.pmid, el.dataset.poff)));
 });
 
-render();
+loadProfile().finally(() => render()); // profile first, so the greeting carries the right name
 </script>
 </body>
 </html>
