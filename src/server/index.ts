@@ -564,11 +564,17 @@ const api: Record<string, Handler> = {
     return setupStatus();
   },
 
-  async "POST /api/setup/mint"() {
+  // force: mint a fresh key even when one is configured (ensureApiKey returns
+  // early otherwise). The old key is restored if the mint fails.
+  async "POST /api/setup/mint"(p, body) {
+    const { force } = (body ?? {}) as { force?: boolean };
+    const prior = process.env.PYAI_API_KEY;
     try {
+      if (force) delete process.env.PYAI_API_KEY;
       await ensureApiKey();
       return { ok: true, masked: maskKey(process.env.PYAI_API_KEY) };
     } catch (e) {
+      if (prior) process.env.PYAI_API_KEY = prior;
       return { error: e instanceof Error ? e.message : String(e) };
     }
   },

@@ -1949,10 +1949,10 @@ async function onboardingModal(startStep = 0) {
       body: () => `
         ${status.pyai.configured
           ? `<div class="ob-check on" style="margin-bottom:8px">✓ Configured <code>${esc(status.pyai.masked ?? "")}</code></div>
-             <div class="t-meta" style="margin-bottom:10px">Paste a different key below to replace it.</div>`
-          : `<div class="t-meta" style="margin-bottom:10px">Transcription and extraction run on PyAI. No account needed to try it:</div>
-             <button class="copybtn" id="ob-mint" style="background:var(--ink);color:var(--bg)">Mint a free sandbox key</button>
-             <div class="t-meta" style="margin:8px 0 12px">Sandbox keys cap at ~10 audio-minutes/day — create a free key at <a href="https://console.pyai.com" target="_blank" rel="noopener">console.pyai.com</a> for real use.</div>`}
+             <div class="t-meta" style="margin-bottom:10px">Need a different one? Mint a fresh sandbox key, or paste a key below to replace it.</div>`
+          : `<div class="t-meta" style="margin-bottom:10px">Transcription and extraction run on PyAI. No account needed to try it:</div>`}
+        <button class="copybtn" id="ob-mint" style="background:var(--ink);color:var(--bg)">${status.pyai.configured ? "Mint a fresh sandbox key" : "Mint a free sandbox key"}</button>
+        <div class="t-meta" style="margin:8px 0 12px">Sandbox keys cap at ~10 audio-minutes/day — create a free key at <a href="https://console.pyai.com" target="_blank" rel="noopener">console.pyai.com</a> for real use.</div>
         <label>Or paste a key</label>
         <input type="text" id="ob-pyai" placeholder="pyai-…" autocomplete="off">
         <div style="display:flex;justify-content:flex-end"><button class="copybtn" id="ob-pyai-save">Save</button></div>
@@ -1960,9 +1960,12 @@ async function onboardingModal(startStep = 0) {
       wire: () => {
         modal.querySelector("#ob-mint")?.addEventListener("click", async (e) => {
           const btn = e.currentTarget;
+          const replacing = status.pyai.configured;
+          if (replacing && !(await tlConfirm("Replace your current key with a fresh sandbox key? Sandbox keys cap at ~10 audio-minutes/day.", { okLabel: "Replace" }))) return;
+          const label = btn.textContent;
           btn.disabled = true; btn.textContent = "Minting…";
-          const r = await post("/api/setup/mint");
-          if (r.error) { btn.disabled = false; btn.textContent = "Mint a free sandbox key"; return tlAlert(r.error, "PyAI key"); }
+          const r = await post("/api/setup/mint", { force: replacing });
+          if (r.error) { btn.disabled = false; btn.textContent = label; return tlAlert(r.error, "PyAI key"); }
           await refresh(); draw();
           showToast("Sandbox key minted and saved");
         });
