@@ -30,13 +30,13 @@ npm install
 npm run demo                # processes 3 sample meetings, zero setup
 ```
 
-## Record from anywhere (global hotkey)
+## Record from anywhere (global shortcut)
 
-Double-tap the **Fn** key from any app to start recording; double-tap again to
-stop. The hotkey daemon starts with the server (`npm run dev`) — no setup.
-Meetings you never name are titled automatically from their own content, and a
-prompt lets you rename on the spot when you stop. Recordings under 15 seconds
-are discarded as accidental taps.
+Bind a macOS Shortcut to `scripts/record-toggle.sh` (the in-app **Set-up
+Shortcut** button walks you through it) and press it from any app to start
+recording; press it again to stop. Meetings you never name are titled
+automatically from their own content, and a prompt lets you rename on the spot
+when you stop. Recordings under 15 seconds are discarded as accidental taps.
 
 Multi-party calls get automatic **speaker identification**: after each
 recording, the room's audio is diarized (a PyAI batch job on the locally saved
@@ -46,16 +46,14 @@ your own voice too; there's no voice recognition, so nobody is auto-identified).
 page and it propagates everywhere — transcript, entities, graph, search.
 Resumed recordings aren't supported yet; too-short recordings are skipped.
 
-The floating companion window (pops up when recording starts) stays on top of
-every app with the timer, live line, and Stop — that's the everyday control
-surface; the hotkey is a bonus.
+A native floating panel (built with the capture helper, started with the
+server) appears on top of every app whenever a recording is live — whoever
+started it — with the timer and a Stop button, and disappears when the take
+ends. Inside the web app there's also a browser pop-out companion with the
+live line and an Ask box.
 
-Prerequisites for double-Fn: the app that owns `npm run dev` needs
-**Accessibility** permission (the daemon prompts on first run), and the 🌐/Fn
-key must be set to "Do Nothing" in System Settings → Keyboard (its default is
-often "Show Emoji & Symbols", which swallows the tap; a logout may be needed
-before the change takes effect). Capture itself needs Screen Recording +
-Microphone for the same app.
+Capture needs **Screen Recording + Microphone** permission for the app that
+owns `npm run dev`; the panel itself needs no permissions.
 
 ## Give your Claude this brain (MCP)
 

@@ -16,7 +16,7 @@
     "test": "node --import tsx --test test/*.test.ts",
     "eval-grounding": "tsx src/cli/eval-grounding.ts",
     "typecheck": "tsc --noEmit",
-    "build:capture": "swiftc -O capture/ThreadlineCapture.swift -o capture/threadline-capture && swiftc -O capture/ThreadlineHotkey.swift -o capture/threadline-hotkey",
+    "build:capture": "swiftc -O capture/ThreadlineCapture.swift -o capture/threadline-capture && swiftc -O capture/ThreadlinePanel.swift -o capture/threadline-panel",
     "seed": "tsx src/cli/seed.ts",
     "mcp": "tsx src/mcp/server.ts",
     "brain-md": "tsx src/cli/brain-md.ts"
