@@ -23,9 +23,13 @@ export type ModelCall = {
   purpose: string;
   system: string;
   user: string;
+  /** Prior conversation turns, inserted between system and user verbatim. */
+  history?: { role: "user" | "assistant"; content: string }[];
   /** Extraction runs at 0; composition a hair above. Never high. */
   temperature?: number;
   maxTokens?: number;
+  /** "json" (default) forces json_object mode and parses; "text" returns prose. */
+  format?: "json" | "text";
 };
 
 export type ModelUsage = {
@@ -165,6 +169,12 @@ export async function chatJson(call: ModelCall): Promise<unknown> {
   }
 }
 
+/** Plain-prose variant of chatJson — same boundary, failover and metering. */
+export async function chatText(call: Omit<ModelCall, "format">): Promise<string> {
+  const raw = await chatJson({ ...call, format: "text" });
+  return typeof raw === "string" ? raw : JSON.stringify(raw);
+}
+
 /** The provider to fail over to: the other one, if its key is configured. */
 function altProvider(p: Exclude<Provider, "mock">): Exclude<Provider, "mock"> | null {
   if (p === "pyai") return process.env.OPENAI_API_KEY ? "openai" : null;
@@ -175,7 +185,7 @@ async function chatVia(p: Exclude<Provider, "mock">, call: ModelCall): Promise<u
   const started = Date.now();
   const temperature = call.temperature ?? chatModel().purposes?.[call.purpose]?.temperature ?? DEFAULT_TEMPERATURE;
   const res = await post(p, call, temperature);
-  const raw = parseJsonLoose(res.content);
+  const raw = call.format === "text" ? res.content : parseJsonLoose(res.content);
   const model = modelName(p, call.purpose);
   logUsage({
     provider: p,
@@ -228,9 +238,10 @@ async function post(
         model: modelName(p, call.purpose),
         temperature,
         ...(call.maxTokens ? { max_tokens: call.maxTokens } : {}),
-        response_format: { type: "json_object" },
+        ...(call.format === "text" ? {} : { response_format: { type: "json_object" } }),
         messages: [
           { role: "system", content: call.system },
+          ...(call.history ?? []),
           { role: "user", content: call.user },
         ],
       }),

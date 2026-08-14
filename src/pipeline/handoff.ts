@@ -110,9 +110,11 @@ async function applyEntailmentGate(
   out: GroundedOutput<Notes>,
   ctx: GroundingContext,
   steps: StepRecord[],
+  budget?: Budget,
 ): Promise<void> {
   const mode = entailmentMode();
   if (mode === "off" || !out.value) return;
+  budget?.spendUnits(1); // one spotcheck call per gate pass — metered like every model call
   const t0 = Date.now();
   const check = await spotcheckNotes(out.value, ctx);
   const ms = Date.now() - t0;
@@ -226,7 +228,7 @@ export async function ensureNotes(
         failure = firstFailure(out.steps) ?? because("crash", out.error ?? "notes could not be generated");
         return { outline: existing, error: out.error ?? "notes could not be generated", runId };
       }
-      await applyEntailmentGate(out, m.ctx, steps);
+      await applyEntailmentGate(out, m.ctx, steps, budget);
       writeOutline(
         db,
         meetingId,

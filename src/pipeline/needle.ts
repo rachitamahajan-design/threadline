@@ -16,6 +16,8 @@
  */
 import type { DatabaseSync } from "node:sqlite";
 import { Budget, retry, applyGate, normalize, decideExit, type StepRecord } from "../lib/harness.js";
+import { because, CodedError } from "../lib/reasons.js";
+import { chatJson, chatText } from "../lib/model.js";
 import { hasOpenAI } from "../lib/openai.js";
 import { retrieve, type Snippet } from "./retrieve.js";
 import { gates, type RawPoint } from "./ask.js";
@@ -69,23 +71,20 @@ function snippetsByIds(db: DatabaseSync, ids: number[]): Snippet[] {
 }
 
 /** Condense the conversation + follow-up into a standalone retrieval query. */
-async function rewriteQuery(hist: { role: string; content: string }[], question: string): Promise<string> {
+async function rewriteQuery(hist: { role: string; content: string }[], question: string, budget?: Budget): Promise<string> {
   if (!hist.length || !hasOpenAI()) return question;
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "Rewrite the user's follow-up as ONE standalone search query over meeting notes, resolving pronouns and references from the conversation. Reply with the query text only." },
-        { role: "user", content: hist.map((m) => `${m.role}: ${m.content}`).join("\n") + `\nfollow-up: ${question}` },
-      ],
-    }),
-  });
-  if (!res.ok) return question;
-  const data = (await res.json()) as { choices: { message: { content: string } }[] };
-  const q = data.choices[0].message.content.trim().replace(/^"|"$/g, "");
-  return q.length > 2 && q.length < 300 ? q : question;
+  try {
+    budget?.spendUnits(1);
+    const content = await chatText({
+      purpose: "needle.rewrite",
+      system: "Rewrite the user's follow-up as ONE standalone search query over meeting notes, resolving pronouns and references from the conversation. Reply with the query text only.",
+      user: hist.map((m) => `${m.role}: ${m.content}`).join("\n") + `\nfollow-up: ${question}`,
+    });
+    const q = content.trim().replace(/^"|"$/g, "");
+    return q.length > 2 && q.length < 300 ? q : question;
+  } catch {
+    return question; // the rewrite is an optimization — a dead model degrades to the raw question
+  }
 }
 
 /** Enumerative path: complete, receipted, fully local. */
@@ -144,35 +143,22 @@ async function synthesizeTurn(
   const context = fresh
     .map((s) => `[#${s.chunk_id}] (meeting "${s.meeting_title}", ${Math.round(s.offset_s)}s) ${s.text}`)
     .join("\n\n");
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            'You answer questions about the user\'s meetings, in an ongoing conversation. Use ONLY the numbered snippets (and facts already established earlier in this conversation). Reply with JSON {"summary": string, "points":[{"text": string, "chunk_id": number, "quote": string}]}. ' +
-            "summary: a direct conversational answer in plain third-person words, 1-3 sentences. " +
-            "points: the evidence — each cites its snippet number as chunk_id with a short VERBATIM quote from that snippet. " +
-            "Never introduce names or numbers that appear in neither the snippets nor the prior conversation." +
-            (lastError ? ` Your previous answer was rejected: ${lastError}.` : ""),
-        },
-        ...hist.map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
-        { role: "user", content: `${question}\n\nSnippets:\n${context}` },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`needle synthesis failed: HTTP ${res.status}`);
-  const data = (await res.json()) as { choices: { message: { content: string } }[] };
-  const parsed = JSON.parse(data.choices[0].message.content) as { summary?: string; points?: RawPoint[] };
+  const parsed = (await chatJson({
+    purpose: "needle.synthesize",
+    system:
+      'You answer questions about the user\'s meetings, in an ongoing conversation. Use ONLY the numbered snippets (and facts already established earlier in this conversation). Reply with JSON {"summary": string, "points":[{"text": string, "chunk_id": number, "quote": string}]}. ' +
+      "summary: a direct conversational answer in plain third-person words, 1-3 sentences. " +
+      "points: the evidence — each cites its snippet number as chunk_id with a short VERBATIM quote from that snippet. " +
+      "Never introduce names or numbers that appear in neither the snippets nor the prior conversation." +
+      (lastError ? ` Your previous answer was rejected: ${lastError}.` : ""),
+    history: hist.map((m) => ({ role: m.role === "user" ? ("user" as const) : ("assistant" as const), content: m.content })),
+    user: `${question}\n\nSnippets:\n${context}`,
+  })) as { summary?: string; points?: RawPoint[] };
   return { summary: parsed.summary ?? "", points: parsed.points ?? [] };
 }
 
 /** One full turn: store the user message, produce and store the reply. */
-export async function converse(db: DatabaseSync, conversationId: number, text: string) {
+export async function converse(db: DatabaseSync, conversationId: number, text: string, runBudget?: Budget) {
   const now = Date.now();
   const conv = db.prepare("SELECT project_id FROM conversations WHERE id = ?").get(conversationId) as
     | { project_id: number | null }
@@ -188,7 +174,7 @@ export async function converse(db: DatabaseSync, conversationId: number, text: s
       .run(text.slice(0, 60), conversationId);
 
   const steps: StepRecord[] = [];
-  const budget = Budget.for("needle");
+  const budget = runBudget ?? Budget.for("needle"); // the recordRun wrapper's governor, so units land on the run
   const save = (content: string, payload: object) => {
     db.prepare("INSERT INTO messages (conversation_id, role, content, payload, created_at) VALUES (?, 'assistant', ?, ?, ?)")
       .run(conversationId, content, JSON.stringify(payload), Date.now());
@@ -204,7 +190,7 @@ export async function converse(db: DatabaseSync, conversationId: number, text: s
 
   // Semantic → rewrite, retrieve, synthesize against the conversation corpus.
   const t0 = Date.now();
-  const standalone = await rewriteQuery(hist, text);
+  const standalone = await rewriteQuery(hist, text, budget);
   if (standalone !== text) steps.push({ name: "rewrite", status: "ok", attempts: 1, ms: Date.now() - t0 });
 
   let fresh = retrieve(db, standalone);
@@ -245,7 +231,7 @@ export async function converse(db: DatabaseSync, conversationId: number, text: s
     const out = await synthesizeTurn(text, hist, fresh.length ? fresh : corpus, lastError);
     const res = applyGate(out.points, gate);
     if (!res.kept.length && res.blocked.length)
-      throw new Error(res.blocked.map((b) => b.reason).slice(0, 2).join("; "));
+      throw new CodedError("grounding-blocked", res.blocked.map((b) => b.reason).slice(0, 2).join("; "));
     return { ...res, summary: out.summary };
   }, { max: 2 });
   steps.push(run.record);

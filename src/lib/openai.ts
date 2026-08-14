@@ -5,6 +5,7 @@
  *   - chat-completions structured extraction standing in for Recap
  */
 import type { Utterance, RecapRecord } from "./pyai.js";
+import { chatJson } from "./model.js";
 
 const BASE = "https://api.openai.com/v1";
 
@@ -64,28 +65,6 @@ export function openaiModel(): string {
   return process.env.SUMMARIZER_MODEL ?? "gpt-4o-mini";
 }
 
-/** One JSON-mode chat call. Callers own the schema and validation. */
-export async function chatJSON(system: string, user: string, model?: string): Promise<unknown> {
-  const res = await fetch(`${BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: model ?? openaiModel(),
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`openai chat failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
-  const data = (await res.json()) as { choices: { message: { content: string } }[] };
-  return JSON.parse(data.choices[0].message.content);
-}
-
 /** Timestamped transcript in the `[Ns] speaker:` shape all prompts share. */
 export function flattenTranscript(utterances: Utterance[]): string {
   return utterances
@@ -93,17 +72,18 @@ export function flattenTranscript(utterances: Utterance[]): string {
     .join("\n");
 }
 
-/** Recap stand-in: structured extraction via chat completions. */
+/** Recap stand-in: structured extraction through the model adapter. */
 export async function openaiExtract(utterances: Utterance[]): Promise<RecapRecord> {
-  const record = await chatJSON(
-    "You extract structured meeting notes. Only include claims supported by the transcript. Reply with JSON: " +
+  const record = await chatJson({
+    purpose: "recap.fallback",
+    system:
+      "You extract structured meeting notes. Only include claims supported by the transcript. Reply with JSON: " +
       '{"tldr": string, "summary_draft": string, "key_decisions": string[], ' +
       '"action_items": [{"task": string, "owner": string|null, "due": string|null}], ' +
       '"risk_signals": [{"quote": string, "category": string, "severity": "low"|"medium"|"high"}], ' +
       '"moments": [{"category": string, "offset_s": number, "description": string}]}. ' +
       "For moments, use the [Ns] markers for offset_s. Owners must be names heard in the meeting.",
-    flattenTranscript(utterances),
-    "gpt-4o-mini",
-  );
+    user: flattenTranscript(utterances),
+  });
   return record as RecapRecord;
 }

@@ -14,7 +14,8 @@ import { processMeeting, reindexMeeting } from "../pipeline/extract.js";
 import { findOccurrences, applyCorrection, undoCorrection, detectWordSwap } from "../pipeline/corrections.js";
 import { chatAboutMeeting } from "../pipeline/notes.js";
 import { bulletAt, type StructuredSummary } from "../lib/summary.js";
-import { hasOpenAI, openaiModel, chatJSON } from "../lib/openai.js";
+import { hasOpenAI, openaiModel } from "../lib/openai.js";
+import { chatJson } from "../lib/model.js";
 import { extractDocText, summarizeDoc, EXTRACTABLE } from "../lib/docs.js";
 import type { Utterance } from "../lib/pyai.js";
 import { googleConfigured, googleConnected, authUrl, exchangeCode, upcomingEvents } from "./google.js";
@@ -208,11 +209,9 @@ const api: Record<string, Handler> = {
     // run must not displace it. The full per-workflow history is not part of
     // the product UI — it lives in the runs table and GET /api/runs for
     // debugging; the user only ever sees outcomes and retry buttons in place.
-    const runs = (
-      db
-        .prepare(`SELECT * FROM runs WHERE meeting_id = ? AND kind = 'process-meeting' ORDER BY id DESC LIMIT 1`)
-        .all(id) as { steps: string }[]
-    ).map((r) => ({ ...r, steps: JSON.parse(r.steps) }));
+    // User-safe projection only — outcome and public failure text, never raw
+    // steps or failure details (harnesses.md: records reach the browser via forUi).
+    const runs = listRuns(db, id, 50).filter((r) => r.kind === "process-meeting").slice(0, 1).map(forUi);
     // backlinks: other meetings sharing a person/topic node with this one —
     // plus meetings one `related` hop away, so "ANZ rollout" (kickoff) still
     // threads to "ANZ pricing" (investor call) without pretending they are
@@ -377,7 +376,8 @@ const api: Record<string, Handler> = {
       db.exec("COMMIT");
     } catch (e) {
       db.exec("ROLLBACK");
-      return { error: e instanceof Error ? e.message : String(e) };
+      log.error("api.error", { route: "meeting/delete", reason: reasonFrom(e).code });
+      return { error: publicReason(reasonFrom(e)) };
     }
     return { ok: true };
   },
@@ -664,23 +664,37 @@ const api: Record<string, Handler> = {
         `## Document: ${d.title}\n${d.summary ? `Summary: ${d.summary}\n` : ""}${(d.content ?? "(no extractable text)").slice(0, 9000)}`),
     ].filter(Boolean).join("\n\n");
 
-    try {
-      const out = (await chatJSON(
-        "You answer questions about one project workspace using ONLY the provided context: its filed " +
-          "meetings, decisions, action items, people, and documents. Be concrete and cite facts from the " +
-          "context. If the context does not contain the answer, say so plainly instead of guessing. " +
-          'Reply with JSON: {"answer": string, "sources": string[]} where sources lists the meeting or ' +
-          "document titles you drew the answer from (empty if none).",
-        `Question: ${question.trim()}\n\nProject context:\n${ctx}`,
-      )) as { answer?: unknown; sources?: unknown };
-      if (typeof out.answer !== "string" || !out.answer.trim()) return { error: "The model returned no answer — try rephrasing." };
-      return {
-        answer: out.answer.trim(),
-        sources: Array.isArray(out.sources) ? out.sources.filter((s): s is string => typeof s === "string").slice(0, 6) : [],
-      };
-    } catch (e) {
-      return { error: `Ask failed: ${e instanceof Error ? e.message : String(e)}` };
-    }
+    // Closed loop like every other model workflow: recorded, metered, and a
+    // dead network is a failed run with a friendly error — never raw e.message.
+    let failure: ReturnType<typeof reasonFrom> | null = null;
+    return await recordRun(
+      db,
+      { kind: "project-ask", args: { project_id, q: question.trim().slice(0, 200) } },
+      async (budget) => {
+        try {
+          budget.spendUnits(1);
+          const out = (await chatJson({
+            purpose: "project.ask",
+            system:
+              "You answer questions about one project workspace using ONLY the provided context: its filed " +
+              "meetings, decisions, action items, people, and documents. Be concrete and cite facts from the " +
+              "context. If the context does not contain the answer, say so plainly instead of guessing. " +
+              'Reply with JSON: {"answer": string, "sources": string[]} where sources lists the meeting or ' +
+              "document titles you drew the answer from (empty if none).",
+            user: `Question: ${question.trim()}\n\nProject context:\n${ctx}`,
+          })) as { answer?: unknown; sources?: unknown };
+          if (typeof out.answer !== "string" || !out.answer.trim()) return { error: "The model returned no answer — try rephrasing." };
+          return {
+            answer: out.answer.trim(),
+            sources: Array.isArray(out.sources) ? out.sources.filter((s): s is string => typeof s === "string").slice(0, 6) : [],
+          };
+        } catch (e) {
+          failure = reasonFrom(e);
+          return { error: publicReason(failure) };
+        }
+      },
+      (r) => ({ outcome: (r as { error?: string }).error ? "failed" : "shipped", steps: [], failure }),
+    );
   },
 
   "GET /api/people"() {
@@ -751,7 +765,7 @@ const api: Record<string, Handler> = {
     const buf = Buffer.from(data_b64, "base64");
     if (buf.length > 10 * 1024 * 1024) return { error: "file too large (max 10MB)" };
     const content = await extractDocText(ext, buf);
-    const summary = await summarizeDoc(filename.trim(), content);
+    const summary = await summarizeDoc(db, filename.trim(), content);
     const now = Date.now();
     const r = db
       .prepare(
@@ -864,7 +878,8 @@ const api: Record<string, Handler> = {
       return { ok: true, connected: true, upcoming_48h: events.length, free_busy_only: allBusy };
     } catch (e) {
       setIcsUrl(db, null);
-      return { error: `couldn't read that calendar link — ${e instanceof Error ? e.message : "fetch failed"}. Copy the "Secret address in iCal format" from Google Calendar settings.` };
+      log.warn("api.error", { route: "google/ics", reason: reasonFrom(e).code });
+      return { error: 'couldn\'t read that calendar link — the address didn\'t answer with a calendar. Copy the "Secret address in iCal format" from Google Calendar settings and paste the whole URL.' };
     }
   },
 
@@ -966,7 +981,7 @@ const api: Record<string, Handler> = {
     return await recordRun(
       db,
       { kind: "needle", args: { conversation_id, q: text.trim() } },
-      () => converse(db, conversation_id, text.trim()),
+      (budget) => converse(db, conversation_id, text.trim(), budget),
       (r) => {
         const exit = ((r as { payload?: { exit?: string } })?.payload?.exit ?? "shipped") as Outcome | "budget";
         return { outcome: exit === "budget" ? "deadline" : exit, steps: [], failure: null };
@@ -1174,9 +1189,9 @@ const api: Record<string, Handler> = {
     return await recordRun(
       db,
       { kind: "chat", meetingId: meeting_id, args: { q: message.trim().slice(0, 200) } },
-      async () => {
+      async (budget) => {
         try {
-          return await chatAboutMeeting(db, meeting_id, message.trim(), history ?? [], notes ?? "", utterances);
+          return await chatAboutMeeting(db, meeting_id, message.trim(), history ?? [], notes ?? "", utterances, budget);
         } catch (e) {
           failure = reasonFrom(e);
           return { error: publicReason(failure) };
@@ -1446,7 +1461,8 @@ async function regenerateMeeting(id: string) {
       startedAt: meeting.started_at,
       utterances,
     });
-    return { ok: true, exit, steps, stored };
+    // Step metadata only crosses the wire — reason details stay in the run record.
+    return { ok: true, exit, steps: steps.map((s) => ({ name: s.name, status: s.status, attempts: s.attempts, ms: s.ms, code: s.reason?.code })), stored };
   } finally {
     regenerating.delete(id);
   }
@@ -1496,7 +1512,7 @@ async function ensureDocContext<T extends { id: number; title: string; filename:
     }
   }
   if (!summary && content) {
-    summary = await summarizeDoc(doc.title, content);
+    summary = await summarizeDoc(db, doc.title, content);
     if (summary) db.prepare(`UPDATE documents SET summary = ? WHERE id = ?`).run(summary, doc.id);
   }
   return { ...doc, content, summary };
@@ -1588,7 +1604,9 @@ createServer(async (req, res) => {
     } catch (e) {
       // The user never sees internals; the log gets the whole thing — the
       // classified reason for branching/grepping, the stack for reading.
-      log.error("api.error", { route: key, reason: reasonFrom(e), stack: e instanceof Error ? e.stack : String(e) });
+      // Code + stack only — a Reason's detail can carry meeting text, and the
+      // log file must be safe to paste into a bug report.
+      log.error("api.error", { route: key, reason: reasonFrom(e).code, stack: e instanceof Error ? e.stack : String(e) });
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "something went wrong" }));
     }

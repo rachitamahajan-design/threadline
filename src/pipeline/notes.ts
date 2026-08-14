@@ -11,7 +11,9 @@
  * to notes_versions first.
  */
 import { DatabaseSync } from "node:sqlite";
-import { chatJSON, flattenTranscript } from "../lib/openai.js";
+import { flattenTranscript } from "../lib/openai.js";
+import { chatJson } from "../lib/model.js";
+import type { Budget } from "../lib/harness.js";
 import type { Utterance } from "../lib/pyai.js";
 
 const CHAT_SYSTEM = `You are the meeting assistant for the notes document below. Ground every answer ONLY
@@ -39,6 +41,7 @@ async function callWithRetry<T>(
   system: string,
   user: string,
   validate: (raw: unknown) => T | string, // returns the value, or an error string
+  budget?: Budget, // the wrapper's governor, so chat units land on the run record
 ): Promise<T> {
   let lastError: string | null = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -46,7 +49,8 @@ async function callWithRetry<T>(
       ? `${system}\n\nYour previous reply was rejected: ${lastError}\nFix this and reply with valid JSON only.`
       : system;
     try {
-      const raw = await chatJSON(sys, user);
+      budget?.spendUnits(1);
+      const raw = await chatJson({ purpose: "meeting.chat", system: sys, user });
       const out = validate(raw);
       if (typeof out === "string") throw new Error(out);
       return out;
@@ -65,6 +69,7 @@ export async function chatAboutMeeting(
   history: { role: "user" | "assistant"; content: string }[],
   currentNotes: string,
   utterances: Utterance[],
+  budget?: Budget,
 ): Promise<{ answer: string; notes: string | null }> {
   const convo = history
     .slice(-10)
@@ -81,6 +86,7 @@ export async function chatAboutMeeting(
       const notes = typeof r.updated_notes === "string" && r.updated_notes.trim() ? r.updated_notes.trim() : null;
       return { answer: r.answer.trim(), notes };
     },
+    budget,
   );
   if (out.notes) writeNotes(db, meetingId, currentNotes, out.notes, "chat");
   return out;

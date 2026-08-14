@@ -13,7 +13,8 @@
  */
 import type { DatabaseSync } from "node:sqlite";
 import { Budget, retry, groundedIn, applyGate, allOf, decideExit, normalize, type Gate, type StepRecord } from "../lib/harness.js";
-import { because } from "../lib/reasons.js";
+import { because, CodedError } from "../lib/reasons.js";
+import { chatJson } from "../lib/model.js";
 import { hasOpenAI } from "../lib/openai.js";
 import { retrieve, type Snippet } from "./retrieve.js";
 
@@ -70,29 +71,16 @@ async function synthesize(
   const context = snippets
     .map((s) => `[#${s.chunk_id}] (meeting "${s.meeting_title}", ${Math.round(s.offset_s)}s) ${s.text}`)
     .join("\n\n");
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            'Answer the question using ONLY the numbered snippets. Reply with JSON {"summary": string, "points":[{"text": string, "chunk_id": number, "quote": string}]}. ' +
-            "summary: a direct 1-3 sentence answer to the question, written in your own plain third-person words — do NOT copy transcript sentences or speak in first person. " +
-            "points: the evidence behind the summary; each cites its snippet number as chunk_id and copies a short VERBATIM quote from that snippet as quote, with text being a one-line paraphrase of what that quote establishes. " +
-            "Do not introduce names or numbers that are not in the snippets." +
-            (lastError ? ` Your previous answer was rejected: ${lastError}. Every point must quote its cited snippet verbatim.` : ""),
-        },
-        { role: "user", content: `Question: ${question}\n\nSnippets:\n${context}` },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`synthesis failed: HTTP ${res.status} ${(await res.text()).slice(0, 150)}`);
-  const data = (await res.json()) as { choices: { message: { content: string } }[] };
-  const parsed = JSON.parse(data.choices[0].message.content) as { summary?: string; points?: RawPoint[] };
+  const parsed = (await chatJson({
+    purpose: "ask.synthesize",
+    system:
+      'Answer the question using ONLY the numbered snippets. Reply with JSON {"summary": string, "points":[{"text": string, "chunk_id": number, "quote": string}]}. ' +
+      "summary: a direct 1-3 sentence answer to the question, written in your own plain third-person words — do NOT copy transcript sentences or speak in first person. " +
+      "points: the evidence behind the summary; each cites its snippet number as chunk_id and copies a short VERBATIM quote from that snippet as quote, with text being a one-line paraphrase of what that quote establishes. " +
+      "Do not introduce names or numbers that are not in the snippets." +
+      (lastError ? ` Your previous answer was rejected: ${lastError}. Every point must quote its cited snippet verbatim.` : ""),
+    user: `Question: ${question}\n\nSnippets:\n${context}`,
+  })) as { summary?: string; points?: RawPoint[] };
   return { summary: parsed.summary ?? "", points: parsed.points ?? [] };
 }
 
@@ -153,7 +141,7 @@ export async function ask(db: DatabaseSync, question: string, opts: { budget?: B
     const out = await synthesize(question, receipts, lastError);
     const res = applyGate(out.points, gate);
     if (!res.kept.length && res.blocked.length)
-      throw new Error(res.blocked.map((b) => b.reason).slice(0, 2).join("; "));
+      throw new CodedError("grounding-blocked", res.blocked.map((b) => b.reason).slice(0, 2).join("; "));
     return { ...res, summary: out.summary };
   }, { max: 2 });
   steps.push(run.record);

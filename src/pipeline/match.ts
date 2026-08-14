@@ -7,7 +7,7 @@
  * and reprocessing a meeting replaces only its still-pending suggestions.
  */
 import { DatabaseSync } from "node:sqlite";
-import { chatJSON } from "../lib/openai.js";
+import { chatJson } from "../lib/model.js";
 import { retry, type Budget, type StepRecord } from "../lib/harness.js";
 import type { RecapRecord } from "../lib/pyai.js";
 import type { MeetingInput } from "./extract.js";
@@ -104,10 +104,11 @@ export async function suggestProjects(
       const feedback = lastError
         ? `\n\nYour previous reply was rejected: ${lastError}\nFix these problems and reply with valid JSON only.`
         : "";
-      const raw = (await chatJSON(
-        SYSTEM + feedback,
-        `Meeting:\n${JSON.stringify(meetingContext, null, 1)}\n\nProjects:\n${JSON.stringify(projectContext, null, 1)}`,
-      )) as { suggestions?: unknown };
+      const raw = (await chatJson({
+        purpose: "match.projects",
+        system: SYSTEM + feedback,
+        user: `Meeting:\n${JSON.stringify(meetingContext, null, 1)}\n\nProjects:\n${JSON.stringify(projectContext, null, 1)}`,
+      })) as { suggestions?: unknown };
       budget.spendUnits(1);
       if (!Array.isArray(raw.suggestions)) throw new Error("missing suggestions array");
       return raw.suggestions

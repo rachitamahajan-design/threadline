@@ -81,7 +81,9 @@ export function beginRun(
         tokensIn: use.tokensIn,
         tokensOut: use.tokensOut,
         costUsd: Number(use.costUsd.toFixed(6)),
-        failure: final.failure ?? undefined,
+        // Code only — failure.detail can quote the transcript, and the log file
+        // must stay free of meeting content. The full Reason lives in the row below.
+        failure: final.failure ? final.failure.code : undefined,
         steps: final.steps.map((s) => ({ name: s.name, status: s.status, attempts: s.attempts, ms: s.ms, code: s.reason?.code })),
       });
       db.prepare(
