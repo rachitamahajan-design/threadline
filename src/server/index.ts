@@ -120,6 +120,10 @@ async function stopRecording() {
   // Speaker identification runs in the background — narrated over SSE,
   // never blocking the stop response, never failing the meeting.
   if (r.meetingId && r.exit !== "failed" && r.exit !== "discarded") {
+    // Seed the run row BEFORE returning, so the meeting page's first render
+    // already shows "identification in progress" — no race with the
+    // background task's own first write.
+    db.prepare("INSERT OR REPLACE INTO diarize_runs (meeting_id, status, updated_at) VALUES (?, 'queued', ?)").run(r.meetingId, Date.now());
     const tell = (message: string) => { const e = { type: "status" as const, message }; recentEvents.push(e); for (const send of sseClients) send(e); };
     (async () => {
       tell("identifying speakers…");

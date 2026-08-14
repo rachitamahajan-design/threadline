@@ -1505,7 +1505,8 @@ async function loadSpeakerChips(meetingId) {
   const { run, speakers } = await api(`/api/speaker/status?id=${encodeURIComponent(meetingId)}`).catch(() => ({ run: null, speakers: [] }));
   const unnamed = (speakers ?? []).filter((s) => /^(Speaker|Room) \d+$/.test(s.speaker));
   let html = "";
-  if (run?.status === "running") html = `<span class="up-chip">🎙 identifying speakers…</span>`;
+  if (run?.status === "running" || run?.status === "queued")
+    html = `<span class="up-chip" style="border-color:var(--thread);color:var(--thread)">🎙 Speaker identification in progress — this page isn't final yet</span>`;
   else if (run?.status === "failed") html = `<button class="up-chip" id="diar-retry" title="${esc(run.reason ?? "")}">🎙 speaker ID failed — retry</button>`;
   else if (unnamed.length)
     html = unnamed.map((sp) =>
