@@ -1516,10 +1516,10 @@
     Threadline
   </div>
   <span class="hspacer"></span>
-  <button id="setup-btn" class="icon-btn bordered" style="width:auto;padding:0 13px 0 10px;gap:7px" title="Setup — keys, recording, calendar, sample data" aria-label="Open setup"><svg class="ic" width="17" height="17"><use href="#i-gear"/></svg><span style="font-size:13.5px;font-weight:600">Setup</span></button>
+  <button id="setup-btn" class="icon-btn bordered" style="width:auto;padding:0 13px 0 10px;gap:7px" title="Onboarding — keys, recording, calendar, sample data" aria-label="Open onboarding"><svg class="ic" width="17" height="17"><use href="#i-gear"/></svg><span style="font-size:13.5px;font-weight:600">Onboarding</span></button>
   <button id="hotkey-help" class="icon-btn bordered" style="width:auto;padding:0 13px 0 10px;gap:7px" title="Set up a global shortcut — record from any app via the macOS Shortcuts app" aria-label="Set up global recording shortcut"><svg class="ic" width="19" height="19"><use href="#i-needle-rec"/></svg><span style="font-size:13.5px;font-weight:600">Set-up Shortcut</span></button>
   <button id="pip-btn" class="icon-btn bordered" title="Pop out the floating companion" aria-label="Pop out the floating companion" style="display:none"><svg class="ic" width="17" height="17"><use href="#i-pip"/></svg></button>
-  <button id="rec" class="rec-btn">Record</button>
+  <button id="rec" class="rec-btn">New Meeting</button>
 </header>
 <div class="shell">
   <aside id="side">
@@ -4068,7 +4068,7 @@ const chatHistory = {}; // meetingId → [{role, content}]
 /** Sync the global record button with recording state (start, stop, resume). */
 function setRecordingUI(on) {
   recording = on;
-  recBtn.textContent = on ? "Stop & stitch" : "Record";
+  recBtn.textContent = on ? "Stop & stitch" : "New Meeting";
   recBtn.classList.toggle("on", on);          // .rec-btn.on = red pill + pulsing dot
   recBtn.classList.toggle("recording", on);
   recBtn.disabled = false;
