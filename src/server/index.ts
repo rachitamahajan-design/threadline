@@ -462,6 +462,26 @@ const api: Record<string, Handler> = {
     return { server_path: path.resolve("src/mcp/server.ts"), tools: MCP_TOOLS };
   },
 
+  // The user's own identity — first/last name plus a small avatar kept as a
+  // data URI in the meta kv table, rendered wherever the product shows "you".
+  "GET /api/profile"() {
+    const row = db.prepare("SELECT value FROM meta WHERE key = 'profile'").get() as { value: string } | undefined;
+    return row ? JSON.parse(row.value) : { first_name: null, last_name: null, photo: null };
+  },
+
+  "POST /api/profile"(p, body) {
+    const { first_name, last_name, photo } = (body ?? {}) as { first_name?: string; last_name?: string; photo?: string | null };
+    if (photo && (!/^data:image\//.test(photo) || photo.length > 500_000))
+      return { error: "photo must be a data:image/* URI under 500KB" };
+    const value = JSON.stringify({
+      first_name: (first_name ?? "").trim().slice(0, 80) || null,
+      last_name: (last_name ?? "").trim().slice(0, 80) || null,
+      photo: photo || null,
+    });
+    db.prepare("INSERT INTO meta (key, value) VALUES ('profile', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(value);
+    return { ok: true };
+  },
+
   // The in-app shortcut guide needs this machine's absolute script path and
   // whether the floating-panel companion is built.
   "GET /api/hotkey/info"() {
