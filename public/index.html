@@ -467,6 +467,38 @@
   .up-slim .s-title { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; min-width: 0; }
   .up-slim .s-people { font-size: 12px; color: var(--ink-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+  /* ── Up next: thread tag + prep from that thread's loose ends ── */
+  .up-topic { max-width: 150px; }
+  .up-slim .up-topic { align-self: center; max-width: 120px; }
+  .up-thread-chip {
+    font: inherit; font-size: 10.5px; font-weight: 600; letter-spacing: .01em; cursor: pointer;
+    color: var(--thread); background: var(--thread-soft); border: 1px solid transparent; border-radius: 6px;
+    padding: 1px 7px; margin-left: auto; flex: none;
+    max-width: 15ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .up-thread-chip.off { color: var(--ink-3); background: none; border-color: var(--line); font-weight: 500; }
+  .up-thread-chip:hover { border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); color: var(--thread); }
+  .thread-prep-slot:not(:empty) { margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .tp-head { font-size: 12px; font-weight: 650; color: var(--ink-2); letter-spacing: -0.005em; }
+  .tp-name { font-weight: 500; color: var(--ink-3); }
+  .tp-sub {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--ink-3); margin: 8px 0 2px;
+  }
+  .tp-item { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; min-width: 0; }
+  .tp-mark { font-size: 11px; color: var(--thread); flex: none; line-height: 1.5; }
+  .tp-body { min-width: 0; }
+  .tp-task { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; overflow-wrap: anywhere; }
+  .tp-meta { font-size: 11px; color: var(--ink-3); margin-top: 1px; overflow-wrap: anywhere; }
+  .tp-more {
+    font: inherit; font-size: 11.5px; font-weight: 600; color: var(--thread); background: none;
+    border: 0; padding: 5px 0 0; cursor: pointer; text-align: left;
+  }
+  .tp-more:hover { text-decoration: underline; }
+  .tp-done { font-size: 11.5px; color: var(--ink-3); margin-top: 7px; overflow-wrap: anywhere; }
+  .tp-done s { opacity: .75; }
+  .tp-empty { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+
   /* ── Home: past meetings, grouped by day ── */
   .day-head { margin: 16px 0 2px; }
   .day-head:first-child { margin-top: 0; }
@@ -3645,7 +3677,7 @@ async function renderToday() {
   });
   (async () => {
     const assigned = {};
-    for (const sel of main.querySelectorAll(".topic-select")) {
+    for (const sel of main.querySelectorAll(".topic-select[data-tmid]")) {
       const mid = sel.dataset.tmid;
       const det = await api(`/api/meeting?id=${encodeURIComponent(mid)}`);
       const { html } = await topicOptions(det.topicIds ?? []);
@@ -3671,11 +3703,15 @@ async function renderToday() {
       <label class="pop-lbl">When<input type="datetime-local" id="up-when" value="${toLocalInput(parseWhen(""))}"></label>
       <label class="pop-lbl">Duration (minutes)<input type="number" id="up-dur" min="0" step="5" value="30"></label>
       <label class="pop-lbl">Who's in it<input id="up-people" placeholder="Ana, Dev"></label>
+      <label class="pop-lbl">Thread<select class="topic-select" id="up-thread"></select></label>
       <div class="pop-actions">
         <button class="copybtn" data-cancel>Cancel</button>
         <button class="copybtn primary" data-save>Add</button>
       </div>`, (pop, close) => {
       pop.querySelector("[data-cancel]").addEventListener("click", close);
+      const thr = pop.querySelector("#up-thread");
+      topicOptions([]).then(({ html }) => { thr.innerHTML = html; });
+      thr.addEventListener("change", () => { if (thr.value === "__new") topicSelectChange(thr, () => {}); });
       pop.querySelector("[data-save]").addEventListener("click", async () => {
         const title = pop.querySelector("#up-title").value;
         if (!title.trim()) return pop.querySelector("#up-title").focus();
@@ -3683,10 +3719,11 @@ async function renderToday() {
         const at = whenVal ? new Date(whenVal).getTime() : parseWhen("");
         const dur = Number(pop.querySelector("#up-dur").value);
         const participants = pop.querySelector("#up-people").value;
+        const projectId = thr.value && thr.value !== "__new" ? Number(thr.value) : null;
         close();
         await fetch("/api/upcoming", {
           method: "POST",
-          body: JSON.stringify({ title, at_ms: at, participants, duration_minutes: dur }),
+          body: JSON.stringify({ title, at_ms: at, participants, duration_minutes: dur, project_id: projectId }),
         });
         loadUpcoming();
       });
@@ -3888,14 +3925,19 @@ async function loadUpcoming() {
     // "10:30 – 11:00 AM" with the meridiem set small
     const ampm = (ms) => fmtClock(ms).replace(/\s*([AaPp])\.?[Mm]\.?$/, (_, x) => `<span class="ampm">${x.toUpperCase()}M</span>`);
     const range = u.end_ms ? `${fmtClock(u.at_ms).replace(/\s*[AaPp]\.?[Mm]\.?$/, "")} – ${ampm(u.end_ms)}` : ampm(u.at_ms);
+    // Calendar events aren't rows in `upcoming` (negative ids) — no local row
+    // to write a tag to, so they get no thread control rather than a fake one.
+    const local = Number(u.id) > 0;
     if (i > 0)
       return `<div class="up-slim" data-up="${u.id}">
         <span class="up-tick"></span>
         <span class="s-time">${running ? "Now" : fmtClock(u.at_ms)}${dayStart(u.at_ms) !== dayStart(now) ? " · " + fmtDate(u.at_ms) : ""}</span>
         <span class="s-title">${esc(u.title)}</span>
         ${u.participants ? `<span class="s-people">${esc(u.participants)}</span>` : ""}
+        ${local ? `<button class="up-thread-chip ${u.project_id ? "" : "off"}" data-upchip="${u.id}" data-pid="${u.project_id ?? ""}"
+            title="${u.project_name ? `Thread: ${esc(u.project_name)}` : "Tag this meeting to a thread"}">${u.project_name ? esc(u.project_name) : "＋ thread"}</button>` : ""}
       </div>`;
-    return `<div class="up-lead" data-up="${u.id}" data-people="${esc(u.participants ?? "")}">
+    return `<div class="up-lead" data-up="${u.id}" data-people="${esc(u.participants ?? "")}" data-pid="${u.project_id ?? ""}">
       <div class="up-cal">
         <div class="up-daynum">${d.getDate()}</div>
         <div class="up-mon">${d.toLocaleDateString(undefined, { month: "short" })}</div>
@@ -3909,9 +3951,11 @@ async function loadUpcoming() {
           ${durMin > 0 ? `<span class="up-chip">${icon("clock", 12)}${durMin} min</span>` : ""}
           ${running ? `<span class="up-chip now">Now</span>`
             : mins < 60 ? `<span class="up-chip soon">In ${mins} min</span>` : ""}
+          ${local ? `<select class="topic-select up-topic" data-upid="${u.id}" data-pid="${u.project_id ?? ""}" title="Thread"></select>` : ""}
         </div>
         ${u.participants ? `<div class="up-people">${esc(u.participants)}</div>` : ""}
         <div class="prep-slot"></div>
+        <div class="thread-prep-slot"></div>
       </div>
     </div>`;
   }).join("");
@@ -3930,6 +3974,88 @@ async function loadUpcoming() {
     slot.querySelectorAll("[data-mid]").forEach((p) =>
       p.addEventListener("click", () => { state.meetingId = p.dataset.mid; render(); }));
   }
+  // thread tagging: same select + "＋ New thread…" flow as the meeting rows
+  for (const sel of box.querySelectorAll(".up-topic")) {
+    const pid = sel.dataset.pid ? Number(sel.dataset.pid) : null;
+    const { html } = await topicOptions(pid ? [pid] : []);
+    sel.innerHTML = html;
+    if (pid) sel.value = String(pid);
+    sel.addEventListener("click", (e) => e.stopPropagation());
+    sel.addEventListener("change", async () => {
+      const upId = Number(sel.dataset.upid);
+      if (sel.value === "") {
+        await fetch("/api/upcoming/tag", { method: "POST", body: JSON.stringify({ id: upId, project_id: null }) });
+        loadUpcoming();
+        return;
+      }
+      await topicSelectChange(sel, async (tid) => {
+        await fetch("/api/upcoming/tag", { method: "POST", body: JSON.stringify({ id: upId, project_id: tid }) });
+        loadUpcoming();
+      });
+    });
+  }
+  // slim rows: the chip IS the control — it opens a popover holding the select
+  for (const chip of box.querySelectorAll("[data-upchip]")) {
+    chip.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const upId = Number(chip.dataset.upchip);
+      const pid = chip.dataset.pid ? Number(chip.dataset.pid) : null;
+      const { html } = await topicOptions(pid ? [pid] : []);
+      openPopover(chip, `
+        <div class="pop-title">${icon("tag", 13)}Thread</div>
+        <select class="topic-select" id="up-chip-topic">${html}</select>`, (pop, close) => {
+        const sel = pop.querySelector("#up-chip-topic");
+        if (pid) sel.value = String(pid);
+        sel.addEventListener("change", async () => {
+          const tag = async (tid) => {
+            await fetch("/api/upcoming/tag", { method: "POST", body: JSON.stringify({ id: upId, project_id: tid }) });
+            close(); loadUpcoming();
+          };
+          if (sel.value === "") return tag(null);
+          await topicSelectChange(sel, tag);
+        });
+        setTimeout(() => sel.focus(), 0);
+      });
+    });
+  }
+  // prep from the tagged thread's loose ends — only the imminent meeting
+  const lead = box.querySelector(".up-lead");
+  if (lead?.dataset.pid) await renderThreadPrep(lead, Number(lead.dataset.pid));
+}
+
+/** "Thread prep" under the imminent meeting: what's still open in its thread. */
+async function renderThreadPrep(lead, pid) {
+  const slot = lead.querySelector(".thread-prep-slot");
+  if (!slot) return;
+  const sel = lead.querySelector(".up-topic");
+  const name = sel?.selectedOptions?.[0]?.textContent
+    ?? (await api("/api/projects")).find((t) => t.id === pid)?.name ?? "thread";
+  const loose = await api(`/api/project/loose?id=${pid}`).catch(() => null);
+  if (!loose || loose.error) return;
+  const open = loose.open ?? [], done = loose.done ?? [];
+  const head = `<div class="tp-head">Thread prep <span class="tp-name">— ${esc(name)}</span></div>`;
+  if (!open.length && !done.length) {
+    slot.innerHTML = `${head}<div class="tp-empty">No loose ends in this thread — clean slate.</div>`;
+    return;
+  }
+  const items = open.slice(0, 5).map((o) => `
+    <div class="tp-item">
+      <span class="tp-mark">○</span>
+      <div class="tp-body">
+        <div class="tp-task">${esc(o.task)}</div>
+        <div class="tp-meta">${o.owner ? esc(o.owner) : "unassigned"} · ${esc(o.meeting_title ?? "")}</div>
+      </div>
+    </div>`).join("");
+  const more = open.length > 5
+    ? `<button class="tp-more" data-pid="${pid}">+${open.length - 5} more in ${esc(name)}</button>` : "";
+  const doneLine = done.length
+    ? `<div class="tp-done">✓ ${done.length} done — <s>${esc(done[0].task)}</s>${done.length > 1 ? `, +${done.length - 1} more` : ""}</div>` : "";
+  slot.innerHTML = `${head}
+    ${open.length ? `<div class="tp-sub">Still open</div>${items}` : ""}
+    ${more}${doneLine}`;
+  slot.querySelector(".tp-more")?.addEventListener("click", () => {
+    state.view = "project"; state.projectId = pid; state.meetingId = null; render();
+  });
 }
 
 /** "4:00 PM · 32 min" — the clock line every meeting row and chip shares. */

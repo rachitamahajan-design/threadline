@@ -966,7 +966,10 @@ const api: Record<string, Handler> = {
   },
 
   async "GET /api/upcoming"() {
-    const manual = db.prepare(`SELECT * FROM upcoming WHERE at_ms > ? ORDER BY at_ms ASC LIMIT 6`).all(Date.now() - 3600_000) as { title: string; at_ms: number }[];
+    const manual = db.prepare(
+      `SELECT u.*, p.name AS project_name FROM upcoming u LEFT JOIN projects p ON p.id = u.project_id
+       WHERE u.at_ms > ? ORDER BY u.at_ms ASC LIMIT 6`,
+    ).all(Date.now() - 3600_000) as { title: string; at_ms: number }[];
     if (!googleConnected() && !icsUrl(db)) return manual;
     try {
       const events = googleConnected() ? await upcomingEvents() : await icsUpcomingEvents(db);
@@ -1007,14 +1010,48 @@ const api: Record<string, Handler> = {
   },
 
   "POST /api/upcoming"(p, body) {
-    const { title, at_ms, participants, remove_id, duration_minutes } = (body ?? {}) as { title?: string; at_ms?: number; participants?: string; remove_id?: number; duration_minutes?: number };
+    const { title, at_ms, participants, remove_id, duration_minutes, project_id } = (body ?? {}) as { title?: string; at_ms?: number; participants?: string; remove_id?: number; duration_minutes?: number; project_id?: number | null };
     if (remove_id) { db.prepare(`DELETE FROM upcoming WHERE id = ?`).run(remove_id); return { ok: true }; }
     if (!title?.trim() || !at_ms) return { error: "missing fields" };
     const endMs = Number.isFinite(duration_minutes) && (duration_minutes as number) > 0
       ? at_ms + Math.round(duration_minutes as number) * 60_000
       : null;
-    db.prepare(`INSERT INTO upcoming (title, at_ms, participants, end_ms) VALUES (?, ?, ?, ?)`).run(title.trim(), at_ms, participants ?? null, endMs);
+    db.prepare(`INSERT INTO upcoming (title, at_ms, participants, end_ms, project_id) VALUES (?, ?, ?, ?, ?)`)
+      .run(title.trim(), at_ms, participants ?? null, endMs, project_id ?? null);
     return { ok: true };
+  },
+
+  /** Retag an already-scheduled meeting to a thread (project_id null = untag). */
+  "POST /api/upcoming/tag"(p, body) {
+    const { id, project_id } = (body ?? {}) as { id?: number; project_id?: number | null };
+    if (!id || id < 0) return { error: "missing id" };
+    const row = db.prepare(`SELECT id FROM upcoming WHERE id = ?`).get(id);
+    if (!row) return { error: "not found" };
+    db.prepare(`UPDATE upcoming SET project_id = ? WHERE id = ?`).run(project_id ?? null, id);
+    return { ok: true, project_id: project_id ?? null };
+  },
+
+  /**
+   * A thread's loose ends, split open/done — the prep an upcoming meeting
+   * tagged to that thread shows before you walk in.
+   */
+  "GET /api/project/loose"(p) {
+    const id = Number(p.get("id"));
+    if (!id) return { error: "missing id" };
+    const rows = (db
+      .prepare(
+        `SELECT c.id, COALESCE(c.edited_body, c.body) AS body, c.done, m.title AS meeting_title, m.id AS meeting_id, m.started_at
+         FROM meeting_projects mp JOIN claims c ON c.meeting_id = mp.meeting_id JOIN meetings m ON m.id = mp.meeting_id
+         WHERE mp.project_id = ? AND c.kind = 'action_item' AND c.gate = 'passed'
+         ORDER BY m.started_at DESC, c.id DESC`,
+      )
+      .all(id) as { id: number; body: string; done: number; meeting_title: string; meeting_id: string }[])
+      .map((c) => {
+        let b: { task?: string; owner?: string } = {};
+        try { b = JSON.parse(c.body) as { task?: string; owner?: string }; } catch { /* legacy row */ }
+        return { id: c.id, task: b.task ?? "", owner: b.owner ?? null, done: !!c.done, meeting_title: c.meeting_title, meeting_id: c.meeting_id };
+      });
+    return { open: rows.filter((r) => !r.done), done: rows.filter((r) => r.done) };
   },
 
   /** Prep for an upcoming meeting: what the brain knows about its participants. */

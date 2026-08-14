@@ -272,6 +272,13 @@ export function openDb(dir = "data"): DatabaseSync {
   } catch {
     /* column already exists */
   }
+  // Additive migration: an upcoming meeting can be tagged to a thread, so the
+  // Up-next card can prep from that thread's loose ends before you walk in.
+  try {
+    db.exec("ALTER TABLE upcoming ADD COLUMN project_id INTEGER");
+  } catch {
+    /* column already exists */
+  }
   db.exec(`
     -- Every summary the user sees is recoverable: generation, edits and
     -- corrections all snapshot here before overwriting summary_json.
