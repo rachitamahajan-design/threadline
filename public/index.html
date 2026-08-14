@@ -322,6 +322,7 @@
     font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3);
     font-weight: 700; padding: 0 10px 6px; display: flex; align-items: center; justify-content: space-between; gap: 6px;
   }
+  .side-head .lbl { display: inline-flex; align-items: center; gap: 6px; }
   .side-head button {
     border: 0; background: none; border-radius: 7px; width: 24px; height: 24px;
     display: inline-flex; align-items: center; justify-content: center;
@@ -613,6 +614,7 @@
     .side-collapsed .side-link .lbl, .side-collapsed .side-search .lbl,
     .side-collapsed .pname, .side-collapsed #google-btn .gb-label,
     .side-collapsed .side-head .lbl, .side-collapsed .side-empty { display: revert; }
+    .side-collapsed .side-head .lbl { display: inline-flex; }
     .side-collapsed .side-search, .side-collapsed #google-btn { justify-content: flex-start; padding: 7px 10px; }
     .side-collapsed .profile { justify-content: flex-start; padding: 4px 6px 8px; }
     .side-collapsed #theme-btn { display: inline-flex; }
@@ -1319,6 +1321,7 @@
   <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-6.4"/><path d="M8.2 3.4h7.6l-1 5.1 2.6 2.6a1 1 0 0 1-.7 1.7H7.3a1 1 0 0 1-.7-1.7l2.6-2.6-1-5.1Z"/></symbol>
   <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2c0 4 1.8 5.8 5.8 5.8-4 0-5.8 1.8-5.8 5.8 0-4-1.8-5.8-5.8-5.8 4 0 5.8-1.8 5.8-5.8Z"/><path d="M18.4 15c0 2.1.9 3 3 3-2.1 0-3 .9-3 3 0-2.1-.9-3-3-3 2.1 0 3-.9 3-3Z"/></symbol>
   <symbol id="i-folder-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 18.5v-13a1 1 0 0 1 1-1H9l2.2 2.6h8.3a1 1 0 0 1 1 1v10.4a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1Z"/><path d="M12 10.8v5.2M9.4 13.4h5.2"/></symbol>
+  <symbol id="i-thread" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5h10M7 19.5h10"/><path d="M8 4.5v15M16 4.5v15"/><path d="M8 8h8M8 11h8M8 14h8"/><path d="M16 17c3 0 4.5 1.5 4.5 3.5"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
   <symbol id="i-pip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="3"/><rect x="12" y="12" width="7" height="6" rx="1.6"/></symbol>
   <!-- global recording: a needle through a loop of thread, the eye lit red like a record light -->
@@ -1376,7 +1379,7 @@
       <button class="side-link" data-view="mcp" title="Connect your AI"><svg class="ic" width="17" height="17"><use href="#i-needle"/></svg><span class="lbl">MCP setup</span></button>
     </div>
     <div class="side-section">
-      <div class="side-head"><span class="lbl">Topics</span> <button id="add-project" title="New topic" aria-label="New topic"><svg class="ic" width="15" height="15"><use href="#i-plus"/></svg></button></div>
+      <div class="side-head"><span class="lbl"><svg class="ic" width="13" height="13" aria-hidden="true"><use href="#i-thread"/></svg> Threads</span> <button id="add-project" title="New thread" aria-label="New thread"><svg class="ic" width="15" height="15"><use href="#i-plus"/></svg></button></div>
       <div id="project-list"></div>
     </div>
     <div class="side-foot">
@@ -1441,8 +1444,8 @@ async function liveMetaBar() {
   bar.style.cssText = "margin:-10px 0 18px;display:flex;gap:10px;align-items:center";
   bar.innerHTML = `
     <select class="topic-select" id="live-mode" title="Meeting mode">${MODES.map((m) => `<option ${m === "discovery" ? "selected" : ""}>${m}</option>`).join("")}</select>
-    <select class="topic-select" id="live-topic" title="Topic">${html}</select>
-    <span class="t-meta">mode &amp; topic ride with the meeting</span>`;
+    <select class="topic-select" id="live-topic" title="Thread">${html}</select>
+    <span class="t-meta">mode &amp; thread ride with the meeting</span>`;
   host.after(bar);
   $("#live-mode").addEventListener("change", (e) =>
     fetch("/api/record/meta", { method: "POST", body: JSON.stringify({ mode: e.target.value }) }));
@@ -1463,7 +1466,7 @@ async function meetExtras(mid) {
   const chips = document.createElement("div");
   chips.id = "meet-extras";
   chips.style.cssText = "margin:2px 0 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap";
-  chips.innerHTML = sugg.slice(0, 2).map((t) => `<button class="copybtn" data-sugg="${t.id}" style="margin:0;font-size:12px;padding:3px 11px">Mentions “${esc(t.name)}” — add to topic?</button>`).join("");
+  chips.innerHTML = sugg.slice(0, 2).map((t) => `<button class="copybtn" data-sugg="${t.id}" style="margin:0;font-size:12px;padding:3px 11px">Mentions “${esc(t.name)}” — add to thread?</button>`).join("");
   (main.querySelector(".sub") ?? main.querySelector("h1")).after(chips);
   chips.querySelectorAll("[data-sugg]").forEach((b) => b.addEventListener("click", async () => {
     await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: Number(b.dataset.sugg), meeting_id: mid }) });
@@ -1474,14 +1477,14 @@ async function meetExtras(mid) {
 
 async function topicOptions(selectedIds = []) {
   const ts = await api("/api/projects");
-  return { list: ts, html: `<option value="">no topic</option>` +
+  return { list: ts, html: `<option value="">no thread</option>` +
     ts.map((t) => `<option value="${t.id}" ${selectedIds.includes(t.id) ? "selected" : ""}>${esc(t.name)}</option>`).join("") +
-    `<option value="__new">＋ New topic…</option>` };
+    `<option value="__new">＋ New thread…</option>` };
 }
 async function topicSelectChange(sel, onPick) {
   let v = sel.value;
   if (v === "__new") {
-    const name = prompt("Topic name?", "");
+    const name = prompt("Thread name?", "");
     if (!name?.trim()) { sel.value = ""; return; }
     const t = await fetch("/api/project", { method: "POST", body: JSON.stringify({ name }) }).then((x) => x.json());
     loadSidebar();
@@ -1662,7 +1665,7 @@ function projectModal(onCreated) {
   modal.id = "project-modal";
   modal.className = "tl-modal";
   modal.innerHTML = `<div class="box">
-    <h2>New project</h2>
+    <h2>New thread</h2>
     <label>Name</label>
     <input type="text" id="pm-name" placeholder="e.g. Frontend Revamp">
     <label>What's it about? <span style="font-weight:400">(helps file meetings automatically)</span></label>
@@ -1682,7 +1685,7 @@ function projectModal(onCreated) {
     const description = modal.querySelector("#pm-desc").value.trim();
     const proj = await fetch("/api/project", { method: "POST", body: JSON.stringify({ name, description }) }).then((r) => r.json());
     modal.remove();
-    if (proj?.error || !proj?.id) return alert(proj?.error ?? "Could not create project");
+    if (proj?.error || !proj?.id) return alert(proj?.error ?? "Could not create thread");
     loadSidebar();
     onCreated?.(proj);
   };
@@ -1697,7 +1700,7 @@ async function loadSidebar() {
     <button class="side-link ${state.view === "project" && state.projectId === p.id ? "active" : ""}" data-project="${p.id}" title="${esc(p.name)}">
       ${icon("tag", 16)}<span class="lbl">${esc(p.name)}</span>
       <span class="sub-count" style="margin-left:auto;opacity:.55;font-size:12px">${p.n_open ? p.n_open + " open" : ""}</span>
-    </button>`).join("") || `<div class="side-empty">No topics yet — hit +</div>`;
+    </button>`).join("") || `<div class="side-empty">No threads yet — hit +</div>`;
   $("#project-list").querySelectorAll("[data-project]").forEach((b) =>
     b.addEventListener("click", () => { state.view = "project"; state.projectId = Number(b.dataset.project); state.meetingId = null; render(); }));
 }
@@ -2375,7 +2378,7 @@ async function renderProject(id) {
         <b>${esc(manual ? (c.person_name ?? c.body.owner ?? "unassigned") : (c.body.owner ?? "unassigned"))}</b> — ${esc(c.body.task)}
         ${c.body.due ? ` <span class="pill">due ${esc(c.body.due)}</span>` : ""}
         ${manual && c.document_id ? ` <span class="pill" data-doc="${c.document_id}" style="cursor:pointer" title="Open the linked doc">🗎 ${esc(c.doc_title ?? "doc")}</span>` : ""}
-        <span class="t-meta">· ${manual ? `project item <button data-del-item="${c.id}" title="Delete" style="border:none;background:none;color:var(--ink-3);cursor:pointer">✕</button>` : esc(c.meeting_title)}</span>
+        <span class="t-meta">· ${manual ? `thread item <button data-del-item="${c.id}" title="Delete" style="border:none;background:none;color:var(--ink-3);cursor:pointer">✕</button>` : esc(c.meeting_title)}</span>
       </div>
     </div>`;
   const actions = [
@@ -2385,7 +2388,7 @@ async function renderProject(id) {
 
   main.innerHTML = `
     <h1>${esc(project.name)}</h1>
-    <div class="proj-desc" id="proj-desc" title="Click to edit">${project.description ? esc(project.description) : `<span style="color:var(--ink-3)">What's this project about? Click to add — it helps file meetings automatically.</span>`}</div>
+    <div class="proj-desc" id="proj-desc" title="Click to edit">${project.description ? esc(project.description) : `<span style="color:var(--ink-3)">What's this thread about? Click to add — it helps file meetings automatically.</span>`}</div>
     <div class="sub">${meetings.length} meeting${meetings.length === 1 ? "" : "s"} · ${docs.length} doc${docs.length === 1 ? "" : "s"} · ${actions.filter((a) => !a.c.done).length} open</div>
     <div class="card">${projectMindmap(project, (() => {
       const more = (arr, n) => (arr.length > n ? [{ label: `+ ${arr.length - n} more` }] : []);
@@ -2403,7 +2406,7 @@ async function renderProject(id) {
       <div class="card"><h2>People</h2>
         <div class="people-chips" id="proj-people">
           ${people.map((p) => `
-            <span class="tag-chip">${esc(p.name)}${p.team ? ` <span style="opacity:.6">· ${esc(p.team)}</span>` : ""}${p.added_via === "meeting" ? ` <span style="opacity:.5" title="Added from a filed meeting">auto</span>` : ""}<button data-unperson="${p.id}" title="Remove from project">×</button></span>`).join("") || `<span class="t-meta">No one here yet.</span>`}
+            <span class="tag-chip">${esc(p.name)}${p.team ? ` <span style="opacity:.6">· ${esc(p.team)}</span>` : ""}${p.added_via === "meeting" ? ` <span style="opacity:.5" title="Added from a filed meeting">auto</span>` : ""}<button data-unperson="${p.id}" title="Remove from thread">×</button></span>`).join("") || `<span class="t-meta">No one here yet.</span>`}
         </div>
         ${speakers.length ? `<div class="t-meta" style="margin-top:6px">Also heard: ${speakers.map((s) => esc(s.speaker)).join(", ")}</div>` : ""}
         <div class="add-row">
@@ -2420,7 +2423,7 @@ async function renderProject(id) {
               <span>${d.kind === "note" ? "🗎" : "📎"}</span>
               <div style="flex:1"><div class="doc-title">${esc(d.title)}</div>${d.summary ? `<div class="t-meta" style="margin-top:2px">${esc(d.summary)}</div>` : ""}</div>
               <span class="t-meta">${fmtDate(d.updated_at)}</span>
-              <button data-del-doc="${d.id}" title="Remove from project" style="border:none;background:none;color:var(--ink-3);cursor:pointer;font-size:14px">✕</button>
+              <button data-del-doc="${d.id}" title="Remove from thread" style="border:none;background:none;color:var(--ink-3);cursor:pointer;font-size:14px">✕</button>
             </div>`).join("") || `<div class="t-meta">No documents yet — upload context or write one.</div>`}
         </div>
         <div class="add-row">
@@ -2452,8 +2455,8 @@ async function renderProject(id) {
     <div class="ask-float" id="ask-float">
       <div class="ask-log" id="ask-log" hidden></div>
       <div class="ask-bar">
-        <input type="text" id="ask-input" placeholder="Ask anything related to this project…">
-        <button id="ask-send">✦ Ask this project</button>
+        <input type="text" id="ask-input" placeholder="Ask anything related to this thread…">
+        <button id="ask-send">✦ Ask this thread</button>
       </div>
     </div>`;
   wireMeetingLinks();
@@ -2549,7 +2552,7 @@ function wireProject(id, project) {
     b.addEventListener("click", async (e) => {
       e.stopPropagation();
       const title = b.closest(".doc-row")?.querySelector(".doc-title")?.textContent ?? "this document";
-      if (!confirm(`Remove "${title}" from the project? This deletes the file too.`)) return;
+      if (!confirm(`Remove "${title}" from the thread? This deletes the file too.`)) return;
       const out = await fetch("/api/doc/delete", { method: "POST", body: JSON.stringify({ id: Number(b.dataset.delDoc) }) }).then((r) => r.json());
       if (out?.error) return alert(out.error);
       refresh();
@@ -2576,7 +2579,7 @@ function wireProject(id, project) {
       body: JSON.stringify({ project_id: id, filename: f.name, mime: f.type || "application/octet-stream", data_b64 }),
     }).then((r) => r.json());
     if (out?.error) return alert(out.error);
-    showToast(`"${f.name}" added to the project's context`);
+    showToast(`"${f.name}" added to the thread's context`);
     refresh();
   });
 
@@ -2626,9 +2629,9 @@ async function renderDoc(id) {
   const { doc, error } = await api(`/api/doc?id=${id}`);
   if (error) { main.innerHTML = `<div class="empty">${esc(error)}</div>`; return; }
   main.innerHTML = `
-    <div class="sub" style="margin-bottom:10px"><a href="#" id="doc-back" style="color:var(--thread);text-decoration:none">⟨ Back to project</a></div>
+    <div class="sub" style="margin-bottom:10px"><a href="#" id="doc-back" style="color:var(--thread);text-decoration:none">⟨ Back to thread</a></div>
     <input id="doc-title" value="${esc(doc.title)}">
-    <div id="doc-editor" contenteditable="true" data-ph="Write here — this doc is part of the project's context."></div>
+    <div id="doc-editor" contenteditable="true" data-ph="Write here — this doc is part of the thread's context."></div>
     <div class="t-meta" id="doc-status" style="margin-top:6px"></div>`;
   $("#doc-back").addEventListener("click", (e) => { e.preventDefault(); state.view = "project"; state.projectId = doc.project_id; render(); });
   const editor = $("#doc-editor");
@@ -2681,7 +2684,7 @@ async function renderToday() {
             </div>
             <div class="mtg-side">
               <span class="mtg-time">${fmtClock(m.started_at)}</span>
-              <select class="topic-select" data-tmid="${m.id}" title="Topic"></select>
+              <select class="topic-select" data-tmid="${m.id}" title="Thread"></select>
             </div>
           </div>`).join("")}`).join("") : `<div class="empty" style="padding:14px 0">No meetings captured yet.</div>`}
       </div>
@@ -3275,7 +3278,7 @@ function wireTags(meetingId, assigned, suggestions = []) {
         <span class="tag-chip suggest" title="${esc(s.reason ?? "")}${s.confidence != null ? ` (${Math.round(s.confidence * 100)}%)` : ""}">
           🧵 File in ${esc(s.name)}?
           <button data-accept="${s.id}" title="Yes, file it">✓</button>
-          <button data-dismiss="${s.id}" title="No, not this project">✕</button>
+          <button data-dismiss="${s.id}" title="No, not this thread">✕</button>
         </span>`).join("") +
       `<button class="tag-add" id="tag-add">+ Add thread</button>`;
     row.querySelectorAll("[data-untag]").forEach((b) =>
@@ -3401,7 +3404,7 @@ async function renderMeeting(id, opts = {}) {
       ${durMin ? `<span class="up-chip">${icon("hourglass", 12)}${durMin} min</span>` : ""}
       <button class="up-chip" id="edit-time" title="Edit the date, start time and duration">${icon("clock", 12)}Edit time</button>
       <span id="speaker-chips"></span>
-      <button class="up-chip" id="chip-topic" title="File this meeting in a topic">${icon("folder-plus", 12)}Add to topic</button>
+      <button class="up-chip" id="chip-topic" title="File this meeting in a thread">${icon("folder-plus", 12)}Add to thread</button>
     </div>`;
 
   main.innerHTML = `
@@ -3462,7 +3465,7 @@ async function renderMeeting(id, opts = {}) {
     const anchor = e.currentTarget;
     const { html } = await topicOptions(projects.map((p) => p.id));
     openPopover(anchor, `
-      <div class="pop-title">${icon("tag", 13)}Add to topic</div>
+      <div class="pop-title">${icon("tag", 13)}Add to thread</div>
       <select class="topic-select" id="pop-topic">${html}</select>`, (pop, close) => {
       const sel = pop.querySelector("#pop-topic");
       sel.addEventListener("change", () =>
@@ -3534,8 +3537,8 @@ async function renderMeeting(id, opts = {}) {
     },
     async tagTopic() {
       const projects = await api("/api/projects");
-      if (!projects.length) return alert("No topics yet — create one with + in the sidebar first.");
-      const p = projects[Number(prompt("Tag this meeting with which topic?\n" + projects.map((x, i) => `${i + 1}. ${x.name}`).join("\n"), "1")) - 1];
+      if (!projects.length) return alert("No threads yet — create one with + in the sidebar first.");
+      const p = projects[Number(prompt("Tag this meeting with which thread?\n" + projects.map((x, i) => `${i + 1}. ${x.name}`).join("\n"), "1")) - 1];
       if (!p) return;
       await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: p.id, meeting_id: id }) });
       loadSidebar();
@@ -3556,7 +3559,7 @@ async function renderMeeting(id, opts = {}) {
   $("#more").addEventListener("click", (e) => {
     openMenuPopover(e.currentTarget, [
       { id: "regen", icon: "sparkle", label: "Regenerate extraction", run: moreActions.regenerate },
-      { id: "tag", icon: "tag", label: "Tag topic…", run: moreActions.tagTopic },
+      { id: "tag", icon: "tag", label: "Tag thread…", run: moreActions.tagTopic },
       { id: "find", icon: "search", label: "Advanced find & replace…", run: moreActions.findReplace },
       { sep: true },
       { id: "del", icon: "trash", label: "Delete meeting", danger: true, run: moreActions.deleteMeeting },
