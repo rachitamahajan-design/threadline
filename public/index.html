@@ -1666,7 +1666,9 @@ async function render() {
 // ── MCP setup: connect your AI to this brain ─────────────────────────────
 async function renderMcp() {
   const info = await api("/api/mcp/info").catch(() => ({ server_path: "src/mcp/server.ts", tools: [] }));
-  const cmd = `claude mcp add threadline -- npx tsx ${info.server_path}`;
+  // shell-quote the path — spaces (like "py hack") would split it into two args
+  const shPath = /[\s'"$`\\]/.test(info.server_path) ? `"${info.server_path.replace(/(["$`\\])/g, "\\$1")}"` : info.server_path;
+  const cmd = `claude mcp add threadline -- npx tsx ${shPath}`;
   const desktopCfg = `{ "mcpServers": { "threadline": {\n    "command": "npx",\n    "args": ["tsx", "${info.server_path}"] } } }`;
   const codeBox = (id, content) => `
     <div style="display:flex;gap:8px;align-items:flex-start">
