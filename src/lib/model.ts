@@ -54,7 +54,9 @@ export class ModelError extends Error {
   }
 }
 
-const DEFAULT_TIMEOUT_MS = Number(process.env.MODEL_TIMEOUT_MS ?? 60_000);
+// 60s proved too tight in practice: statements.extract on an 11-minute
+// transcript takes ~64s on gpt-4o-mini, so every notes run died at the wire.
+const DEFAULT_TIMEOUT_MS = Number(process.env.MODEL_TIMEOUT_MS ?? 240_000);
 const DEFAULT_TEMPERATURE = 0;
 
 /**
@@ -165,8 +167,15 @@ export async function chatJson(call: ModelCall): Promise<unknown> {
   } catch (e) {
     const alt = altProvider(p);
     if (!alt || !(e instanceof ModelError)) throw e;
-    log.warn("model.failover", { purpose: call.purpose, from: p, to: alt, status: e.status });
-    return await chatVia(alt, call);
+    log.warn("model.failover", { purpose: call.purpose, from: p, to: alt, status: e.status, detail: e.message.slice(0, 160) });
+    try {
+      return await chatVia(alt, call);
+    } catch (e2) {
+      // Surface the PRIMARY failure: "pyai chat failed: 404" hid a plain
+      // openai timeout for hours. The alt error rides along for the log.
+      if (e2 instanceof ModelError) throw new ModelError(e.status, `${e.message} (failover to ${alt} also failed: ${e2.message.slice(0, 120)})`);
+      throw e2;
+    }
   }
 }
 
