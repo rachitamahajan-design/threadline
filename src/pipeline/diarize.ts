@@ -17,7 +17,9 @@ import { projectGraph } from "./project.js";
 import { relateEntities } from "./resolve.js";
 import { indexMeeting } from "./chunker.js";
 import { reindexMeeting } from "./extract.js";
-import { groundedIn } from "../lib/harness.js";
+import { groundedIn, type StepRecord } from "../lib/harness.js";
+import { recordRun } from "../lib/runlog.js";
+import { because } from "../lib/reasons.js";
 import { generateBrainMd } from "./brain-md.js";
 import type { RecapRecord } from "../lib/pyai.js";
 
@@ -113,12 +115,34 @@ function planChannels(dir: string, meetingId: string): ChannelPlan[] | { reason:
   return { reason: `recording too short (${Math.round(Math.max(ch0, ch1) / 32_000)}s) to be worth a job` };
 }
 
-/** The full pipeline: guards → job → match → rewrite → re-derive. */
+/**
+ * The full pipeline: guards → job(s) → match → rewrite → re-derive.
+ * Wrapped in recordRun per harnesses.md: the run lands in the shared runs
+ * table with a four-outcome exit; diarize_runs remains the UI-facing chip
+ * state (shipped|failed|skipped|running), vocabulary aligned.
+ */
 export async function diarizeMeeting(db: DatabaseSync, apiKey: string, meetingId: string): Promise<void> {
-  const done = db.prepare("SELECT status FROM diarize_runs WHERE meeting_id = ? AND status = 'done'").get(meetingId);
+  const steps: StepRecord[] = [];
+  await recordRun(
+    db,
+    { kind: "diarize", meetingId },
+    async (budget) => diarizeInner(db, apiKey, meetingId, steps, () => budget.spendUnits(1)),
+    () => {
+      const st = (db.prepare("SELECT status, reason FROM diarize_runs WHERE meeting_id = ?").get(meetingId) as { status: string; reason: string | null } | undefined);
+      const outcome = st?.status === "failed" ? "failed" : st?.status === "shipped" && st.reason ? "partial" : "shipped";
+      return { outcome, steps };
+    },
+  ).catch(() => { /* recordRun re-throws after recording; chip state already set */ });
+}
+
+async function diarizeInner(db: DatabaseSync, apiKey: string, meetingId: string, steps: StepRecord[], spend: () => void): Promise<void> {
+  const done = db.prepare("SELECT status FROM diarize_runs WHERE meeting_id = ? AND status = 'shipped'").get(meetingId);
   if (done) return;
 
-  const skip = (reason: string) => setRun(db, meetingId, { status: "skipped", reason });
+  const skip = (reason: string) => {
+    steps.push({ name: "diarize:guard", status: "skipped", attempts: 0, ms: 0, reason: because("info", reason) });
+    setRun(db, meetingId, { status: "skipped", reason });
+  };
 
   // Resumed meetings write suffixed tapes with unpersisted offset bases — v1 skips.
   const dir = "data/recordings";
@@ -139,6 +163,7 @@ export async function diarizeMeeting(db: DatabaseSync, apiKey: string, meetingId
       if (lines.length < MIN_THEM_LINES) { notes.push(`${plan.target}: too few lines to split`); continue; }
       totalLines += lines.length;
 
+      spend();
       const jobId = await submitTranscriptionJob(apiKey, pcm16ToWav(readFileSync(plan.tape)), { diarize: true });
       setRun(db, meetingId, { job_id: jobId });
       const { segments, speakers } = await awaitTranscriptionJob(apiKey, jobId, plan.bytes / 32_000);
@@ -157,6 +182,7 @@ export async function diarizeMeeting(db: DatabaseSync, apiKey: string, meetingId
       } catch (e) { db.exec("ROLLBACK"); throw e; }
       totalMatched += matches.size;
       anyRewrite = true;
+      steps.push({ name: `diarize:${plan.target === "Them" ? "call" : "room"}`, status: "ok", attempts: 1, ms: 0 });
       if (plan.target === "You") notes.push("one of the Room voices is you — name yourself too");
     }
 

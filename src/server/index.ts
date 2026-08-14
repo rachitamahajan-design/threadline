@@ -125,7 +125,7 @@ async function stopRecording() {
       tell("identifying speakers…");
       await diarizeMeeting(db, apiKey, r.meetingId);
       const run = db.prepare("SELECT status, speakers, reason FROM diarize_runs WHERE meeting_id = ?").get(r.meetingId) as { status: string; speakers: number | null; reason: string | null } | undefined;
-      if (run?.status === "done" && (run.speakers ?? 0) > 1) tell(`${run.speakers} speakers identified — name them on the meeting page`);
+      if (run?.status === "shipped" && (run.speakers ?? 0) > 1) tell(`${run.speakers} speakers identified — name them on the meeting page`);
       else if (run?.status === "failed") tell(`speaker ID failed: ${run.reason}`);
     })().catch(() => {});
   }

@@ -1510,7 +1510,7 @@ async function loadSpeakerChips(meetingId) {
   else if (unnamed.length)
     html = unnamed.map((sp) =>
       `<button class="up-chip diar-name" data-sp="${esc(sp.speaker)}" title="First line: ${esc(sp.first_line ?? "")}\nClick to name">🎙 ${esc(sp.speaker)} · ${sp.lines} lines — name?</button>`).join("");
-  else if (run?.status === "done" && run.reason) html = `<span class="up-chip" title="${esc(run.reason)}">🎙 ${esc(run.reason)}</span>`;
+  else if (run?.status === "shipped" && run.reason) html = `<span class="up-chip" title="${esc(run.reason)}">🎙 ${esc(run.reason)}</span>`;
   host.innerHTML = html;
   document.getElementById("diar-retry")?.addEventListener("click", async (e) => {
     e.target.textContent = "🎙 retrying…";
