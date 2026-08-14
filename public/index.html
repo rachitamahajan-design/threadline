@@ -3243,27 +3243,69 @@ async function renderProject(id) {
     // longest seams first, then newest
     return out.sort((a, b) => (b.length - a.length) || ((when[b[b.length - 1].meeting_id] ?? 0) - (when[a[a.length - 1].meeting_id] ?? 0)));
   })();
+  const multi = chains.filter((c) => c.length > 1);
+  const singles = chains.filter((c) => c.length === 1).map((c) => c[0]);
+
+  // ── The lineage as a git graph: trunk = this thread's meetings in time,
+  // each re-stitched decision a branch lane off the meeting that opened it.
+  // Arrows point child → parent, the standing version wears the green HEAD.
+  const lineageGraph = (() => {
+    if (!multi.length) return "";
+    const ms = [...meetings].sort((a, b) => a.started_at - b.started_at);
+    const col = Object.fromEntries(ms.map((m, i) => [m.id, i]));
+    const laneOf = multi.map((_, i) => (i % 2 ? -1 : 1) * Math.ceil((i + 1) / 2));
+    const up = Math.max(0, ...laneOf), down = Math.max(0, ...laneOf.map((l) => -l));
+    const R = 15, colW = 215, x0 = 130, laneH = 100;
+    const mY = 84 + up * laneH;
+    const W = x0 + (ms.length - 1) * colW + 220;
+    const H = mY + down * laneH + 116;
+    const X = (mid) => x0 + (col[mid] ?? 0) * colW;
+    const trim = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+    const arrow = (x1, y1, x2, y2) =>
+      `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" style="stroke:var(--ink-3)" stroke-width="2.2" opacity=".55" marker-end="url(#lin-arr)"/>`;
+    let out = `<defs><marker id="lin-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--ink-3)" opacity=".8"/></marker></defs>`;
+    for (let i = 1; i < ms.length; i++) out += arrow(X(ms[i].id) - R - 5, mY, X(ms[i - 1].id) + R + 5, mY);
+    ms.forEach((m) => {
+      out += `<g data-linmid="${esc(m.id)}" style="cursor:pointer"><title>${esc(m.title)}</title>
+        <circle cx="${X(m.id)}" cy="${mY}" r="${R}" style="fill:var(--surface);stroke:var(--ink-3)" stroke-width="3"/>
+        <text x="${X(m.id)}" y="${mY + R + 18}" text-anchor="middle" style="font:600 10.5px ui-monospace,monospace;fill:var(--ink-2)">${esc(fmtDate(m.started_at))}</text>
+        <text x="${X(m.id)}" y="${mY + R + 32}" text-anchor="middle" style="font:10.5px ui-monospace,monospace;fill:var(--ink-3)">${esc(trim(m.title, 26))}</text></g>`;
+    });
+    const lastM = ms[ms.length - 1];
+    out += `<g><rect x="${X(lastM.id) - 33}" y="${mY + R + 40}" width="66" height="22" rx="4" style="fill:var(--thread-soft);stroke:var(--thread)" stroke-width="1.4"/>
+      <text x="${X(lastM.id)}" y="${mY + R + 55}" text-anchor="middle" style="font:600 12px -apple-system,system-ui;fill:var(--thread)">thread</text></g>`;
+    multi.forEach((chain, ci) => {
+      const lane = laneOf[ci], y = mY - lane * laneH, above = lane > 0;
+      const first = chain[0];
+      out += arrow(X(first.meeting_id), y + (above ? R + 4 : -R - 4), X(first.meeting_id), mY + (above ? -R - 5 : R + 5));
+      chain.forEach((v, vi) => {
+        const x = X(v.meeting_id), std = vi === chain.length - 1;
+        if (vi) out += arrow(x - R - 5, y, X(chain[vi - 1].meeting_id) + R + 5, y);
+        out += `<g data-linmid="${esc(v.meeting_id)}" style="cursor:pointer"><title>${esc(v.body.text)} — ${esc(v.meeting_title ?? "")}</title>
+          <circle cx="${x}" cy="${y}" r="${R}" style="fill:${std ? "color-mix(in srgb, #4caf6d 28%, var(--surface))" : "var(--surface)"};stroke:${std ? "#3f9d58" : "var(--ink-3)"}" stroke-width="3"/>
+          <text x="${x}" y="${y + (above ? -(R + 11) : R + 21)}" text-anchor="middle" style="font:10.5px ui-monospace,monospace;fill:var(--ink-2)">${esc(trim(v.body.text, 30))}</text></g>`;
+      });
+      const last = chain[chain.length - 1], sx = X(last.meeting_id);
+      out += `<g><rect x="${sx - 37}" y="${y + (above ? -(R + 47) : R + 29)}" width="74" height="21" rx="4" style="fill:color-mix(in srgb,#4caf6d 16%,var(--surface));stroke:#3f9d58" stroke-width="1.4"/>
+        <text x="${sx}" y="${y + (above ? -(R + 32) : R + 44)}" text-anchor="middle" style="font:600 11.5px -apple-system,system-ui;fill:#379154">standing</text></g>`;
+      const tag = trim(last.body.text.replace(/^(set|keep|use|make|move|test|run|create|add)\s+/i, "").replace(/^(the|a|an)\s+/i, ""), 18);
+      out += `<g><rect x="${sx + R + 14}" y="${y - 11}" width="${tag.length * 7.4 + 18}" height="24" rx="4" style="fill:color-mix(in srgb, var(--node-topic, #cf9a35) 20%, var(--surface));stroke:var(--node-topic, #cf9a35)" stroke-width="1.4"/>
+        <text x="${sx + R + 23}" y="${y + 5}" style="font:600 12px -apple-system,system-ui;fill:var(--ink-2)">${esc(tag)}</text></g>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%;max-width:${W}px;min-width:${Math.min(W, 640)}px">${out}</svg>`;
+  })();
 
   main.innerHTML = `
     <h1>${esc(project.name)}</h1>
     <div class="proj-desc" id="proj-desc" title="Click to edit">${project.description ? esc(project.description) : `<span style="color:var(--ink-3)">What's this thread about? Click to add — it helps file meetings automatically.</span>`}</div>
     <div class="sub">${meetings.length} meeting${meetings.length === 1 ? "" : "s"} · ${docs.length} doc${docs.length === 1 ? "" : "s"} · ${actions.filter((a) => !a.c.done).length} open</div>
-    <div class="card"><h2>Decision lineage <span class="h2-note">every call this thread has made, and how each seam was re-stitched</span></h2>
-      ${chains.length ? chains.map((chain) => {
-        const cur = chain[chain.length - 1];
-        return `<div class="claim" style="padding:12px 0">
-          <div style="font-size:14.5px;font-weight:600;line-height:1.5">✓ ${esc(cur.body.text)}
-            ${chain.length > 1 ? `<span class="pill" title="This decision evolved across meetings">⑂ re-stitched ×${chain.length - 1}</span>` : ""}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:10px 22px;margin-top:8px">
-            ${chain.map((v, vi) => `
-              <div data-linmid="${esc(v.meeting_id)}" title="Open this meeting"
-                style="cursor:pointer;max-width:300px;padding:5px 0 5px 11px;border-left:2px ${vi === chain.length - 1 ? "solid var(--thread)" : "dashed var(--line)"}">
-                <div style="font-size:11.5px;color:var(--ink-3)">${when[v.meeting_id] ? fmtDate(when[v.meeting_id]) + " · " : ""}${esc(v.meeting_title ?? "")}${vi === chain.length - 1 ? " · standing" : ""}</div>
-                ${vi === chain.length - 1 ? "" : `<div style="font-size:12.5px;color:var(--ink-2);margin-top:2px;line-height:1.5">${esc(v.body.text)}</div>`}
-              </div>`).join("")}
-          </div>
-        </div>`;
-      }).join("") : `<div class="t-meta">No decisions in this thread yet — they'll gather here as meetings are filed.</div>`}
+    <div class="card"><h2>Decision lineage <span class="h2-note">git for your decisions — each seam branches off the meeting that opened it; green is the standing call</span></h2>
+      ${lineageGraph ? `<div style="overflow-x:auto;padding:4px 0 2px">${lineageGraph}</div>` : ""}
+      ${singles.length ? `<div style="${lineageGraph ? "border-top:1px solid var(--line);margin-top:10px;padding-top:4px" : ""}">
+        ${singles.map((d) => `<div class="claim" data-linmid="${esc(d.meeting_id)}" style="cursor:pointer">✓ ${esc(d.body.text)}
+          <span class="t-meta">· ${when[d.meeting_id] ? fmtDate(when[d.meeting_id]) + " · " : ""}${esc(d.meeting_title ?? "")}</span></div>`).join("")}
+      </div>` : ""}
+      ${!chains.length ? `<div class="t-meta">No decisions in this thread yet — they'll gather here as meetings are filed.</div>` : ""}
     </div>
     <div class="proj-grid">
       <div class="card"><h2>People</h2>
