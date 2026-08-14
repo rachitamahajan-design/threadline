@@ -315,7 +315,7 @@ const api: Record<string, Handler> = {
     db.exec("BEGIN");
     try {
       for (const t of ["entity_mentions", "chunks", "search", "edges", "claims", "utterances", "runs",
-        "summary_versions", "notes_versions", "project_suggestions", "meeting_projects", "meeting_people"])
+        "summary_versions", "notes_versions", "project_suggestions", "meeting_projects"])
         db.prepare(`DELETE FROM ${t} WHERE meeting_id = ?`).run(id);
       db.prepare("DELETE FROM corrections WHERE scope = ?").run(`meeting:${id}`);
       db.prepare("DELETE FROM nodes WHERE id = ?").run(id);
