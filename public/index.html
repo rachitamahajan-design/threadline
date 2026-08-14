@@ -6585,6 +6585,32 @@ async function openCompanion(title, manual) {
     if (lm) lm.value = pm.value;
   });
   const feedEl = doc.getElementById("feed");
+  // Live transcript into the companion: its own SSE tap — the server fans out
+  // to every listener and replays the recent buffer on connect, so the pill
+  // stays live even if the main tab navigates away from the meeting view.
+  const pipPartials = {};
+  const pes = new EventSource("/api/record/events");
+  pes.onmessage = (ev) => {
+    const e = JSON.parse(ev.data);
+    if (e.type === "partial") {
+      let el = pipPartials[e.speaker];
+      if (!el) {
+        feedEl.insertAdjacentHTML("beforeend", `<div class="u partial"><b></b><span></span></div>`);
+        el = pipPartials[e.speaker] = feedEl.lastElementChild;
+        el.querySelector("b").textContent = e.speaker;
+      }
+      el.querySelector("span").textContent = e.text;
+    } else if (e.type === "final") {
+      const el = pipPartials[e.speaker];
+      if (el) { delete pipPartials[e.speaker]; el.remove(); }
+      const row = doc.createElement("div");
+      row.className = "u";
+      const who = doc.createElement("b"); who.textContent = e.speaker;
+      row.appendChild(who); row.appendChild(doc.createTextNode(e.text));
+      feedEl.appendChild(row);
+    } else return;
+    feedEl.scrollTop = 1e9;
+  };
   const ask = async () => {
     const q = doc.getElementById("pq").value.trim();
     if (!q) return;
@@ -6613,7 +6639,7 @@ async function openCompanion(title, manual) {
     doc.getElementById("px").textContent = open ? "⌃" : "⌄";
     try { pipWin.resizeTo(open ? 340 : 272, open ? 330 : 74); } catch (e) { /* browser may refuse; user can drag-resize */ }
   });
-  pipWin.addEventListener("pagehide", () => { pipWin = null; window.removeEventListener("tl-theme", syncPipTheme); });
+  pipWin.addEventListener("pagehide", () => { pipWin = null; pes.close(); window.removeEventListener("tl-theme", syncPipTheme); });
 }
 
 // ── Meeting-start notifications ─────────────────────────────────────────
