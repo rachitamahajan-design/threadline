@@ -19,6 +19,7 @@ import {
   loadSegments,
   meetingTypeOf,
   participantsOf,
+  transcriptFingerprint,
   type MeetingType,
   type Segment,
 } from "../lib/segments.js";
@@ -85,9 +86,13 @@ export async function ensureStatements(
   m: MeetingMeta,
   opts: { force?: boolean; budget?: Budget; steps?: StepRecord[] } = {},
 ): Promise<StatementSet> {
+  const fingerprint = transcriptFingerprint(m.segments);
   if (!opts.force) {
     const cached = readStatements(db, m.id);
-    if (cached) return cached;
+    // Only a cache built from THIS transcript counts. A set extracted while
+    // the recording was still short (or before an edit) — including the empty
+    // set a near-blank transcript yields — must not be served forever.
+    if (cached && cached.fingerprint === fingerprint) return cached;
   }
   const { set, step } = await extractStatements(m.segments, m.ctx, {
     type: m.type,
@@ -95,7 +100,7 @@ export async function ensureStatements(
     budget: opts.budget,
   });
   opts.steps?.push(step);
-  writeStatements(db, m.id, set);
+  writeStatements(db, m.id, set, fingerprint);
   return set;
 }
 
@@ -207,7 +212,9 @@ export async function ensureNotes(
       // what previously took the server down instead.
       let statements: StatementSet;
       try {
-        statements = await ensureStatements(db, m, { budget, steps });
+        // An explicit rebuild re-extracts: the user is asking for a fresh pass
+        // over the transcript, not a recompose of whatever pass 1 said before.
+        statements = await ensureStatements(db, m, { force: opts.force, budget, steps });
       } catch (e) {
         failure = reasonFrom(e);
         steps.push({ name: "extract:statements", status: "failed", attempts: 1, ms: 0, reason: failure });

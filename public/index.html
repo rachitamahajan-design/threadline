@@ -970,12 +970,22 @@
     /* Notes slide beneath the bar; the fade keeps the hand-off legible. */
     background: linear-gradient(to top, var(--bg) 62%, transparent);
   }
+  /* One continuous card: conversation on top, handoff chips, then the input.
+     The sheet is out of flow (it draws OVER the notes) but sits flush on the
+     card below — the card's own top border is the only divider between them. */
+  #chat-card {
+    position: relative; padding: 10px 11px 11px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: var(--shadow-pop);
+  }
+  #chat-card.sheet-open { border-top-left-radius: 0; border-top-right-radius: 0; }
   #chat-sheet {
-    position: absolute; left: 2px; right: 2px; bottom: calc(100% - 12px);
+    position: absolute; left: -1px; right: -1px; bottom: 100%;
     display: flex; flex-direction: column; overflow: hidden;
     max-height: min(62vh, 640px);
-    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
-    box-shadow: var(--shadow-panel);
+    background: var(--surface); border: 1px solid var(--line); border-bottom: none;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -24px 48px -28px rgb(25 25 45 / 0.35);
   }
   #chat-sheet.closed { display: none; }
   .chat-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex: none; }
@@ -1003,10 +1013,10 @@
     border-radius: 999px; padding: 3px 13px; cursor: pointer;
   }
   .say-more:hover { color: var(--thread); border-color: var(--thread); }
+  /* The input is a quiet pill inside the card, not a floating bar of its own. */
   #chat-bar {
     display: flex; gap: 10px; align-items: center;
-    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px;
-    box-shadow: var(--shadow-pop);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
   }
   #chat-bar:focus-within { border-color: color-mix(in srgb, var(--thread) 40%, var(--line)); }
   #chat-input { flex: 1; border: none; background: none; font: inherit; font-size: 14px; color: var(--ink); outline: none; }
@@ -1168,8 +1178,8 @@
   .out-skeleton div:nth-child(5) { width: 71%; margin-left: 16px; }
   @keyframes shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 
-  /* ── Handoffs: greyed suggestion until asked for. Lives in the chat card. */
-  .handoff-row { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; justify-content: flex-end; padding: 0 2px 9px; }
+  /* ── Handoffs: every kind visible, the mode's own leading. In the chat card. */
+  .handoff-row { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; justify-content: flex-start; padding: 1px 2px 9px; }
   .handoff-row:empty { padding: 0; }
   .handoff-row .label { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); font-weight: 600; margin-right: auto; }
   .hchip {
@@ -1185,9 +1195,18 @@
     width: 16px; height: 16px; display: grid; place-content: center; color: var(--ink-3);
   }
   .hchip .chev { color: var(--ink-3); font-size: 11px; }
-  .hchip.suggested { border-style: dashed; }
+  /* The mode's default: dashed and thread-tinted until it has actually run. */
+  .hchip.suggested {
+    border-style: dashed; color: var(--thread);
+    border-color: color-mix(in srgb, var(--thread) 45%, var(--line));
+  }
+  .hchip.suggested .slash { color: var(--thread); border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); }
   .hchip:hover:not(:disabled) { color: var(--thread); border-color: var(--thread); background: var(--thread-soft); }
+  /* Exactly one chip carries the highlight: the freshest run. */
   .hchip.active { color: var(--thread); border-color: transparent; background: var(--thread-soft); font-weight: 600; }
+  /* Older runs stay findable but deliberately quiet — done is not selected. */
+  .hchip.done { color: var(--ink-2); }
+  .hchip.done .slash, .hchip.active .slash { color: inherit; border-color: currentColor; opacity: .75; }
   .hchip:disabled { opacity: .55; cursor: progress; }
   .hchip.more { color: var(--ink-3); border-style: dotted; }
   .hcard { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 15px 18px 12px; }
@@ -3919,21 +3938,23 @@ async function renderMeeting(id, opts = {}) {
       <div class="ws-main">
         <div id="outline"></div>
         <div id="chat-dock">
-          <div id="chat-sheet" class="closed">
-            <div class="chat-top">
-              <button class="chat-icon" id="chat-clear" title="Clear this conversation">↺</button>
-              <span class="spacer"></span>
-              ${live ? "" : `<button class="chat-icon" id="rec-inline" title="Keep recording into this meeting — new audio joins the same transcript">●&nbsp;rec</button>`}
-              <button class="chat-icon" id="chat-min" title="Hide the conversation">▾</button>
+          <div id="chat-card">
+            <div id="chat-sheet" class="closed">
+              <div class="chat-top">
+                <button class="chat-icon" id="chat-clear" title="Clear this conversation">↺</button>
+                <span class="spacer"></span>
+                ${live ? "" : `<button class="chat-icon" id="rec-inline" title="Keep recording into this meeting — new audio joins the same transcript">●&nbsp;rec</button>`}
+                <button class="chat-icon" id="chat-min" title="Hide the conversation">▾</button>
+              </div>
+              <div id="chat-log"></div>
             </div>
-            <div id="chat-log"></div>
-          </div>
-          <div id="handoff-row" class="handoff-row"></div>
-          <div id="chat-bar">
-            <input id="chat-input" placeholder="Ask anything, or / for a handoff…" ${live ? "disabled title='available once the meeting is stitched'" : ""}>
-            <span class="chat-model" id="chat-model"></span>
-            <button class="chat-icon" id="handoff-more" title="Run a handoff — every kind, or just ask for one">＋</button>
-            <button id="chat-send" title="Send" ${live ? "disabled" : ""}>↑</button>
+            <div id="handoff-row" class="handoff-row"></div>
+            <div id="chat-bar">
+              <input id="chat-input" placeholder="Ask anything, or / for a handoff…" ${live ? "disabled title='available once the meeting is stitched'" : ""}>
+              <span class="chat-model" id="chat-model"></span>
+              <button class="chat-icon" id="handoff-more" title="Run a handoff — every kind, or just ask for one">＋</button>
+              <button id="chat-send" title="Send" ${live ? "disabled" : ""}>↑</button>
+            </div>
           </div>
         </div>
       </div>
@@ -4561,41 +4582,67 @@ function bulletAtPath(notes, path) {
 
 /** The catalog the composer's ＋ opens. Updated whenever the mode changes. */
 let currentCatalog = [];
+/** Handoff ids that have produced a card, most recent first. Drives the row. */
+let ranOrder = [];
+let rowMeetingId = null;
 
 function renderHandoffRow(meetingId, catalog, runs) {
-  const row = $("#handoff-row");
-  if (!row) return;
-  const ran = new Set((runs ?? []).map((r) => r.handoffId));
-  const dflt = catalog.find((h) => h.isDefault);
-  const chip = (h, active) =>
-    `<button class="hchip ${active ? "active" : "suggested"}" data-run="${h.id}"
-      title="${esc(h.blurb)}${active ? "" : " — suggested for this meeting type. Click to run it."}">
-      <span class="slash">/</span>${esc(h.label)}<span class="chev">›</span></button>`;
-  // The type's default sits here greyed and dashed until it has actually run.
-  const chips = dflt ? [chip(dflt, ran.has(dflt.id))] : [];
-  for (const h of catalog.filter((h) => !h.isDefault && ran.has(h.id))) chips.push(chip(h, true));
-  row.innerHTML = chips.join("");
-
-  row.querySelectorAll("[data-run]").forEach((b) =>
-    b.addEventListener("click", () => {
-      // An active chip is a bookmark, not a rerun button: open the conversation
-      // on its most recent card. Rerunning stays on the card's own Regenerate.
-      if (b.classList.contains("active")) {
-        openChatSheet();
-        const cards = document.querySelectorAll(`#chat-log .hcard[data-handoff="${b.dataset.run}"]`);
-        const last = cards[cards.length - 1];
-        if (last) return void last.scrollIntoView({ block: "nearest" });
-      }
-      runHandoffFromUI(meetingId, b.dataset.run, b);
-    }));
+  currentCatalog = catalog;
+  rowMeetingId = meetingId;
+  if (runs) {
+    // Recency per handoff: the newest run wins (run ids only ever grow).
+    const newest = new Map();
+    for (const r of runs) newest.set(r.handoffId, Math.max(newest.get(r.handoffId) ?? 0, r.id ?? 0));
+    ranOrder = [...newest.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+  }
+  drawHandoffRow();
   // The full menu lives in the composer, next to the input — picking a handoff is
   // the same gesture as asking for one, so it belongs in the same place.
   const more = $("#handoff-more");
   if (more && !more.dataset.wired) {
     more.dataset.wired = "1";
-    more.addEventListener("click", () => openHandoffMenu(meetingId, currentCatalog, more));
+    more.addEventListener("click", () => openHandoffMenu(rowMeetingId, currentCatalog, more));
   }
-  currentCatalog = catalog;
+}
+
+/**
+ * The row reads left to right as "what you have, then what we suggest":
+ * everything already run sits at the FRONT (newest first, only the newest
+ * highlighted — a permanent highlight on every past run read as a stuck
+ * selection), then the type's remaining suggestions, dashed until tried.
+ */
+function drawHandoffRow() {
+  const row = $("#handoff-row");
+  if (!row) return;
+  const byId = new Map(currentCatalog.map((h) => [h.id, h]));
+  const ranChips = ranOrder.map((id) => byId.get(id)).filter(Boolean);
+  const suggestions = currentCatalog
+    .filter((h) => h.suggested && !ranOrder.includes(h.id))
+    .sort((a, b) => (a.suggestedRank ?? 0) - (b.suggestedRank ?? 0));
+  const chip = (h, state) => {
+    const hint =
+      state === "suggested" ? " — suggested for this meeting type. Click to run it." : " — click to see its card.";
+    return `<button class="hchip ${state}" data-run="${h.id}" title="${esc(h.blurb)}${hint}">
+      <span class="slash">${state === "suggested" ? "/" : "✓"}</span>${esc(h.label)}<span class="chev">›</span></button>`;
+  };
+  row.innerHTML = [
+    ...ranChips.map((h, i) => chip(h, i === 0 ? "active" : "done")),
+    ...suggestions.map((h) => chip(h, "suggested")),
+  ].join("");
+
+  row.querySelectorAll("[data-run]").forEach((b) =>
+    b.addEventListener("click", () => {
+      // A run chip is a bookmark, not a rerun button: open the conversation
+      // on its most recent card. Rerunning stays on the card's own Regenerate.
+      if (b.classList.contains("active") || b.classList.contains("done")) {
+        markChipActive(b.dataset.run);
+        openChatSheet();
+        const cards = document.querySelectorAll(`#chat-log .hcard[data-handoff="${b.dataset.run}"]`);
+        const last = cards[cards.length - 1];
+        if (last) return void last.scrollIntoView({ block: "nearest" });
+      }
+      runHandoffFromUI(rowMeetingId, b.dataset.run, b);
+    }));
 }
 
 function openHandoffMenu(meetingId, catalog, anchor) {
@@ -4603,9 +4650,11 @@ function openHandoffMenu(meetingId, catalog, anchor) {
   const r = anchor.getBoundingClientRect();
   const menu = document.createElement("div");
   menu.id = "slash-menu";
-  menu.innerHTML = catalog
+  // Suggestions first, everything else after — all of it runnable.
+  const order = [...catalog].sort((a, b) => Number(b.suggested ?? b.isDefault) - Number(a.suggested ?? a.isDefault));
+  menu.innerHTML = order
     .map(
-      (h) => `<button data-pick="${h.id}"><b>${esc(h.label)}${h.isDefault ? " · suggested" : ""}${
+      (h) => `<button data-pick="${h.id}"><b>${esc(h.label)}${(h.suggested ?? h.isDefault) ? " · suggested" : ""}${
         h.scope === "cross-meeting" ? " · across meetings" : ""
       }</b><span>${esc(h.blurb)}</span></button>`,
     )
@@ -4650,13 +4699,14 @@ async function runHandoffFromUI(meetingId, handoffId, chip, opts = {}) {
   return out.run;
 }
 
-/** A suggested chip stops being a suggestion once it has produced something. */
+/**
+ * The freshest handoff moves to the front of the row and takes the one
+ * highlight; whatever held it before demotes to a quiet ✓. Exactly one chip
+ * ever looks selected.
+ */
 function markChipActive(handoffId) {
-  const chip = $(`#handoff-row [data-run="${handoffId}"]`);
-  if (chip) {
-    chip.classList.remove("suggested");
-    chip.classList.add("active");
-  }
+  ranOrder = [handoffId, ...ranOrder.filter((id) => id !== handoffId)];
+  drawHandoffRow();
 }
 
 function pendingCard(handoffId) {
@@ -4677,7 +4727,58 @@ const HANDOFF_LABELS = {
   followup_email: "Follow-up email",
   summary_next_steps: "Summary & next steps",
   candidate_feedback: "Candidate feedback",
+  investor_update: "Investor update",
+  crm_note: "CRM note",
+  negotiation_brief: "Negotiation brief",
+  slack_update: "Slack update",
+  one_on_one_recap: "1:1 recap",
   collated_feedback: "Collated customer feedback",
+};
+
+/**
+ * The sectioned handoffs share one card shape: an optional headline, then
+ * sourced-item / action-item sections. Mirror of sectionedHandoff() in
+ * src/handoffs/registry.ts — keys and order must match.
+ */
+const SECTIONED_CARDS = {
+  investor_update: {
+    sections: [
+      { key: "highlights", kind: "items", heading: "Highlights" },
+      { key: "metrics", kind: "items", heading: "Metrics" },
+      { key: "commitments", kind: "actions", heading: "Commitments" },
+      { key: "asks", kind: "items", heading: "Asks" },
+    ],
+  },
+  crm_note: {
+    sections: [
+      { key: "needs", kind: "items", heading: "Needs & pain points" },
+      { key: "objections", kind: "items", heading: "Objections" },
+      { key: "signals", kind: "items", heading: "Buying signals" },
+      { key: "nextSteps", kind: "actions", heading: "Next steps" },
+    ],
+  },
+  negotiation_brief: {
+    sections: [
+      { key: "agreed", kind: "items", heading: "Agreed" },
+      { key: "open", kind: "items", heading: "Still open" },
+      { key: "risks", kind: "items", heading: "Risks raised" },
+      { key: "nextSteps", kind: "actions", heading: "Next steps" },
+    ],
+  },
+  slack_update: {
+    prose: "headline",
+    sections: [
+      { key: "points", kind: "items", heading: "What moved" },
+      { key: "blockers", kind: "items", heading: "Blockers" },
+    ],
+  },
+  one_on_one_recap: {
+    sections: [
+      { key: "discussed", kind: "items", heading: "Discussed" },
+      { key: "commitments", kind: "actions", heading: "Commitments" },
+      { key: "flags", kind: "items", heading: "Worth watching" },
+    ],
+  },
 };
 
 function appendHandoffCard(meetingId, run, opts = {}) {
@@ -4735,6 +4836,17 @@ function handoffBody(run) {
         }</li>`,
       )
       .join("")}</ul>`;
+
+  // Sectioned handoffs all render the same way: headline, then their sections.
+  const spec = SECTIONED_CARDS[run.handoffId];
+  if (spec) {
+    const render = (s) => {
+      const list = v[s.key] ?? [];
+      if (!list.length) return "";
+      return `<h4>${esc(s.heading)}</h4>${s.kind === "actions" ? actions(list) : items(list)}`;
+    };
+    return `${spec.prose && v[spec.prose] ? `<p><b>${esc(v[spec.prose])}</b></p>` : ""}${spec.sections.map(render).join("")}`;
+  }
 
   switch (run.handoffId) {
     case "team_actions":
@@ -4898,7 +5010,7 @@ function wireSlashMenu(meetingId, input, catalog) {
     menu.innerHTML = matches
       .map(
         (h, i) => `<button data-pick="${h.id}" class="${i === sel ? "sel" : ""}"><b>${esc(h.label)}${
-          h.isDefault ? " · suggested" : ""
+          (h.suggested ?? h.isDefault) ? " · suggested" : ""
         }</b><span>${esc(h.blurb)}</span></button>`,
       )
       .join("");
@@ -5000,16 +5112,19 @@ function detectWordSwapClient(before, after) {
   return { from, to };
 }
 
-/** The conversation sheet: visible only while the chat is engaged. */
+/** The conversation sheet: visible only while the chat is engaged. It docks
+ *  flush onto the composer card — the two must always toggle together. */
 function openChatSheet() {
   const sheet = $("#chat-sheet");
   if (!sheet) return;
   sheet.classList.remove("closed");
+  $("#chat-card")?.classList.add("sheet-open");
   const log = $("#chat-log");
   if (log) log.scrollTop = log.scrollHeight;
 }
 function closeChatSheet() {
   $("#chat-sheet")?.classList.add("closed");
+  $("#chat-card")?.classList.remove("sheet-open");
 }
 
 // Clicking anywhere outside the dock dismisses the sheet — the notes come back.

@@ -14,28 +14,32 @@ import type { Statement, StatementSet } from "../pipeline/statements.js";
 
 // ── Extraction cache ────────────────────────────────────────────────────────
 
-export function readStatements(db: DatabaseSync, meetingId: string): StatementSet | null {
-  const row = db.prepare(`SELECT json, dropped, prompt_version FROM meeting_statements WHERE meeting_id = ?`).get(meetingId) as
-    | { json: string; dropped: string | null; prompt_version: string }
-    | undefined;
+export function readStatements(
+  db: DatabaseSync,
+  meetingId: string,
+): (StatementSet & { fingerprint: string | null }) | null {
+  const row = db
+    .prepare(`SELECT json, dropped, prompt_version, fingerprint FROM meeting_statements WHERE meeting_id = ?`)
+    .get(meetingId) as { json: string; dropped: string | null; prompt_version: string; fingerprint: string | null } | undefined;
   if (!row) return null;
   try {
     return {
       statements: JSON.parse(row.json) as Statement[],
       dropped: row.dropped ? JSON.parse(row.dropped) : [],
       promptVersion: row.prompt_version,
+      fingerprint: row.fingerprint,
     };
   } catch {
     return null;
   }
 }
 
-export function writeStatements(db: DatabaseSync, meetingId: string, set: StatementSet): void {
+export function writeStatements(db: DatabaseSync, meetingId: string, set: StatementSet, fingerprint: string): void {
   db.prepare(
-    `INSERT INTO meeting_statements (meeting_id, json, dropped, prompt_version, created_at) VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO meeting_statements (meeting_id, json, dropped, prompt_version, fingerprint, created_at) VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(meeting_id) DO UPDATE SET json = excluded.json, dropped = excluded.dropped,
-       prompt_version = excluded.prompt_version, created_at = excluded.created_at`,
-  ).run(meetingId, JSON.stringify(set.statements), JSON.stringify(set.dropped), set.promptVersion, Date.now());
+       prompt_version = excluded.prompt_version, fingerprint = excluded.fingerprint, created_at = excluded.created_at`,
+  ).run(meetingId, JSON.stringify(set.statements), JSON.stringify(set.dropped), set.promptVersion, fingerprint, Date.now());
 }
 
 export function clearStatements(db: DatabaseSync, meetingId: string): void {

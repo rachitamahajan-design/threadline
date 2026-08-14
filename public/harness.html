@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threadline — Harness</title>
+<meta name="description" content="How Threadline prevents hallucinations — every guard on one thread, in plain language.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 26 C10 20 8 12 16 10 C24 8 22 18 28 6' fill='none' stroke='%235b74e0' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  /* ---------- tokens: same system as the app & landing ---------- */
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --ink: #1c1c1e;
+    --ink-2: #56565c;
+    --ink-3: #8e8e93;
+    --thread: #5b74e0;
+    --thread-soft: #eceffc;
+    --line: rgba(28, 28, 30, 0.10);
+    --card: rgba(255, 255, 255, 0.72);
+    --card-solid: #ffffff;
+    --glass-border: rgba(255, 255, 255, 0.55);
+    --glass-blur: blur(22px) saturate(1.35);
+    --shadow-soft: 0 8px 28px -14px rgba(28, 28, 30, 0.18);
+    --ok: #3f9d63;
+    --bad: #c94f4f;
+    --term-bg: #1c1c22;
+    --term-ink: #e8e8ee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161618;
+      --surface: #1e1e22;
+      --ink: #f2f2f5;
+      --ink-2: #aeaeb4;
+      --ink-3: #79797f;
+      --thread: #8296ec;
+      --thread-soft: #2a2f45;
+      --line: rgba(242, 242, 245, 0.10);
+      --card: rgba(30, 30, 34, 0.62);
+      --card-solid: #1e1e22;
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --shadow-soft: 0 8px 28px -14px rgba(0, 0, 0, 0.5);
+      --ok: #5fbe84;
+      --bad: #e07a7a;
+      --term-bg: #101014;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161618;
+    --surface: #1e1e22;
+    --ink: #f2f2f5;
+    --ink-2: #aeaeb4;
+    --ink-3: #79797f;
+    --thread: #8296ec;
+    --thread-soft: #2a2f45;
+    --line: rgba(242, 242, 245, 0.10);
+    --card: rgba(30, 30, 34, 0.62);
+    --card-solid: #1e1e22;
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --shadow-soft: 0 8px 28px -14px rgba(0, 0, 0, 0.5);
+    --ok: #5fbe84;
+    --bad: #e07a7a;
+    --term-bg: #101014;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--thread-soft); color: var(--ink); }
+  a { color: inherit; text-decoration: none; }
+  .serif {
+    font-family: ui-serif, "New York", Georgia, "Times New Roman", serif;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  code, .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace; }
+
+  /* ---------- nav: same pill as the landing ---------- */
+  nav {
+    position: fixed;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 10px 8px 18px;
+    border-radius: 999px;
+    background: var(--card);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-soft);
+    white-space: nowrap;
+  }
+  .wordmark {
+    font-family: ui-serif, "New York", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 17px;
+    margin-right: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  nav .nlink {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink-2);
+    padding: 7px 12px;
+    border-radius: 999px;
+    transition: background .18s, color .18s;
+  }
+  nav .nlink:hover { background: var(--thread-soft); color: var(--ink); }
+  .nav-cta {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--thread);
+    padding: 8px 16px;
+    border-radius: 999px;
+    margin-left: 10px;
+    box-shadow: 0 4px 14px -6px var(--thread);
+    display: inline-block;
+  }
+  @media (max-width: 620px) { nav .nlink { display: none; } }
+
+  /* ---------- hero: one tour-length frame ---------- */
+  main { max-width: 1200px; margin: 0 auto; padding: 0 24px 30px; }
+  .hero {
+    min-height: 100vh;
+    min-height: 100svh;
+    display: grid;
+    place-items: center;
+    padding: 96px 24px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero .journey {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+  }
+  .hero .journey span {
+    font-family: ui-serif, "New York", Georgia, serif;
+    font-style: italic;
+    font-size: clamp(60px, 11vw, 150px);
+    color: color-mix(in srgb, var(--thread) 12%, transparent);
+    white-space: nowrap;
+  }
+  .hero-inner {
+    position: relative;
+    z-index: 2;
+    width: min(1100px, calc(100vw - 48px));
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    gap: clamp(26px, 4vw, 56px);
+    align-items: center;
+  }
+  @media (max-width: 880px) {
+    .hero-inner { grid-template-columns: 1fr; }
+    .hero .hero-copy { order: -1; }
+  }
+  .kicker {
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--thread);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .kicker::before {
+    content: "";
+    width: 22px; height: 1.5px;
+    background: var(--thread);
+    border-radius: 2px;
+    display: inline-block;
+  }
+  h1 { font-size: clamp(30px, 4vw, 46px); line-height: 1.12; text-wrap: balance; margin-top: 14px; }
+  .lede { color: var(--ink-2); font-size: 16px; margin-top: 12px; text-wrap: pretty; }
+
+  /* the log-format card: same terminal as the tour's quick start */
+  .term-card {
+    border-radius: 18px;
+    background: var(--term-bg);
+    color: var(--term-ink);
+    box-shadow: 0 18px 50px -18px rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+    font-size: 12.3px;
+  }
+  .term-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .term-bar i { width: 11px; height: 11px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
+  .term-bar span {
+    margin-left: 6px;
+    font-size: 11px;
+    color: rgba(232, 232, 238, 0.45);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  }
+  .term-body { padding: 14px 16px 18px; line-height: 1.8; overflow-x: auto; white-space: pre; }
+  .term-body .k { color: #8296ec; }
+  .term-body .s { color: #a5d6a7; }
+  .term-body .n { color: #e0b66f; }
+  .term-body .c { color: rgba(232, 232, 238, 0.4); }
+
+  .rule-pill {
+    margin-top: 18px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ok);
+    background: color-mix(in srgb, var(--ok) 12%, transparent);
+    border-radius: 999px;
+    padding: 6px 14px;
+  }
+
+  /* ---------- the stitched thread ---------- */
+  .stitches {
+    position: relative;
+    z-index: 2;
+    margin: 56px auto 0;
+    width: min(1140px, calc(100vw - 48px));
+  }
+  #stitch-svg { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; overflow: visible; z-index: 1; }
+  #stitch-ghost { fill: none; stroke: var(--thread); stroke-width: 1.6; opacity: 0.12; stroke-dasharray: 3 7; }
+  #stitch-path { fill: none; stroke: var(--thread); stroke-width: 1.6; opacity: 0.85; }
+
+  .stop { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 44px 0; }
+  .stop .dot {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 15px; height: 15px;
+    margin: -7.5px 0 0 -7.5px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--ink-3);
+    transition: border-color .3s, box-shadow .3s;
+    z-index: 2;
+  }
+  .stop.lit .dot { border-color: var(--thread); box-shadow: 0 0 0 6px color-mix(in srgb, var(--thread) 15%, transparent); }
+  .stop-card {
+    background: var(--card);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    box-shadow: var(--shadow-soft);
+    padding: 28px 30px 30px;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity .5s ease, transform .5s ease;
+  }
+  .stop.lit .stop-card { opacity: 1; transform: none; }
+  .stop:nth-child(odd) .stop-card { grid-column: 1; margin-right: 56px; }
+  .stop:nth-child(even) .stop-card { grid-column: 2; margin-left: 56px; }
+  .stop h3 { font-size: clamp(18px, 1.9vw, 22px); font-weight: 650; letter-spacing: -0.015em; }
+  .stop h3 .n { color: var(--thread); font-family: ui-serif, Georgia, serif; font-style: italic; margin-right: 8px; }
+  .stop p { font-size: 15px; color: var(--ink-2); margin-top: 6px; text-wrap: pretty; }
+
+  /* ---------- snippets ---------- */
+  .snip { margin-top: 16px; border-radius: 16px; font-size: 14.5px; line-height: 1.6; }
+  .snip.note {
+    background: var(--card-solid);
+    border: 1px solid var(--line);
+    padding: 14px 17px;
+    display: grid;
+    gap: 9px;
+  }
+  .snip.term {
+    background: var(--term-bg);
+    color: var(--term-ink);
+    padding: 15px 17px;
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+    font-size: 13.5px;
+    display: grid;
+    gap: 6px;
+    overflow-x: auto;
+  }
+  .snip .row { display: flex; gap: 8px; align-items: baseline; }
+  .snip .row i { font-style: normal; font-weight: 700; flex: none; }
+  .snip .keep i { color: var(--ok); }
+  .snip .cut i { color: var(--bad); }
+  .snip .cut { color: var(--ink-3); }
+  .snip .cut s { text-decoration-color: color-mix(in srgb, var(--bad) 55%, transparent); }
+  .snip .why { color: var(--ink-3); font-size: 13px; }
+  .snip .said { color: var(--ink-3); }
+  .rc {
+    display: inline-block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--thread);
+    background: var(--thread-soft);
+    border-radius: 999px;
+    padding: 2px 10px;
+    white-space: nowrap;
+  }
+  .hl-ok { background: color-mix(in srgb, var(--ok) 16%, transparent); border-radius: 4px; padding: 0 3px; }
+  .hl-bad { background: color-mix(in srgb, var(--bad) 14%, transparent); border-radius: 4px; padding: 0 3px; }
+  .snip.term .k { color: #8296ec; }
+  .snip.term .s { color: #a5d6a7; }
+  .snip.term .d { color: rgba(232,232,238,.45); }
+  .oc-mini { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .oc-mini span {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 600; color: var(--ink-2);
+    border: 1px solid var(--line); background: var(--card-solid);
+    border-radius: 999px; padding: 5px 13px;
+  }
+  .oc-mini i { width: 7px; height: 7px; border-radius: 50%; background: var(--dot); display: inline-block; }
+
+  /* ---------- knot: the end of the thread ---------- */
+  .knot { text-align: center; padding: 110px 24px 40px; position: relative; z-index: 2; }
+  .knot .serif {
+    font-size: clamp(26px, 3.6vw, 44px);
+    font-style: italic;
+    color: var(--ink);
+    line-height: 1.2;
+    text-wrap: balance;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .knot svg { width: clamp(34px, 3.4vw, 48px); height: auto; flex: none; }
+
+  footer { text-align: center; padding: 26px 20px 44px; color: var(--ink-3); font-size: 12.5px; }
+  footer .fm { font-family: ui-serif, "New York", Georgia, serif; font-style: italic; color: var(--ink-2); }
+
+  @media (max-width: 720px) {
+    .stop { grid-template-columns: 1fr; padding: 26px 0; }
+    .stop .dot { left: 14px; }
+    .stop:nth-child(odd) .stop-card, .stop:nth-child(even) .stop-card { grid-column: 1; margin: 0 0 0 40px; padding: 20px 20px 22px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stop-card { opacity: 1 !important; transform: none !important; transition: none; }
+    .stop .dot { border-color: var(--thread); }
+  }
+</style>
+</head>
+<body>
+
+<svg id="stitch-svg" aria-hidden="true">
+  <path id="stitch-ghost" d=""></path>
+  <path id="stitch-path" d=""></path>
+</svg>
+
+<nav aria-label="Main">
+  <a class="wordmark" href="/landing.html">
+    <svg width="26" height="26" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="tl-needle" x1="8" y1="30" x2="26" y2="6" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#b9bec6"/>
+          <stop offset="0.45" stop-color="#eef0f3"/>
+          <stop offset="1" stop-color="#9aa0a9"/>
+        </linearGradient>
+      </defs>
+      <path d="M2.5 6.5 C 6.5 3, 12 3.5, 15.5 5.8
+               C 18.5 7.7, 21.5 9.5, 23.8 10.2
+               C 27.5 11.2, 29.8 13.8, 29 17
+               C 28.2 20.5, 24.4 21.2, 23.2 18.6
+               C 22.2 16.4, 24.6 14.4, 27.6 15.2"
+        stroke="#4a7ce8" stroke-width="1.7" stroke-linecap="round"/>
+      <path d="M6.6 31.6 L 23.2 9.4 A 1.55 1.55 0 1 1 25.6 11.4 Z"
+        fill="url(#tl-needle)" stroke="#7c828b" stroke-width="0.6" stroke-linejoin="round"/>
+      <ellipse cx="24.4" cy="10.4" rx="0.6" ry="1.35" transform="rotate(-50 24.4 10.4)" fill="var(--bg)" stroke="#7c828b" stroke-width="0.45"/>
+    </svg>
+    <span>Threadline</span></a>
+  <a class="nlink" href="/landing.html">← Back to the tour</a>
+  <a class="nav-cta" href="/">Open the app</a>
+</nav>
+
+<section class="hero">
+  <div class="journey" aria-hidden="true"><span>on the record</span></div>
+  <div class="hero-inner">
+    <div class="term-card">
+      <div class="term-bar"><i></i><i></i><i></i><span>data/logs/threadline.log · one JSON line per event</span></div>
+      <div class="term-body"><span class="c"># every AI run writes two lines — ids and counts only, never meeting content</span>
+{<span class="k">"event"</span>:<span class="s">"run.start"</span>,  <span class="k">"run"</span>:<span class="n">56</span>, <span class="k">"kind"</span>:<span class="s">"notes"</span>, <span class="k">"meeting"</span>:<span class="s">"m12"</span>}
+{<span class="k">"event"</span>:<span class="s">"run.finish"</span>, <span class="k">"run"</span>:<span class="n">56</span>,
+  <span class="k">"outcome"</span>:<span class="s">"partial"</span>,                      <span class="c"># shipped | partial | deadline | failed</span>
+  <span class="k">"units"</span>:<span class="n">5</span>, <span class="k">"ms"</span>:<span class="n">8412</span>, <span class="k">"costUsd"</span>:<span class="n">0.0041</span>,      <span class="c"># the budget and the bill</span>
+  <span class="k">"failure"</span>:{<span class="k">"code"</span>:<span class="s">"grounding-blocked"</span>},    <span class="c"># why — fixed vocabulary, no free text</span>
+  <span class="k">"steps"</span>:[
+    {<span class="k">"name"</span>:<span class="s">"compose:notes"</span>,   <span class="k">"attempts"</span>:<span class="n">2</span>},  <span class="c"># silent, aimed retry</span>
+    {<span class="k">"name"</span>:<span class="s">"gate:entailment"</span>, <span class="k">"status"</span>:<span class="s">"ok"</span>}  <span class="c"># claim-vs-citation check</span>
+  ]}</div>
+    </div>
+    <div class="hero-copy">
+      <div class="kicker">The harness</div>
+      <h1 class="serif">Every AI run ends as one honest line in a log.</h1>
+      <p class="lede">Each check is plain code, not another prompt. What can't prove itself gets cut — and the record is written even if the process dies mid-run.</p>
+      <div class="rule-pill">✓ When the model and a check disagree, the check wins</div>
+    </div>
+  </div>
+</section>
+
+<main>
+  <div class="stitches" id="stitches">
+    <div class="stop">
+      <div class="dot"></div>
+      <div class="stop-card">
+        <h3><span class="n">1</span>No receipt, no ship</h3>
+        <p>Every line must cite the transcript.</p>
+        <div class="snip note">
+          <div class="row keep"><i>✓</i><span><span class="hl-ok">Ship sandbox keys by Friday</span> <span class="rc">¶ 14:32</span></span></div>
+          <div class="row cut"><i>✕</i><span><s>Team aligned on next steps</s> <span class="why">no source → pruned</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stop">
+      <div class="dot"></div>
+      <div class="stop-card">
+        <h3><span class="n">2</span>Numbers are copied, never composed</h3>
+        <p>Figures must match the transcript exactly.</p>
+        <div class="snip note">
+          <div class="row said"><span>¶ 21:07 — “the cap is <b>$4,200</b> a month”</span></div>
+          <div class="row keep"><i>✓</i><span><span class="hl-ok">$4,200</span> a month</span></div>
+          <div class="row cut"><i>✕</i><span><s><span class="hl-bad">$4,000</span> a month</s> <span class="why">not verbatim → pruned</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stop">
+      <div class="dot"></div>
+      <div class="stop-card">
+        <h3><span class="n">3</span>A second check reads every claim</h3>
+        <p>Does the cited line actually say that? Drift gets blocked.</p>
+        <div class="snip note">
+          <div class="row said"><span>said: “let's <b>consider</b> launching”</span></div>
+          <div class="row cut"><i>✕</i><span><s><span class="hl-bad">decided to launch</span></s> <span class="why">not supported → blocked</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stop">
+      <div class="dot"></div>
+      <div class="stop-card">
+        <h3><span class="n">4</span>No invented owners</h3>
+        <p>Action items only go to people who were in the room.</p>
+        <div class="snip note">
+          <div class="row keep"><i>✓</i><span><span class="hl-ok">Maya</span>: draft the comparison table</span></div>
+          <div class="row cut"><i>✕</i><span><s><span class="hl-bad">John</span>: draft it</s> <span class="why">not a participant → Unassigned</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stop">
+      <div class="dot"></div>
+      <div class="stop-card">
+        <h3><span class="n">5</span>Empty beats invented</h3>
+        <p>Not discussed → not in the notes. Cut lines are counted, never reworded.</p>
+        <div class="snip note">
+          <div class="row cut"><i>✕</i><span><s>Likely next steps…</s> <span class="why">nobody said it → omitted</span></span></div>
+          <div class="row said"><span class="why">notes header: <span class="rc">2 lines dropped — no proof</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stop">
+      <div class="dot"></div>
+      <div class="stop-card">
+        <h3><span class="n">6</span>Retries fix, they don't re-roll</h3>
+        <p>The failed check is fed back verbatim. You only see the clean result.</p>
+        <div class="snip term">
+          <span><span class="d">attempt 1 →</span> <span class="hl-bad">"$4,000" not verbatim in ¶ 21:07</span></span>
+          <span><span class="d">attempt 2 →</span> <span class="hl-ok">ok</span> <span class="d">· the only one you see</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stop">
+      <div class="dot"></div>
+      <div class="stop-card">
+        <h3><span class="n">7</span>A dead checker can't delete</h3>
+        <p>If the check itself fails, nothing is removed — it ships marked for review.</p>
+        <div class="snip note">
+          <div class="row keep"><i>✓</i><span>kept, flagged <span class="rc">needs review</span> <span class="why">unverified ≠ wrong</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stop">
+      <div class="dot"></div>
+      <div class="stop-card">
+        <h3><span class="n">8</span>Every run is on the record</h3>
+        <p>Budgeted, four possible endings, logged even if the process dies mid-run.</p>
+        <div class="snip term">
+          <span>{ <span class="k">"event"</span>: <span class="s">"run.finish"</span>, <span class="k">"kind"</span>: <span class="s">"notes"</span>,</span>
+          <span>&nbsp;&nbsp;<span class="k">"outcome"</span>: <span class="s hl-ok">"partial"</span>, <span class="k">"units"</span>: 5, <span class="k">"costUsd"</span>: 0.0041,</span>
+          <span>&nbsp;&nbsp;<span class="k">"failure"</span>: { <span class="k">"code"</span>: <span class="s hl-bad">"grounding-blocked"</span> } }</span>
+        </div>
+        <div class="oc-mini">
+          <span style="--dot: var(--ok)"><i></i>shipped</span>
+          <span style="--dot: var(--thread)"><i></i>partial</span>
+          <span style="--dot: #d9a13f"><i></i>deadline</span>
+          <span style="--dot: var(--bad)"><i></i>failed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="knot">
+    <div class="serif">…and only then does a line reach your notes.
+      <svg viewBox="0 0 34 34" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="knot-needle" x1="8" y1="30" x2="26" y2="6" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#b9bec6"/>
+            <stop offset="0.45" stop-color="#eef0f3"/>
+            <stop offset="1" stop-color="#9aa0a9"/>
+          </linearGradient>
+        </defs>
+        <path d="M2.5 6.5 C 6.5 3, 12 3.5, 15.5 5.8
+                 C 18.5 7.7, 21.5 9.5, 23.8 10.2
+                 C 27.5 11.2, 29.8 13.8, 29 17
+                 C 28.2 20.5, 24.4 21.2, 23.2 18.6
+                 C 22.2 16.4, 24.6 14.4, 27.6 15.2"
+          stroke="#4a7ce8" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M6.6 31.6 L 23.2 9.4 A 1.55 1.55 0 1 1 25.6 11.4 Z"
+          fill="url(#knot-needle)" stroke="#7c828b" stroke-width="0.6" stroke-linejoin="round"/>
+        <ellipse cx="24.4" cy="10.4" rx="0.6" ry="1.35" transform="rotate(-50 24.4 10.4)" fill="var(--bg)" stroke="#7c828b" stroke-width="0.45"/>
+      </svg>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span class="fm">Threadline</span> — the full engineering write-up lives in <code>harnesses.md</code>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var wrap = document.getElementById("stitches");
+  var svg = document.getElementById("stitch-svg");
+  var pathEl = document.getElementById("stitch-path");
+  var ghostEl = document.getElementById("stitch-ghost");
+  var stops = Array.prototype.slice.call(document.querySelectorAll(".stop"));
+  var pathLen = 0;
+
+  /* the thread starts at the very top of the page — like the landing — then
+     weaves through the hero and every stitch dot */
+  var hero = document.querySelector(".hero");
+  var knot = document.querySelector(".knot");
+  var dotYs = [];
+  function build() {
+    var W = document.documentElement.clientWidth;
+    var H = document.documentElement.scrollHeight;
+    svg.setAttribute("width", W);
+    svg.setAttribute("height", H);
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    var pts = [[W * 0.5, 0]];
+    if (hero) {
+      var hr = hero.getBoundingClientRect();
+      var hTop = hr.top + window.scrollY;
+      pts.push([W * 0.82, hTop + hr.height * 0.40]);
+      pts.push([W * 0.5, hTop + hr.height * 0.94]);
+    }
+    dotYs = [];
+    stops.forEach(function (s) {
+      var d = s.querySelector(".dot").getBoundingClientRect();
+      var y = d.top + d.height / 2 + window.scrollY;
+      dotYs.push(y);
+      pts.push([d.left + d.width / 2, y]);
+    });
+    if (knot) {
+      var kr = knot.getBoundingClientRect();
+      pts.push([W * 0.5, kr.top + window.scrollY + 30]);
+    } else {
+      pts.push([W * 0.5, H - 40]);
+    }
+    var d = "M " + pts[0][0] + " " + pts[0][1];
+    for (var i = 1; i < pts.length; i++) {
+      var a = pts[i - 1], b = pts[i];
+      var my = (a[1] + b[1]) / 2;
+      // sway toward the card side so the line reads as a stitch, not a rule
+      var sway = (i % 2 === 0 ? 1 : -1) * Math.min(34, W * 0.04);
+      d += " C " + (a[0] + sway) + " " + my + ", " + (b[0] + sway) + " " + my + ", " + b[0] + " " + b[1];
+    }
+    pathEl.setAttribute("d", d);
+    ghostEl.setAttribute("d", d);
+    pathLen = pathEl.getTotalLength();
+    pathEl.style.strokeDasharray = pathLen;
+    draw();
+  }
+
+  function draw() {
+    var total = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    var lead = window.innerHeight * 0.55;
+    var t = Math.max(0, Math.min(1, (window.scrollY + lead) / (total + lead)));
+    if (reduced) t = 1;
+    pathEl.style.strokeDashoffset = pathLen * (1 - t);
+    var tipY = window.scrollY + window.innerHeight * 0.72;
+    stops.forEach(function (s, i) {
+      s.classList.toggle("lit", reduced || tipY >= dotYs[i]);
+    });
+  }
+
+  addEventListener("scroll", draw, { passive: true });
+  addEventListener("resize", build);
+  build();
+  setTimeout(build, 300); /* fonts settle */
+})();
+</script>
+</body>
+</html>
