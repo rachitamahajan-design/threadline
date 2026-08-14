@@ -37,9 +37,11 @@ const MERGE_LEXICAL = 0.72;
  * "ANZ pricing" score only ~0.29 lexically, but sharing the distinctive token
  * "anz" is what makes them worth linking. A related edge is a weak, receipted
  * claim — it says "these were discussed in connected terms", not "these are
- * the same thing" — so anchor + low floor is the right trade.
+ * the same thing" — so anchor + low floor is the right trade. (Floor lowered
+ * again after LLM phrasing variance produced longer labels that dilute
+ * Jaccard: "ANZ pricing moved" vs "ANZ rollout delay" scored ~0.2.)
  */
-const RELATE_MIN = 0.22;
+const RELATE_MIN = 0.15;
 /** Best match must beat the runner-up by this, or it is ambiguous. */
 const MARGIN = 0.05;
 

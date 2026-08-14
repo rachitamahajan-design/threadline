@@ -7,119 +7,457 @@
 <style>
   :root {
     color-scheme: light;
-    --bg: #faf8f5;              /* warm near-white */
+    --bg: #f5f5f7;              /* Apple gray */
     --surface: #ffffff;
-    --ink: #21201c;
-    --ink-2: #6b675f;
-    --ink-3: #a39e94;
-    --thread: #5b74e0;          /* warm blue thread */
+    --ink: #1c1c1e;
+    --ink-2: #56565c;
+    --ink-3: #8e8e93;
+    --thread: #5b74e0;          /* the thread */
     --thread-soft: #eceffc;
     --warm: #e8752e;
     --pass: #3d8b68; --block: #cf5a52;
-    --line: #eee9e1;            /* hairline */
-    --shadow: 0 1px 2px rgb(60 50 30 / 0.04), 0 8px 28px rgb(60 50 30 / 0.05);
+    --line: rgba(60, 60, 67, 0.12);   /* hairline */
+    --shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 8px 32px rgb(16 24 40 / 0.08);
+
+    /* ── glass ── */
+    --card: rgba(255, 255, 255, 0.72);
+    --card-solid: #ffffff;
+    --glass-border: rgba(255, 255, 255, 0.55);
+    --glass-blur: blur(24px) saturate(1.7);
+    --chrome: rgba(250, 250, 252, 0.72);
+    --hover: rgba(60, 60, 67, 0.06);
+    --sunk: rgba(60, 60, 67, 0.045);
+    --radius: 18px;
+    --radius-sm: 11px;
+
+    /* ── gradient accents ── */
+    --grad-blue: linear-gradient(135deg, #e8edff, #dbe4ff);
+    --grad-peach: linear-gradient(135deg, #ffeede, #ffe0cc);
+    --grad-mint: linear-gradient(135deg, #e2f7ec, #d2f0e2);
+    --grad-lilac: linear-gradient(135deg, #f1e9ff, #e6dcff);
+    --grad-record: linear-gradient(135deg, #ff5f57, #e0443e);
+
+    /* ── shell metrics ── */
+    --hdr-h: 58px;
+    --side-w: 248px;
+    --side-w-collapsed: 64px;
+
+    /* corner wash behind everything */
+    --wash:
+      radial-gradient(900px 620px at 6% -8%, #eef1fb 0%, transparent 62%),
+      radial-gradient(820px 560px at 104% 4%, #fdf3ec 0%, transparent 60%),
+      radial-gradient(760px 620px at 88% 104%, #eef6f2 0%, transparent 62%);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --bg: #1b1a17; --surface: #23221e;
-      --ink: #f0eee9; --ink-2: #b3afa6; --ink-3: #7a766d;
+      --bg: #161618; --surface: #1e1e22;
+      --ink: #f2f2f5; --ink-2: #aeaeb4; --ink-3: #79797f;
       --thread: #8296ec; --thread-soft: #2a2f45;
       --warm: #f08644;
       --pass: #4caf87; --block: #e07a70;
-      --line: #33312b;
-      --shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+      --line: rgba(255, 255, 255, 0.10);
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 32px rgb(0 0 0 / 0.34);
+
+      --card: rgba(30, 30, 34, 0.62);
+      --card-solid: #1e1e22;
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --chrome: rgba(22, 22, 24, 0.72);
+      --hover: rgba(255, 255, 255, 0.07);
+      --sunk: rgba(255, 255, 255, 0.05);
+
+      --grad-blue: linear-gradient(135deg, #262c46, #1f2438);
+      --grad-peach: linear-gradient(135deg, #3a2a22, #2e2018);
+      --grad-mint: linear-gradient(135deg, #1e332a, #182a22);
+      --grad-lilac: linear-gradient(135deg, #2d2540, #241d34);
+
+      --wash:
+        radial-gradient(900px 620px at 6% -8%, #1d2036 0%, transparent 62%),
+        radial-gradient(820px 560px at 104% 4%, #2a2119 0%, transparent 60%),
+        radial-gradient(760px 620px at 88% 104%, #17241f 0%, transparent 62%);
     }
   }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) #side { background: color-mix(in srgb, #000 22%, #1b1a17); }
-    :root:not([data-theme="light"]) .side-link:hover { background: color-mix(in srgb, #000 35%, #1b1a17); }
-  }
   * { box-sizing: border-box; margin: 0; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     background: var(--bg); color: var(--ink);
-    font: 14.5px/1.6 -apple-system, "SF Pro Text", Inter, system-ui, sans-serif;
+    background-image: var(--wash); background-attachment: fixed;
+    font: 14.5px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
-    letter-spacing: 0.005em;
+    letter-spacing: -0.01em;
+    overflow-x: hidden;
   }
+  .ic { display: inline-block; flex: none; vertical-align: -0.16em; }
+
+  /* ── slim glass toolbar ── */
   header {
-    display: flex; align-items: center; gap: 18px;
-    padding: 14px 28px; position: sticky; top: 0; z-index: 5;
-    background: color-mix(in srgb, var(--bg) 90%, transparent);
-    backdrop-filter: blur(12px);
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 clamp(12px, 2vw, 22px); height: var(--hdr-h);
+    position: sticky; top: 0; z-index: 25;
+    background: var(--chrome);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
     border-bottom: 1px solid var(--line);
   }
-  .logo { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 16.5px; letter-spacing: -0.01em; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 650; font-size: 16px; letter-spacing: -0.02em; }
   .logo svg { display: block; }
-  #search {
-    margin-left: auto; width: 300px; padding: 8px 14px;
-    border: 1px solid var(--line); border-radius: 10px;
-    background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px;
-    transition: border-color .15s, box-shadow .15s;
+  .hspacer { flex: 1; }
+
+  /* ── generic icon button ── */
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    width: 32px; height: 32px; padding: 0; flex: none;
+    border: 1px solid transparent; border-radius: 10px; cursor: pointer;
+    background: transparent; color: var(--ink-2); font: inherit;
+    transition: background .14s, color .14s, border-color .14s;
   }
-  #search:focus { outline: none; border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); box-shadow: 0 0 0 3px var(--thread-soft); }
-  #search::placeholder { color: var(--ink-3); }
-  #google-btn {
-    border: 1px solid var(--line); background: var(--surface); font: inherit; font-weight: 500; font-size: 13px;
-    padding: 7px 14px; border-radius: 10px; cursor: pointer; color: var(--ink-2);
-    transition: border-color .15s, color .15s;
+  .icon-btn:hover { background: var(--hover); color: var(--ink); }
+  .icon-btn.bordered { border-color: var(--line); background: var(--card); }
+  .icon-btn:disabled { opacity: .45; cursor: default; }
+  #nav-toggle { display: none; }
+
+  /* ── the record button: one component, everywhere ── */
+  /* the header pill hides at rest — recording starts via double-Fn or in-page
+     buttons; it surfaces only as the Stop control while a take is live */
+  #rec { display: none; }
+  #rec.on { display: inline-flex; }
+  #hotkey-help.rec-live { border-color: #e0443e; color: #e0443e; animation: recpulse 1.6s ease-in-out infinite; }
+  @keyframes recpulse { 0%,100% { box-shadow: 0 0 0 0 rgb(224 68 62 / .35); } 50% { box-shadow: 0 0 0 6px rgb(224 68 62 / 0); } }
+  .rec-btn {
+    display: inline-flex; align-items: center; gap: 8px; flex: none;
+    border: 1px solid var(--glass-border); border-radius: 999px;
+    background: var(--card); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    color: var(--ink); font: inherit; font-weight: 600; font-size: 13.5px; letter-spacing: -0.01em;
+    padding: 7px 16px 7px 13px; cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: transform .15s, box-shadow .15s, background .2s, color .2s;
   }
-  #google-btn:hover { border-color: var(--ink-3); color: var(--ink); }
-  #pip-btn {
-    border: 1px solid var(--line); background: var(--surface); font: inherit; font-weight: 600; font-size: 14px;
-    padding: 7px 12px; border-radius: 10px; cursor: pointer; color: var(--thread);
+  .rec-btn::before {
+    content: ""; width: 10px; height: 10px; border-radius: 50%; flex: none;
+    background: var(--grad-record); box-shadow: 0 0 0 0 rgb(224 68 62 / 0.5);
   }
-  #pip-btn:hover { border-color: var(--thread); }
-  #rec {
-    border: 0; font: inherit; font-weight: 600; font-size: 13.5px; cursor: pointer;
-    padding: 8px 17px; border-radius: 10px; color: #fff; background: var(--thread);
-    box-shadow: 0 1px 2px rgb(50 60 140 / 0.25); transition: filter .15s;
+  .rec-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgb(16 24 40 / .08), 0 12px 34px rgb(16 24 40 / .13); }
+  .rec-btn:disabled { opacity: .6; cursor: default; transform: none; }
+  .rec-btn.on, .rec-btn.recording {
+    background: var(--grad-record); border-color: rgb(224 68 62 / .6); color: #fff;
+    box-shadow: 0 2px 10px rgb(224 68 62 / .32);
   }
-  #rec:hover { filter: brightness(1.07); }
-  #rec.recording { background: var(--block); animation: pulse 1.6s ease-in-out infinite; }
+  .rec-btn.on::before, .rec-btn.recording::before {
+    background: #fff; animation: rec-pulse 1.7s ease-out infinite;
+  }
+  @keyframes rec-pulse {
+    0%   { box-shadow: 0 0 0 0 rgb(255 255 255 / 0.65); }
+    70%  { box-shadow: 0 0 0 7px rgb(255 255 255 / 0); }
+    100% { box-shadow: 0 0 0 0 rgb(255 255 255 / 0); }
+  }
   @keyframes pulse { 50% { opacity: 0.75; } }
 
-  .shell { display: grid; grid-template-columns: 216px 1fr; min-height: calc(100vh - 61px); }
+  /* ── shell ── */
+  .shell { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); min-height: calc(100vh - var(--hdr-h)); }
+  .shell.side-collapsed { grid-template-columns: var(--side-w-collapsed) minmax(0, 1fr); }
   #side {
-    padding: 22px 14px; position: sticky; top: 61px; height: calc(100vh - 61px); overflow-y: auto;
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 12px 10px 10px; position: sticky; top: var(--hdr-h);
+    height: calc(100vh - var(--hdr-h)); overflow-y: auto; overflow-x: hidden;
     border-right: 1px solid var(--line);
-    background: color-mix(in srgb, #ded7cb 26%, var(--bg));
+    background: var(--chrome);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    transition: transform .26s cubic-bezier(.32,.72,.3,1);
   }
-  .side-link:hover { background: color-mix(in srgb, #ded7cb 45%, var(--bg)); }
-  .side-section { margin-bottom: 26px; }
+  .side-top { display: flex; align-items: center; justify-content: flex-end; padding: 0 2px 4px; }
+  .side-collapsed .side-top { justify-content: center; }
+  #side-toggle .ic { transition: transform .2s; }
+  .side-collapsed #side-toggle .ic { transform: rotate(180deg); }
+
+  /* the "Search ⌘K" pill in the rail */
+  .side-search {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--sunk);
+    color: var(--ink-2); font: inherit; font-size: 13.5px; font-weight: 500;
+    padding: 7px 9px; margin-bottom: 10px; cursor: pointer;
+    transition: background .14s, border-color .14s, color .14s;
+  }
+  .side-search:hover { background: var(--hover); color: var(--ink); border-color: color-mix(in srgb, var(--thread) 32%, var(--line)); }
+  .kbd {
+    font: 600 10.5px/1 -apple-system, system-ui; color: var(--ink-3);
+    border: 1px solid var(--line); border-radius: 5px; padding: 3px 5px;
+    background: var(--card-solid); letter-spacing: 0;
+  }
+  .side-search .kbd { margin-left: auto; }
+
+  .side-section { margin-bottom: 16px; }
+  .side-foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); }
   .side-head {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--ink-3);
-    font-weight: 600; padding: 0 12px 8px; display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3);
+    font-weight: 700; padding: 0 10px 6px; display: flex; align-items: center; justify-content: space-between; gap: 6px;
   }
   .side-head button {
-    border: 0; background: none; border-radius: 6px; width: 22px; height: 22px;
-    font-weight: 600; font-size: 15px; cursor: pointer; line-height: 1; color: var(--ink-3);
+    border: 0; background: none; border-radius: 7px; width: 24px; height: 24px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; line-height: 1; color: var(--ink-3); flex: none;
   }
   .side-head button:hover { color: var(--thread); background: var(--thread-soft); }
   .side-link {
-    display: block; width: 100%; text-align: left; border: 0; background: none;
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    border: 0; background: none;
     color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 500;
-    padding: 8px 12px; border-radius: 9px; cursor: pointer; transition: background .12s, color .12s;
+    padding: 8px 10px; border-radius: 10px; cursor: pointer; transition: background .12s, color .12s;
   }
-  .side-link:hover { color: var(--ink); background: color-mix(in srgb, var(--surface) 60%, var(--bg)); }
-  .side-link.active { background: var(--thread-soft); color: var(--ink); font-weight: 600; }
-  main { max-width: 1020px; margin: 0 auto; padding: 40px 36px 80px; width: 100%; }
+  .side-link > .ic { color: var(--ink-3); transition: color .12s; }
+  .side-link .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-link:hover { color: var(--ink); background: var(--hover); }
+  .side-link:hover > .ic { color: var(--ink-2); }
+  .side-link.active {
+    background: var(--card-solid); color: var(--ink); font-weight: 600;
+    box-shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 1px rgb(16 24 40 / .04);
+  }
+  .side-link.active > .ic { color: var(--thread); }
+  .side-empty { padding: 2px 12px; font-size: 12.5px; color: var(--ink-3); }
+
+  /* profile block, pinned bottom */
+  .profile { display: flex; align-items: center; gap: 9px; padding: 4px 6px 8px; }
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-content: center;
+    background: var(--grad-blue); color: var(--thread); font-weight: 700; font-size: 12.5px;
+    border: 1px solid var(--glass-border);
+  }
+  .pname { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #google-btn {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    border: 1px solid var(--line); background: var(--card); font: inherit; font-weight: 500; font-size: 13px;
+    padding: 7px 10px; border-radius: 10px; cursor: pointer; color: var(--ink-2); text-align: left;
+    transition: border-color .15s, color .15s, background .15s;
+  }
+  #google-btn:hover:not(:disabled) { border-color: var(--ink-3); color: var(--ink); background: var(--hover); }
+  #google-btn:disabled { cursor: default; color: var(--pass); }
+  #google-btn .gb-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* collapsed icon rail */
+  .side-collapsed #side { padding: 12px 8px 10px; }
+  .side-collapsed .side-search { justify-content: center; padding: 7px 0; }
+  .side-collapsed .side-search .lbl, .side-collapsed .side-search .kbd { display: none; }
+  .side-collapsed .side-link { justify-content: center; padding: 9px 0; gap: 0; }
+  .side-collapsed .side-link .lbl, .side-collapsed .side-link .sub-count { display: none; }
+  .side-collapsed .side-head { justify-content: center; padding: 0 0 6px; }
+  .side-collapsed .side-head .lbl { display: none; }
+  .side-collapsed .profile { justify-content: center; padding: 4px 0 8px; }
+  .side-collapsed .pname, .side-collapsed #settings-btn { display: none; }
+  .side-collapsed #google-btn { justify-content: center; padding: 7px 0; }
+  .side-collapsed #google-btn .gb-label { display: none; }
+  .side-collapsed .side-empty { display: none; }
+
+  #side-scrim {
+    position: fixed; inset: 0; z-index: 19; background: rgb(0 0 0 / .28);
+    backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .22s;
+  }
+
+  main { max-width: min(1120px, 100%); margin: 0 auto; padding: clamp(20px, 3.4vw, 40px) clamp(16px, 3vw, 36px) 90px; width: 100%; }
+
+  /* ── typography ── */
+  main h1, .page-title {
+    font-family: ui-serif, "New York", Georgia, "Times New Roman", serif;
+    font-size: clamp(26px, 3vw, 34px); font-weight: 600; letter-spacing: -0.02em;
+    line-height: 1.14; margin-bottom: 6px;
+  }
   h1 { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; margin-bottom: 6px; }
-  .sub { color: var(--ink-2); font-size: 14px; margin-bottom: 30px; }
+  .eyebrow {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--ink-3);
+  }
+  .num, .stat b, .m-date, .pal-row .meta { font-variant-numeric: tabular-nums; }
+  .sub { color: var(--ink-2); font-size: 14px; margin-bottom: clamp(18px, 2.4vw, 28px); }
+
   .card {
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: 14px; padding: 24px 26px; margin-bottom: 22px; box-shadow: var(--shadow);
+    background: var(--card); border: 1px solid var(--glass-border);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border-radius: var(--radius); padding: clamp(16px, 2.2vw, 24px) clamp(16px, 2.4vw, 26px);
+    margin-bottom: 22px; box-shadow: var(--shadow);
   }
   .card h2 {
-    font-size: 16.5px; letter-spacing: -0.01em; color: var(--ink);
-    margin-bottom: 16px; font-weight: 650;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-size: 15px; letter-spacing: -0.01em; color: var(--ink);
+    margin-bottom: 14px; font-weight: 650;
   }
   .card h2 .h2-note { font-size: 12.5px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; }
-  .stats { display: flex; gap: 44px; margin: 4px 0 34px; }
-  .stat b { display: block; font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
-  .stat span { font-size: 12.5px; color: var(--ink-3); }
-  .home-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
-  @media (max-width: 900px) { .home-grid { grid-template-columns: 1fr; } .shell { grid-template-columns: 1fr; } #side { display: none; } }
+  /* ── Home: gradient stat cards ── */
+  .stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: clamp(12px, 1.6vw, 18px); margin: 4px 0 clamp(18px, 2.4vw, 24px);
+  }
+  .stat {
+    background: var(--grad-blue); border: 1px solid var(--glass-border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: clamp(14px, 1.9vw, 18px) clamp(15px, 2vw, 20px); min-width: 0;
+  }
+  .stat.s-peach { background: var(--grad-peach); }
+  .stat.s-mint { background: var(--grad-mint); }
+  .stat.s-lilac { background: var(--grad-lilac); }
+  .stat .ic { display: block; color: var(--ink-2); opacity: .72; margin-bottom: clamp(12px, 2vw, 20px); }
+  .stat b { display: block; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.12; }
+  .stat span { display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+
+  .home-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; align-items: start; }
+  @media (min-width: 1100px) { .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  /* ── Home: Up next, Granola "Coming up" ── */
+  .card h2.serif-h {
+    font-family: ui-serif, "New York", Georgia, "Times New Roman", serif;
+    font-size: 19px; font-weight: 600; letter-spacing: -0.02em;
+  }
+  .up-lead { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 14px; padding: 2px 0 4px; align-items: start; }
+  .up-cal { text-align: center; padding-top: 1px; }
+  .up-daynum {
+    font-family: ui-serif, "New York", Georgia, "Times New Roman", serif;
+    font-size: 34px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  }
+  .up-mon { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); margin-top: 5px; }
+  .up-dow { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+  .up-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ff5f57; margin-right: 5px; vertical-align: 1px; }
+  .up-body { position: relative; padding-left: 15px; min-width: 0; }
+  .up-tick { position: absolute; left: 0; top: 3px; bottom: 3px; width: 3px; border-radius: 3px; background: var(--thread); opacity: .85; }
+  .up-name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.35; }
+  .up-line { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-top: 5px; }
+  .up-time { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .up-time .ampm { font-size: 10.5px; letter-spacing: .04em; margin-left: 2px; }
+  .up-chip {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ink-2);
+    border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px 2px 8px; white-space: nowrap;
+  }
+  .up-chip .ic { color: var(--ink-3); }
+  .up-chip.now { border-color: transparent; background: color-mix(in srgb, #ff5f57 13%, transparent); color: #d0433c; font-weight: 650; }
+  .up-chip.soon { border-color: transparent; background: var(--thread-soft); color: var(--thread); font-weight: 600; }
+  .up-people { font-size: 12.5px; color: var(--ink-3); margin-top: 4px; }
+  .up-slim {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    position: relative; padding: 10px 0 10px 15px; border-top: 1px solid var(--line); margin-top: 12px;
+  }
+  .up-slim + .up-slim { margin-top: 0; }
+  .up-slim .up-tick { top: 12px; bottom: 12px; opacity: .38; }
+  .up-slim .s-time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; flex: none; }
+  .up-slim .s-title { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; min-width: 0; }
+  .up-slim .s-people { font-size: 12px; color: var(--ink-3); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Home: past meetings, grouped by day ── */
+  .day-head { margin: 16px 0 2px; }
+  .day-head:first-child { margin-top: 0; }
+  .mtg-row { display: flex; gap: 12px; align-items: flex-start; padding: 11px 0; cursor: pointer; }
+  .mtg-row + .mtg-row { border-top: 1px solid var(--line); }
+  .mtg-ico {
+    width: 32px; height: 32px; border-radius: 10px; flex: none; margin-top: 1px;
+    background: var(--sunk); border: 1px solid var(--line); color: var(--ink-3);
+    display: grid; place-content: center;
+  }
+  .mtg-row:hover .mtg-ico { color: var(--thread); }
+  .mtg-main { flex: 1; min-width: 0; }
+  .mtg-title { font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; transition: color .12s; }
+  .mtg-row:hover .mtg-title { color: var(--thread); }
+  .mtg-sum {
+    font-size: 12.5px; color: var(--ink-3); margin-top: 2px; line-height: 1.45;
+    display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .mtg-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; margin-top: 1px; }
+  .mtg-time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px; }
+  .mtg-time .ic { color: var(--ink-3); opacity: .8; }
+  .mtg-meta { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+  .mtg-meta b { color: var(--ink-2); font-weight: 600; }
+  @media (max-width: 560px) {
+    /* two-up so the stats stay a row, not a tower */
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat .ic { margin-bottom: 10px; }
+  }
+  @media (max-width: 520px) {
+    .mtg-row { flex-wrap: wrap; }
+    .mtg-side { flex: 1 1 100%; flex-direction: row; align-items: center; padding-left: 44px; margin-top: 6px; justify-content: flex-start; gap: 10px; }
+  }
+
+  /* ── the centered search pill (Home / Meetings) ── */
+  .search-pill {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; max-width: 560px; margin: 0 auto clamp(20px, 3vw, 30px);
+    border: 1px solid var(--glass-border); border-radius: 999px;
+    background: var(--card); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow); cursor: pointer;
+    padding: 11px 14px 11px 17px; color: var(--ink-3); font: inherit; font-size: 14px; text-align: left;
+    transition: transform .15s, box-shadow .15s, border-color .15s;
+  }
+  .search-pill:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgb(16 24 40 / .08), 0 12px 34px rgb(16 24 40 / .13); }
+  .search-pill .ic { color: var(--ink-3); }
+  .search-pill .lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── meeting detail: the chip row under the title ── */
+  .chip-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 2px; }
+  button.up-chip { font: inherit; font-size: 11.5px; cursor: pointer; background: var(--card); }
+  button.up-chip:hover { border-color: color-mix(in srgb, var(--thread) 45%, var(--line)); color: var(--thread); }
+  button.up-chip:hover .ic { color: var(--thread); }
+  .up-chip .who { max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── glass popovers & dropdowns (time editor, topic picker, ⋯ menu) ── */
+  .glass-pop {
+    position: absolute; z-index: 60; min-width: 250px;
+    background: var(--card); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 12px; font-size: 13px;
+  }
+  .glass-pop.menu { padding: 6px; min-width: 216px; }
+  .pop-title {
+    display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); margin: 2px 2px 10px;
+  }
+  .pop-lbl { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 10px; }
+  .pop-lbl input {
+    display: block; width: 100%; margin-top: 5px; font: inherit; font-size: 13px; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 6px 9px; box-sizing: border-box;
+  }
+  .pop-lbl input:focus { outline: none; border-color: color-mix(in srgb, var(--thread) 50%, var(--line)); }
+  .pop-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .pop-actions .copybtn { margin-top: 2px; }
+  .pop-actions .primary { background: var(--thread); border-color: var(--thread); color: #fff; font-weight: 600; }
+  .pop-actions .primary:hover { background: color-mix(in srgb, var(--thread) 85%, #000); color: #fff; }
+  .glass-pop .topic-select { width: 100%; max-width: none; font-size: 13px; padding: 7px 9px; color: var(--ink); }
+  .menu-row {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    border: none; background: none; font: inherit; font-size: 13px; color: var(--ink);
+    padding: 7px 10px; border-radius: var(--radius-sm); cursor: pointer;
+  }
+  .menu-row .ic { color: var(--ink-3); flex: none; }
+  .menu-row:hover { background: var(--hover); }
+  .menu-row:hover .ic { color: var(--thread); }
+  .menu-row.danger { color: var(--block); }
+  .menu-row.danger .ic { color: var(--block); }
+  .menu-row.danger:hover { background: color-mix(in srgb, var(--block) 12%, transparent); }
+  .menu-row.danger:hover .ic { color: var(--block); }
+  .menu-sep { height: 1px; background: var(--line); margin: 6px 6px; }
+
+  /* ── responsive: sidebar becomes a drawer ── */
+  @media (max-width: 900px) {
+    .shell, .shell.side-collapsed { grid-template-columns: minmax(0, 1fr); }
+    #nav-toggle { display: inline-flex; }
+    #side {
+      position: fixed; left: 0; top: var(--hdr-h); z-index: 20;
+      width: min(280px, 84vw); transform: translateX(-102%);
+      box-shadow: 12px 0 40px rgb(16 24 40 / .16);
+    }
+    .side-collapsed #side { padding: 12px 10px 10px; }
+    .side-collapsed .side-link { justify-content: flex-start; padding: 8px 10px; gap: 10px; }
+    .side-collapsed .side-link .lbl, .side-collapsed .side-search .lbl,
+    .side-collapsed .pname, .side-collapsed #google-btn .gb-label,
+    .side-collapsed .side-head .lbl, .side-collapsed .side-empty { display: revert; }
+    .side-collapsed .side-search, .side-collapsed #google-btn { justify-content: flex-start; padding: 7px 10px; }
+    .side-collapsed .profile { justify-content: flex-start; padding: 4px 6px 8px; }
+    .side-collapsed #settings-btn { display: inline-flex; }
+    .side-top { display: none; }
+    body.drawer-open #side { transform: none; }
+    body.drawer-open #side-scrim { opacity: 1; pointer-events: auto; }
+  }
+  @media (max-width: 640px) {
+    .card { border-radius: 15px; }
+    .rec-btn { padding: 7px 13px 7px 11px; font-size: 13px; }
+    /* meeting rows: the date gets its own line so the title isn't squeezed */
+    .m-row { flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+    .m-row > .m-date { min-width: 100%; }
+    .m-row > div:not(.m-date) { flex: 1 1 auto; min-width: 0; }
+  }
 
   /* ── thread: a fine silk line, not a dash ── */
   .loose-rail { position: relative; padding-left: 26px; }
@@ -372,7 +710,11 @@
   #rec-inline { border: 1px solid var(--line); background: var(--surface); color: var(--block); font: inherit; font-size: 12.5px; font-weight: 650; border-radius: 10px; padding: 6px 14px; cursor: pointer; }
   #rec-inline:hover { border-color: var(--block); }
   .ws-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
-  .ws-head .spacer { flex: 1; }
+  /* title + chips take the slack; the action buttons wrap as one cluster,
+     pushed right by their own auto margin (so the old spacer can stay flat) */
+  .ws-head .spacer { flex: 0 0 0; }
+  .ws-head > div:first-child { flex: 1 1 320px; min-width: 0; }
+  .ws-actions { display: flex; align-items: center; gap: 10px; flex: none; margin-left: auto; }
   #notes-doc {
     background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
     box-shadow: var(--shadow); padding: 26px 30px; min-height: 320px;
@@ -508,30 +850,37 @@
   /* ── command palette: Spotlight for your meetings (⌘K / ⌘Space) ── */
   #palette-veil {
     position: fixed; inset: 0; z-index: 40; display: none;
-    background: rgb(20 18 14 / 0.35); backdrop-filter: blur(3px);
+    background: rgb(0 0 0 / 0.25); backdrop-filter: blur(6px) saturate(1.2); -webkit-backdrop-filter: blur(6px) saturate(1.2);
   }
   #palette-veil.open { display: block; }
   #palette {
-    position: fixed; left: 50%; top: 14%; transform: translateX(-50%);
+    position: fixed; left: 50%; top: 13%; transform: translateX(-50%);
     width: min(640px, 92vw); z-index: 41;
-    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
-    box-shadow: 0 24px 80px rgb(30 25 15 / 0.28), var(--shadow); overflow: hidden;
+    background: var(--card); border: 1px solid var(--glass-border); border-radius: 16px;
+    backdrop-filter: blur(34px) saturate(1.8); -webkit-backdrop-filter: blur(34px) saturate(1.8);
+    box-shadow: 0 24px 80px rgb(16 24 40 / 0.30), 0 2px 6px rgb(16 24 40 / .08); overflow: hidden;
   }
+  .pal-search { display: flex; align-items: center; gap: 11px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .pal-search > .ic { color: var(--ink-3); flex: none; }
   #palette input {
-    width: 100%; border: 0; outline: none; background: transparent; color: var(--ink);
-    font: 500 17px/1.4 -apple-system, "SF Pro Text", system-ui; padding: 18px 20px 16px;
-    border-bottom: 1px solid var(--line);
+    flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--ink);
+    font: 500 18px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui;
+    letter-spacing: -0.015em; padding: 2px 0;
   }
   #palette input::placeholder { color: var(--ink-3); }
-  #palette-body { max-height: 56vh; overflow-y: auto; padding: 10px 12px 12px; }
-  .pal-hint { color: var(--ink-3); font-size: 12px; padding: 10px 10px 6px; display: flex; gap: 14px; }
+  #palette-body { max-height: 56vh; overflow-y: auto; padding: 8px 10px 12px; }
+  .pal-hint { color: var(--ink-3); font-size: 12px; padding: 10px 10px 6px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
   .pal-hint b { font-weight: 600; color: var(--ink-2); }
+  .pal-group { padding: 10px 10px 4px; }
   .pal-row {
-    display: flex; gap: 12px; align-items: baseline; padding: 9px 10px; border-radius: 9px; cursor: pointer;
+    display: flex; gap: 11px; align-items: center; padding: 8px 10px; border-radius: 10px; cursor: pointer;
   }
+  .pal-row > .ic { color: var(--ink-3); flex: none; }
   .pal-row:hover, .pal-row.sel { background: var(--thread-soft); }
+  .pal-row.sel > .ic, .pal-row:hover > .ic { color: var(--thread); }
   .pal-row .ts { color: var(--ink-3); font-size: 11.5px; flex: none; width: 118px; }
-  .pal-row .txt { font-size: 13.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pal-row .txt { flex: 1; font-size: 13.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pal-row .meta { flex: none; font-size: 11.5px; color: var(--ink-3); }
   .pal-answer { padding: 12px 10px 4px; }
   .pal-answer .claim { padding: 8px 0; }
 
@@ -677,10 +1026,80 @@
     display: block; font-variant-numeric: tabular-nums;
   }
   .utt.low .txt::after { content: "heard poorly"; font-size: 9.5px; color: var(--ink-3); margin-left: 7px; white-space: nowrap; }
+
+  /* ── Phase 1 restyle pass: every page inherits the glass ── */
+  /* editor headings stay in the UI face, not the serif page face */
+  #notes-doc h1, #doc-editor h1, #notes-doc h2, #doc-editor h2 { font-family: inherit; letter-spacing: -0.01em; font-weight: 650; }
+  #notes-doc h1, #doc-editor h1 { font-size: 20px; }
+
+  .copybtn, .tag-add, .people-chip, #rec-inline, #graph-ctl button, .topic-select, #panel-reopen {
+    border-radius: var(--radius-sm);
+  }
+  .copybtn { display: inline-flex; align-items: center; gap: 6px; background: var(--card); }
+  .copybtn:hover { background: var(--hover); }
+  .copybtn .ic { color: currentColor; }
+  #notes-doc, #doc-editor, #side-panel, #chat-bar, .chat-b.ai, #graph-tip, #tag-menu,
+  #correct-modal .box, .tl-modal .box, .people-chip, #brain-q {
+    background: var(--card); border-color: var(--glass-border);
+    backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  }
+  #notes-doc, #doc-editor, #side-panel, #chat-bar, #correct-modal .box, .tl-modal .box { border-radius: var(--radius); }
+  #side-panel { top: calc(var(--hdr-h) + 18px); height: calc(100vh - var(--hdr-h) - 38px); }
+  .panel-tabs { background: transparent; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border-radius: var(--radius) var(--radius) 0 0; }
+  textarea.notes, .draft, .add-row input, .add-row select { background: var(--sunk); border-color: var(--line); border-radius: var(--radius-sm); }
+  .topic-select { background: var(--card); }
+  #graph-wrap { height: clamp(420px, 62vh, 640px); }
+
+  /* fluid: nothing overflows between 360px and 2560px */
+  .proj-grid { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .ws-head h1 { font-size: clamp(23px, 2.6vw, 30px); }
+  @media (max-width: 900px) {
+    .workspace, .workspace.collapsed { grid-template-columns: minmax(0, 1fr); }
+    #side-panel { position: static; height: auto; max-height: 60vh; }
+  }
+  img, svg, video, canvas { max-width: 100%; }
+  main table, .draft, pre { max-width: 100%; overflow-x: auto; }
 </style>
 </head>
 <body>
+<!-- ── icon sprite: SF-Symbols-ish, 24 viewBox, stroke 1.8, round caps ── -->
+<svg style="display:none" aria-hidden="true" focusable="false">
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.5 20v-5.5h5V20"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 9.5h17M8 3.2v3.4M16 3.2v3.4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h7l5 5V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M13 3.5V9h5"/><path d="M8.5 13.5h7M8.5 17h5"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="2.3"/><circle cx="18" cy="6.5" r="2.3"/><circle cx="12" cy="13" r="2.6"/><circle cx="6.5" cy="18.5" r="2.2"/><circle cx="17.5" cy="18" r="2.2"/><path d="M7.9 8.4 10.3 11.4M15.9 8.1 13.8 11.2M10.6 15.1 8.1 16.9M13.7 15 15.9 16.4"/></symbol>
+  <symbol id="i-needle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 19.5 17 7"/><path d="m16 6 2.5 2.5"/><circle cx="19.2" cy="4.8" r="1.6"/><path d="M17.8 3.4C15 2.2 12.3 4.4 13.6 6.6"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11.2 3.5H4.6a1 1 0 0 0-1 1v6.6a2 2 0 0 0 .6 1.4l7 7a2 2 0 0 0 2.8 0l5.6-5.6a2 2 0 0 0 0-2.8l-7-7a2 2 0 0 0-1.4-.6Z"/><circle cx="8.3" cy="8.3" r="1.35"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4.2 4.2"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.8" width="6" height="11" rx="3"/><path d="M5.5 11.2a6.5 6.5 0 0 0 13 0"/><path d="M12 17.7V21"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M12 2.6v2.6M12 18.8v2.6M21.4 12h-2.6M5.2 12H2.6M18.6 5.4 16.8 7.2M7.2 16.8l-1.8 1.8M18.6 18.6l-1.8-1.8M7.2 7.2 5.4 5.4"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.6 20.2a7.4 7.4 0 0 1 14.8 0"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.4" cy="8.2" r="3.2"/><path d="M3.4 19.6a6 6 0 0 1 12 0"/><path d="M16 5.4a3.2 3.2 0 0 1 0 5.7M17.4 14.6a6 6 0 0 1 3.2 5"/></symbol>
+  <symbol id="i-google" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20.2 12H12"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.2v13.6M5.2 12h13.6"/></symbol>
+  <symbol id="i-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 5.5-6.4 6.5 6.4 6.5"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 5.5 6.4 6.5-6.4 6.5"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5.5 9.5 6.5 6.4 6.5-6.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.2V12l3.2 2"/></symbol>
+  <symbol id="i-hourglass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.2h11M6.5 20.8h11"/><path d="M7.6 3.2c0 4.3 4.4 5.3 4.4 8.8 0 3.5-4.4 4.5-4.4 8.8M16.4 3.2c0 4.3-4.4 5.3-4.4 8.8 0 3.5 4.4 4.5 4.4 8.8"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6.5h15M9.5 6.5V4.2h5v2.3"/><path d="M6.6 6.5 7.5 20a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1l.9-13.5"/><path d="M10.4 10v7M13.6 10v7"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="12" height="12" rx="2.6"/><path d="M15.5 5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m3.8 7.2 7.1 5.1a2 2 0 0 0 2.2 0l7.1-5.1"/></symbol>
+  <symbol id="i-hash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.4 3.4 7.6 20.6M16.4 3.4l-1.8 17.2M3.6 8.8h16.8M3 15.2h16.8"/></symbol>
+  <symbol id="i-kebab" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.4" cy="12" r="1.25" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.25" fill="currentColor" stroke="none"/><circle cx="18.6" cy="12" r="1.25" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 6.8h16.4M3.8 12h16.4M3.8 17.2h16.4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.2 10.4a5.8 5.8 0 1 1 11.6 0c0 4 1.5 5.6 1.5 5.6H4.7s1.5-1.6 1.5-5.6Z"/><path d="M10.2 19a2 2 0 0 0 3.6 0"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-6.4"/><path d="M8.2 3.4h7.6l-1 5.1 2.6 2.6a1 1 0 0 1-.7 1.7H7.3a1 1 0 0 1-.7-1.7l2.6-2.6-1-5.1Z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2c0 4 1.8 5.8 5.8 5.8-4 0-5.8 1.8-5.8 5.8 0-4-1.8-5.8-5.8-5.8 4 0 5.8-1.8 5.8-5.8Z"/><path d="M18.4 15c0 2.1.9 3 3 3-2.1 0-3 .9-3 3 0-2.1-.9-3-3-3 2.1 0 3-.9 3-3Z"/></symbol>
+  <symbol id="i-folder-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 18.5v-13a1 1 0 0 1 1-1H9l2.2 2.6h8.3a1 1 0 0 1 1 1v10.4a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1Z"/><path d="M12 10.8v5.2M9.4 13.4h5.2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-pip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="3"/><rect x="12" y="12" width="7" height="6" rx="1.6"/></symbol>
+  <!-- global recording: a needle through a loop of thread, the eye lit red like a record light -->
+  <symbol id="i-needle-rec" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="13" r="7.4" stroke-dasharray="2.6 3.4"/><path d="M5.6 18.4 18.6 5.4"/><circle cx="18.1" cy="5.9" r="1.6" fill="#e0443e" stroke="#e0443e"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.8 4.2h6v6"/><path d="m19.2 4.8-8 8"/><path d="M18.5 14v5.5a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1H10"/></symbol>
+</svg>
 <header>
+  <button id="nav-toggle" class="icon-btn" title="Menu" aria-label="Open navigation"><svg class="ic" width="19" height="19"><use href="#i-menu"/></svg></button>
   <div class="logo">
     <!-- needle & thread: silver tapered needle, blue thread through the eye -->
     <svg width="32" height="32" viewBox="0 0 34 34" fill="none" aria-hidden="true">
@@ -706,30 +1125,43 @@
     </svg>
     Threadline
   </div>
-  <input id="search" placeholder="Pull a thread… search every meeting">
-  <button id="google-btn" title="Google Workspace">Connect Google</button>
-  <button id="pip-btn" title="Pop out the floating companion" style="display:none">⧉</button>
-  <button id="rec">● Record</button>
-  <button id="hotkey-help" title="Start or stop recording from any app — setup guide"
-    style="border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font:inherit;font-size:13px;padding:7px 12px;border-radius:10px;cursor:pointer">Global recording</button>
+  <span class="hspacer"></span>
+  <button id="hotkey-help" class="icon-btn bordered" style="width:auto;padding:0 13px 0 10px;gap:7px" title="Global recording — double-tap Fn to record from any app (click for setup)" aria-label="Global recording guide"><svg class="ic" width="19" height="19"><use href="#i-needle-rec"/></svg><span style="font-size:13.5px;font-weight:600">Record</span></button>
+  <button id="pip-btn" class="icon-btn bordered" title="Pop out the floating companion" aria-label="Pop out the floating companion" style="display:none"><svg class="ic" width="17" height="17"><use href="#i-pip"/></svg></button>
+  <button id="rec" class="rec-btn">Record</button>
 </header>
 <div class="shell">
   <aside id="side">
+    <div class="side-top">
+      <button id="side-toggle" class="icon-btn" title="Collapse sidebar" aria-label="Collapse sidebar"><svg class="ic" width="17" height="17"><use href="#i-chevron-left"/></svg></button>
+    </div>
+    <button id="side-search" class="side-search" title="Search every meeting (⌘K)">
+      <svg class="ic" width="16" height="16"><use href="#i-search"/></svg>
+      <span class="lbl">Search</span><span class="kbd">⌘K</span>
+    </button>
     <div class="side-section">
-      <button class="side-link active" data-view="today">⌂&nbsp; Home</button>
-      <button class="side-link" data-view="meetings">🗎&nbsp; Meetings</button>
+      <button class="side-link active" data-view="today" title="Home"><svg class="ic" width="17" height="17"><use href="#i-home"/></svg><span class="lbl">Home</span></button>
+      <button class="side-link" data-view="meetings" title="Meetings"><svg class="ic" width="17" height="17"><use href="#i-doc"/></svg><span class="lbl">Meetings</span></button>
+      <button class="side-link" data-view="graph" title="Brain"><svg class="ic" width="17" height="17"><use href="#i-brain"/></svg><span class="lbl">Brain</span></button>
+      <button class="side-link" data-view="needle" title="Needle"><svg class="ic" width="17" height="17"><use href="#i-needle"/></svg><span class="lbl">Needle</span></button>
     </div>
     <div class="side-section">
-      <div class="side-head">Topics <button id="add-project" title="New topic">+</button></div>
+      <div class="side-head"><span class="lbl">Topics</span> <button id="add-project" title="New topic" aria-label="New topic"><svg class="ic" width="15" height="15"><use href="#i-plus"/></svg></button></div>
       <div id="project-list"></div>
     </div>
-    <div class="side-section">
-      <button class="side-link" data-view="graph">✳&nbsp; Brain</button>
-      <button class="side-link" data-view="needle">🪡&nbsp; Needle</button>
+    <div class="side-foot">
+      <div class="profile">
+        <div class="avatar" aria-hidden="true">R</div>
+        <div class="pname">Rachita</div>
+        <span style="flex:1"></span>
+        <button id="settings-btn" class="icon-btn" title="Settings — coming soon" aria-label="Settings — coming soon" style="width:26px;height:26px"><svg class="ic" width="15" height="15"><use href="#i-gear"/></svg></button>
+      </div>
+      <button id="google-btn" title="Google Workspace"><svg class="ic" width="16" height="16"><use href="#i-google"/></svg><span class="gb-label">Connect Google</span></button>
     </div>
   </aside>
   <main id="main"></main>
 </div>
+<div id="side-scrim"></div>
 
 <script>
 const $ = (s) => document.querySelector(s);
@@ -737,8 +1169,32 @@ const main = $("#main");
 const state = { view: "today", meetingId: null, highlight: null, deepLink: null };
 const fmtDate = (ms) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 const fmtTs = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+/** "3:19 PM" — a wall clock, tabular. */
+const fmtClock = (ms) => new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+/** Midnight-anchored day index, so "yesterday" means the calendar day, not 24h. */
+const dayStart = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+/** "Today" / "Yesterday" for the last two days, then "Wed, Aug 12". */
+function dayLabel(ms) {
+  const diff = Math.round((dayStart(Date.now()) - dayStart(ms)) / 86400000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  if (diff === -1) return "Tomorrow";
+  return new Date(ms).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+/** [[label, rows], …] keeping the incoming order. */
+function groupByDay(rows, key = (r) => r.started_at) {
+  const out = [];
+  for (const r of rows) {
+    const label = dayLabel(key(r));
+    if (out.length && out[out.length - 1][0] === label) out[out.length - 1][1].push(r);
+    else out.push([label, [r]]);
+  }
+  return out;
+}
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const api = (p) => fetch(p).then((r) => r.json());
+const api = (p) => fetch(p).then(async (r) => { const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` })); if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`); return j; });
+/** One sprite, one helper: every button in the app gets a real icon. */
+const icon = (n, s = 16) => `<svg class="ic" width="${s}" height="${s}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
 
 const MODES = ["discovery", "investor", "1:1", "team meeting", "standup"];
 
@@ -806,6 +1262,87 @@ async function topicSelectChange(sel, onPick) {
   if (v) onPick(Number(v));
 }
 
+/**
+ * A glass popover hung under an anchor element. One at a time; closes on
+ * outside mousedown or Esc. `wire(pop, close)` gets the live node.
+ */
+function openPopover(anchor, html, wire, extraClass = "") {
+  document.getElementById("tl-pop")?.remove();
+  const r = anchor.getBoundingClientRect(); // measure BEFORE any await
+  const pop = document.createElement("div");
+  pop.id = "tl-pop";
+  pop.className = `glass-pop ${extraClass}`.trim();
+  pop.innerHTML = html;
+  pop.style.visibility = "hidden";
+  document.body.appendChild(pop);
+  // keep the panel on screen on narrow viewports
+  const left = Math.max(10, Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 12));
+  pop.style.left = `${left}px`;
+  pop.style.top = `${r.bottom + window.scrollY + 6}px`;
+  pop.style.visibility = "";
+  const close = () => {
+    pop.remove();
+    document.removeEventListener("mousedown", onDown);
+    document.removeEventListener("keydown", onKey);
+  };
+  const onDown = (ev) => { if (!pop.contains(ev.target) && !anchor.contains(ev.target)) close(); };
+  const onKey = (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); close(); } };
+  document.addEventListener("mousedown", onDown);
+  document.addEventListener("keydown", onKey);
+  wire?.(pop, close);
+  return pop;
+}
+
+/** Same shape, styled as a dropdown of icon+label rows. */
+function openMenuPopover(anchor, rows) {
+  const html = rows.map((r) => r.sep
+    ? `<div class="menu-sep"></div>`
+    : `<button class="menu-row ${r.danger ? "danger" : ""}" data-act="${r.id}">${icon(r.icon, 15)}${esc(r.label)}</button>`).join("");
+  return openPopover(anchor, html, (pop, close) => {
+    pop.querySelectorAll("[data-act]").forEach((b) =>
+      b.addEventListener("click", () => {
+        close();
+        rows.find((r) => r.id === b.dataset.act)?.run();
+      }));
+  }, "menu");
+}
+
+/** `<input type="datetime-local">` wants local wall time, not an ISO instant. */
+const toLocalInput = (ms) => {
+  const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000);
+  return d.toISOString().slice(0, 16);
+};
+
+/** Edit when a meeting started and how long it ran; persists, then re-renders. */
+function openTimeEditor(anchor, meeting, onSaved) {
+  openPopover(anchor, `
+    <div class="pop-title">${icon("clock", 13)}Meeting time</div>
+    <label class="pop-lbl">Starts<input type="datetime-local" id="pop-when" value="${toLocalInput(meeting.started_at)}"></label>
+    <label class="pop-lbl">Duration (minutes)<input type="number" id="pop-dur" min="0" step="5" placeholder="—" value="${meeting.duration_minutes ?? ""}"></label>
+    <div class="pop-actions">
+      <button class="copybtn" data-cancel>Cancel</button>
+      <button class="copybtn primary" data-save>Save</button>
+    </div>`, (pop, close) => {
+    pop.querySelector("[data-cancel]").addEventListener("click", close);
+    pop.querySelector("[data-save]").addEventListener("click", async () => {
+      const when = pop.querySelector("#pop-when").value;
+      const dur = pop.querySelector("#pop-dur").value;
+      const payload = { id: meeting.id };
+      if (when) {
+        const ms = new Date(when).getTime();
+        if (Number.isFinite(ms)) payload.started_at = ms;
+      }
+      if (dur !== "") payload.duration_minutes = Number(dur);
+      const out = await fetch("/api/meeting/time", { method: "POST", body: JSON.stringify(payload) }).then((r) => r.json());
+      close();
+      if (out.error) return alert(out.error);
+      showToast("Meeting time updated");
+      onSaved?.();
+    });
+    setTimeout(() => pop.querySelector("#pop-when")?.focus(), 0);
+  });
+}
+
 const SPOOL_SVG = `<svg width="72" height="72" viewBox="0 0 72 72" fill="none">
   <rect x="22" y="14" width="28" height="44" rx="5" stroke="currentColor" stroke-width="3"/>
   <rect x="17" y="8" width="38" height="10" rx="5" stroke="currentColor" stroke-width="3"/>
@@ -820,8 +1357,10 @@ document.querySelectorAll(".side-link").forEach((b) =>
 async function refreshGoogleButton() {
   const s = await api("/api/google/status");
   const b = $("#google-btn");
-  if (s.connected) { b.textContent = "Google ✓"; b.disabled = true; }
-  else if (s.configured) b.textContent = "Connect Google";
+  // the button holds an icon + a label span; only the label changes
+  const label = (t) => { const l = b.querySelector(".gb-label"); if (l) l.textContent = t; else b.textContent = t; };
+  if (s.connected) { label("Connected ✓"); b.disabled = true; }
+  else if (s.configured) label("Connect Google");
   b.dataset.state = s.connected ? "connected" : s.configured ? "ready" : "unconfigured";
 }
 refreshGoogleButton();
@@ -835,6 +1374,30 @@ $("#google-btn").addEventListener("click", () => {
 });
 
 $("#add-project").addEventListener("click", () => projectModal());
+$("#settings-btn").addEventListener("click", () => showToast("Settings are coming soon."));
+
+// ── Sidebar: collapsible icon rail (desktop) + off-canvas drawer (≤900px) ──
+const shellEl = document.querySelector(".shell");
+function applySideCollapsed(on) {
+  shellEl.classList.toggle("side-collapsed", on);
+  const t = $("#side-toggle");
+  t.title = on ? "Expand sidebar" : "Collapse sidebar";
+  t.setAttribute("aria-label", t.title);
+}
+applySideCollapsed(localStorage.getItem("sideCollapsed") === "1");
+$("#side-toggle").addEventListener("click", () => {
+  const on = !shellEl.classList.contains("side-collapsed");
+  localStorage.setItem("sideCollapsed", on ? "1" : "0");
+  applySideCollapsed(on);
+});
+
+const closeDrawer = () => document.body.classList.remove("drawer-open");
+$("#nav-toggle").addEventListener("click", () => document.body.classList.toggle("drawer-open"));
+$("#side-scrim").addEventListener("click", closeDrawer);
+// any navigation inside the rail closes the drawer on narrow screens
+$("#side").addEventListener("click", (e) => { if (e.target.closest(".side-link, .side-search")) closeDrawer(); });
+// the rail's search pill is the same Spotlight as ⌘K (palOpen is hoisted)
+$("#side-search").addEventListener("click", () => palOpen());
 
 /** Create-project modal: name + what it's about. */
 function projectModal(onCreated) {
@@ -875,9 +1438,10 @@ function projectModal(onCreated) {
 async function loadSidebar() {
   const projects = await api("/api/projects");
   $("#project-list").innerHTML = projects.map((p) => `
-    <button class="side-link ${state.view === "project" && state.projectId === p.id ? "active" : ""}" data-project="${p.id}">
-      ▸&nbsp; ${esc(p.name)} <span style="opacity:.55;font-size:12px">${p.n_open ? p.n_open + " open" : ""}</span>
-    </button>`).join("") || `<div style="padding:0 10px;font-size:12.5px;color:var(--ink-3)">No topics yet — hit +</div>`;
+    <button class="side-link ${state.view === "project" && state.projectId === p.id ? "active" : ""}" data-project="${p.id}" title="${esc(p.name)}">
+      ${icon("tag", 16)}<span class="lbl">${esc(p.name)}</span>
+      <span class="sub-count" style="margin-left:auto;opacity:.55;font-size:12px">${p.n_open ? p.n_open + " open" : ""}</span>
+    </button>`).join("") || `<div class="side-empty">No topics yet — hit +</div>`;
   $("#project-list").querySelectorAll("[data-project]").forEach((b) =>
     b.addEventListener("click", () => { state.view = "project"; state.projectId = Number(b.dataset.project); state.meetingId = null; render(); }));
 }
@@ -1304,23 +1868,34 @@ async function renderToday() {
   main.innerHTML = `
     <h1>${greeting()}, Rachita</h1>
     <div class="sub">${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
+    ${searchPill()}
     <div class="stats">
-      <div class="stat"><b>${stats?.meetings ?? 0}</b><span>meetings captured</span></div>
-      <div class="stat"><b>${mins < 60 ? mins + "m" : Math.floor(mins / 60) + "h " + (mins % 60) + "m"}</b><span>listened</span></div>
-      <div class="stat"><b>${stats?.open_actions ?? 0}</b><span>loose ends</span></div>
-      <div class="stat"><b>${stats?.decisions ?? 0}</b><span>decisions</span></div>
+      <div class="stat">${icon("calendar", 19)}<b>${stats?.meetings ?? 0}</b><span>meetings captured</span></div>
+      <div class="stat s-peach">${icon("clock", 19)}<b>${mins < 60 ? mins + "m" : Math.floor(mins / 60) + "h " + (mins % 60) + "m"}</b><span>listened</span></div>
+      <div class="stat s-mint">${icon("needle", 19)}<b>${stats?.open_actions ?? 0}</b><span>loose ends</span></div>
+      <div class="stat s-lilac">${icon("sparkle", 19)}<b>${stats?.decisions ?? 0}</b><span>decisions</span></div>
     </div>
     <div class="home-grid">
-      <div class="card"><h2>Up next <button id="notify-bell" title="Notify me when meetings start" style="border:0;background:none;cursor:pointer;font-size:12px">🔔</button> <button id="add-upcoming" style="border:0;background:none;font:inherit;font-weight:800;color:var(--thread);cursor:pointer">+ add</button></h2>
+      <div class="card"><h2 class="serif-h">Up next <span style="flex:1"></span>
+        <button id="notify-bell" class="icon-btn" title="Notify me when meetings start" aria-label="Notify me when meetings start" style="width:26px;height:26px">${icon("bell", 15)}</button>
+        <button id="add-upcoming" class="copybtn" style="margin:0;padding:4px 10px;font-size:12.5px" title="Add an upcoming meeting">${icon("plus", 14)}add</button></h2>
         <div id="upcoming-box"><div class="empty" style="padding:16px 0">Nothing scheduled. Connect Google (soon) or add one.</div></div>
       </div>
-      <div class="card"><h2>Past meetings</h2>
-        ${meetings.slice(0, 5).map((m) => `
-          <div class="m-row" data-mid="${m.id}">
-            <div class="m-date">${fmtDate(m.started_at)}</div>
-            <div style="flex:1"><div class="m-title">${esc(m.title)}</div><div class="t-meta">${esc(m.headline ?? "")}</div></div>
-            <select class="topic-select" data-tmid="${m.id}" title="Topic"></select>
-          </div>`).join("")}
+      <div class="card"><h2 class="serif-h">Past meetings</h2>
+        ${meetings.length ? groupByDay(meetings.slice(0, 6)).map(([label, rows]) => `
+          <div class="eyebrow day-head">${esc(label)}</div>
+          ${rows.map((m) => `
+          <div class="mtg-row" data-mid="${m.id}">
+            <div class="mtg-ico">${icon("doc", 16)}</div>
+            <div class="mtg-main">
+              <div class="mtg-title">${esc(m.title)}</div>
+              ${m.headline ? `<div class="mtg-sum">${esc(m.headline)}</div>` : ""}
+            </div>
+            <div class="mtg-side">
+              <span class="mtg-time">${fmtClock(m.started_at)}</span>
+              <select class="topic-select" data-tmid="${m.id}" title="Topic"></select>
+            </div>
+          </div>`).join("")}`).join("") : `<div class="empty" style="padding:14px 0">No meetings captured yet.</div>`}
       </div>
     </div>
     <svg class="stitch-connector" width="120" height="44" viewBox="0 0 120 44" aria-hidden="true">
@@ -1330,7 +1905,7 @@ async function renderToday() {
         <ellipse cx="5" cy="41" rx="2.6" ry="1.7" transform="rotate(-52 5 41)"/>
       </g>
     </svg>
-    <div class="card"><h2>Loose ends <span class="h2-note">· pulled from your meetings</span></h2>
+    <div class="card"><h2 class="serif-h">Loose ends <span class="h2-note">· pulled from your meetings</span></h2>
       <div class="loose-rail" id="loose-rail">
       <div id="rail-needle" aria-hidden="true">
         <div style="font-size:17px;line-height:1">🧵</div>
@@ -1406,15 +1981,35 @@ async function renderToday() {
     alert(p === "granted" ? "You'll get a notification when an Up next meeting starts." : "Notifications are blocked for this site — enable them in the browser's site settings.");
   });
   if (Notification.permission === "granted") { const b = $("#notify-bell"); if (b) b.style.opacity = ".45"; }
-  $("#add-upcoming").addEventListener("click", async () => {
-    const title = prompt("Meeting title?");
-    if (!title?.trim()) return;
-    const when = prompt("When? (e.g. 15:30 or tomorrow 10:00)", "15:00");
-    if (when === null) return;
-    const participants = prompt("Who's in it? (comma-separated names)", "") ?? "";
-    const at = parseWhen(when);
-    await fetch("/api/upcoming", { method: "POST", body: JSON.stringify({ title, at_ms: at, participants }) });
-    loadUpcoming();
+  $("#add-upcoming").addEventListener("click", (e) => {
+    // Real date/time and duration fields; parseWhen still picks the default slot.
+    openPopover(e.currentTarget, `
+      <div class="pop-title">${icon("calendar", 13)}Add an upcoming meeting</div>
+      <label class="pop-lbl">Title<input id="up-title" placeholder="Weekly sync"></label>
+      <label class="pop-lbl">When<input type="datetime-local" id="up-when" value="${toLocalInput(parseWhen(""))}"></label>
+      <label class="pop-lbl">Duration (minutes)<input type="number" id="up-dur" min="0" step="5" value="30"></label>
+      <label class="pop-lbl">Who's in it<input id="up-people" placeholder="Ana, Dev"></label>
+      <div class="pop-actions">
+        <button class="copybtn" data-cancel>Cancel</button>
+        <button class="copybtn primary" data-save>Add</button>
+      </div>`, (pop, close) => {
+      pop.querySelector("[data-cancel]").addEventListener("click", close);
+      pop.querySelector("[data-save]").addEventListener("click", async () => {
+        const title = pop.querySelector("#up-title").value;
+        if (!title.trim()) return pop.querySelector("#up-title").focus();
+        const whenVal = pop.querySelector("#up-when").value;
+        const at = whenVal ? new Date(whenVal).getTime() : parseWhen("");
+        const dur = Number(pop.querySelector("#up-dur").value);
+        const participants = pop.querySelector("#up-people").value;
+        close();
+        await fetch("/api/upcoming", {
+          method: "POST",
+          body: JSON.stringify({ title, at_ms: at, participants, duration_minutes: dur }),
+        });
+        loadUpcoming();
+      });
+      setTimeout(() => pop.querySelector("#up-title")?.focus(), 0);
+    });
   });
   const wireTodo = (cb) =>
     cb.addEventListener("change", async () => {
@@ -1582,30 +2177,49 @@ async function loadUpcoming() {
   const box = $("#upcoming-box");
   if (!box) return;
   const ups = await api("/api/upcoming");
-  if (!ups.length) return;
-  box.innerHTML = ups.map((u, i) => {
-    const mins = Math.round((u.at_ms - Date.now()) / 60000);
-    const when = mins < 60 ? `In ${mins} min` : new Date(u.at_ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-    const dateTag = new Date(u.at_ms).getDate() !== new Date().getDate() ? " · " + fmtDate(u.at_ms) : "";
+  const now = Date.now();
+  // A meeting that already started is either running ("Now") or it rolls off —
+  // it must never come back as a negative countdown.
+  const endOf = (u) => u.end_ms || u.at_ms + 60 * 60000;
+  const list = ups.filter((u) => u.at_ms > now || now < endOf(u));
+  if (!list.length) return;
+  box.innerHTML = list.map((u, i) => {
+    const mins = Math.round((u.at_ms - now) / 60000);
+    const running = mins <= 0;
+    const durMin = u.end_ms ? Math.round((u.end_ms - u.at_ms) / 60000) : 0;
+    const d = new Date(u.at_ms);
+    // "10:30 – 11:00 AM" with the meridiem set small
+    const ampm = (ms) => fmtClock(ms).replace(/\s*([AaPp])\.?[Mm]\.?$/, (_, x) => `<span class="ampm">${x.toUpperCase()}M</span>`);
+    const range = u.end_ms ? `${fmtClock(u.at_ms).replace(/\s*[AaPp]\.?[Mm]\.?$/, "")} – ${ampm(u.end_ms)}` : ampm(u.at_ms);
     if (i > 0)
-      return `<div class="up-item compact" data-up="${u.id}">
-        <span class="up-when">${when}${dateTag}</span>
-        <span style="font-weight:600;font-size:13.5px;margin-left:10px">${esc(u.title)}</span>
-        ${u.participants ? `<span class="t-meta" style="margin-left:8px">${esc(u.participants)}</span>` : ""}
+      return `<div class="up-slim" data-up="${u.id}">
+        <span class="up-tick"></span>
+        <span class="s-time">${running ? "Now" : fmtClock(u.at_ms)}${dayStart(u.at_ms) !== dayStart(now) ? " · " + fmtDate(u.at_ms) : ""}</span>
+        <span class="s-title">${esc(u.title)}</span>
+        ${u.participants ? `<span class="s-people">${esc(u.participants)}</span>` : ""}
       </div>`;
-    return `<div class="up-item" data-up="${u.id}" data-people="${esc(u.participants ?? "")}">
-      <div class="up-needle"><svg width="30" height="12" viewBox="0 0 40 15" fill="none">
-        <path d="M2.9 4.2 C 1.2 5.1, 1.2 9.9, 2.9 10.8 L 11 9.9 L 33 8.15 L 38.4 7.5 L 33 6.85 L 11 5.1 Z" fill="url(#rn-g)"/>
-        <ellipse cx="6.4" cy="7.5" rx="1.05" ry="2.15" fill="var(--bg)" stroke="#7d838d" stroke-width="0.55"/>
-      </svg></div>
-      <div class="up-when">${when}${dateTag}</div>
-      <div class="up-title">${esc(u.title)}</div>
-      ${u.participants ? `<div class="t-meta">${esc(u.participants)}</div>` : ""}
-      <div class="prep-slot"></div>
+    return `<div class="up-lead" data-up="${u.id}" data-people="${esc(u.participants ?? "")}">
+      <div class="up-cal">
+        <div class="up-daynum">${d.getDate()}</div>
+        <div class="up-mon">${d.toLocaleDateString(undefined, { month: "short" })}</div>
+        <div class="up-dow">${dayStart(u.at_ms) === dayStart(now) ? `<span class="up-dot"></span>` : ""}${d.toLocaleDateString(undefined, { weekday: "short" })}</div>
+      </div>
+      <div class="up-body">
+        <span class="up-tick"></span>
+        <div class="up-name">${esc(u.title)}</div>
+        <div class="up-line">
+          <span class="up-time">${range}</span>
+          ${durMin > 0 ? `<span class="up-chip">${icon("clock", 12)}${durMin} min</span>` : ""}
+          ${running ? `<span class="up-chip now">Now</span>`
+            : mins < 60 ? `<span class="up-chip soon">In ${mins} min</span>` : ""}
+        </div>
+        ${u.participants ? `<div class="up-people">${esc(u.participants)}</div>` : ""}
+        <div class="prep-slot"></div>
+      </div>
     </div>`;
   }).join("");
   // prep: what the brain knows about each meeting's people
-  for (const el of box.querySelectorAll(".up-item")) {
+  for (const el of box.querySelectorAll(".up-lead")) {
     const people = el.dataset.people;
     if (!people) continue;
     const prep = await api(`/api/prep?people=${encodeURIComponent(people)}`);
@@ -1621,27 +2235,38 @@ async function loadUpcoming() {
   }
 }
 
+/** "4:00 PM · 32 min" — the clock line every meeting row and chip shares. */
+const fmtWhenDur = (ms, mins) => `${fmtClock(ms)}${mins ? ` · ${mins} min` : ""}`;
+
 function meetingRow(m) {
   const bits = [];
   if (m.n_decisions) bits.push(`${m.n_decisions} decision${m.n_decisions === 1 ? "" : "s"}`);
   if (m.n_actions) bits.push(`${m.n_actions} action${m.n_actions === 1 ? "" : "s"}`);
   const people = (m.participants ?? "").split(",").filter(Boolean).join(" · ");
   return `
-    <div class="m-row" data-mid="${m.id}">
-      <div class="m-date">${fmtDate(m.started_at)}</div>
-      <div>
-        <div class="m-title">${esc(m.title)}${m.n_actions ? `<span class="open-stitch" title="${m.n_actions} unresolved"></span>` : ""}</div>
-        <div class="t-meta">${esc(m.headline ?? "")}</div>
-        <div class="t-meta">${bits.length ? `<b>${bits.join(" · ")}</b>` : ""}${bits.length && people ? " — " : ""}${esc(people)}</div>
+    <div class="mtg-row" data-mid="${m.id}">
+      <div class="mtg-ico">${icon("doc", 16)}</div>
+      <div class="mtg-main">
+        <div class="mtg-title">${esc(m.title)}${m.n_actions ? `<span class="open-stitch" title="${m.n_actions} unresolved"></span>` : ""}</div>
+        ${m.headline ? `<div class="mtg-sum">${esc(m.headline)}</div>` : ""}
+        ${bits.length || people ? `<div class="mtg-meta">${bits.length ? `<b>${bits.join(" · ")}</b>` : ""}${bits.length && people ? " — " : ""}${esc(people)}</div>` : ""}
       </div>
-      <span class="pill ${m.exit === "shipped" ? "pass" : ""}" style="margin-left:auto">${esc(m.exit ?? "…")}</span>
+      <div class="mtg-side">
+        <span class="mtg-time">${icon("clock", 12)}${fmtWhenDur(m.started_at, m.duration_minutes)}</span>
+        <span class="pill ${m.exit === "shipped" ? "pass" : ""}">${esc(m.exit ?? "…")}</span>
+      </div>
     </div>`;
 }
 
 async function renderMeetings() {
   const ms = await api("/api/meetings");
   main.innerHTML = `<h1>Meetings</h1><div class="sub">Every stitch stays on this laptop.</div>
-    <div class="card">${ms.length ? ms.map(meetingRow).join("") : `<div class="empty">${SPOOL_SVG}Nothing here yet.</div>`}</div>`;
+    ${searchPill()}
+    <div class="card">${ms.length
+      ? groupByDay(ms).map(([label, rows]) => `
+          <div class="eyebrow day-head">${esc(label)}</div>
+          ${rows.map(meetingRow).join("")}`).join("")
+      : `<div class="empty">${SPOOL_SVG}Nothing here yet.</div>`}</div>`;
   wireMeetingLinks();
 }
 
@@ -1740,9 +2365,11 @@ const chatHistory = {}; // meetingId → [{role, content}]
 /** Sync the global record button with recording state (start, stop, resume). */
 function setRecordingUI(on) {
   recording = on;
-  recBtn.textContent = on ? "■ Stop & stitch" : "● Record";
+  recBtn.textContent = on ? "Stop & stitch" : "Record";
+  recBtn.classList.toggle("on", on);          // .rec-btn.on = red pill + pulsing dot
   recBtn.classList.toggle("recording", on);
   recBtn.disabled = false;
+  $("#hotkey-help")?.classList.toggle("rec-live", on);
 }
 
 /** Project tags on the meeting: add/remove, picked from the projects list.
@@ -1885,17 +2512,32 @@ async function renderMeeting(id, opts = {}) {
   if (error) { main.innerHTML = `<div class="empty">${esc(error)}</div>`; return; }
   const byKind = (k) => claims.filter((c) => c.kind === k && c.gate === "passed");
   const blocked = claims.filter((c) => c.gate === "blocked");
+  // The chip row under the title: who was in it, when it ran, how long, where it files.
+  const durMin = meeting.duration_minutes ?? (meeting.duration_s ? Math.round(meeting.duration_s / 60) : 0);
+  const speakers = [...new Set(utterances.map((u) => u.speaker).filter(Boolean))];
+  const chipRow = `
+    <div class="chip-row" id="meta-chips">
+      ${speakers.length ? `<span class="up-chip" title="${esc(speakers.join(", "))}">${icon("people", 12)}<span class="who">${esc(speakers.join(", "))}</span></span>` : ""}
+      <span class="up-chip">${icon("calendar", 12)}${esc(fmtDate(meeting.started_at))} · ${esc(fmtClock(meeting.started_at))}</span>
+      ${durMin ? `<span class="up-chip">${icon("hourglass", 12)}${durMin} min</span>` : ""}
+      <button class="up-chip" id="edit-time" title="Edit the date, start time and duration">${icon("clock", 12)}Edit time</button>
+      <button class="up-chip" id="chip-topic" title="File this meeting in a topic">${icon("folder-plus", 12)}Add to topic</button>
+    </div>`;
 
   main.innerHTML = `
     <div class="ws-head">
       <div>
         <h1 style="margin:0">${esc(meeting.title)}</h1>
-        <div class="sub" style="margin:2px 0 0">${fmtDate(meeting.started_at)}${live ? ` · <span class="pill block">● recording</span>` : ` · ${Math.round(meeting.duration_s / 60)} min`}</div>
+        ${live
+          ? `<div class="sub" style="margin:2px 0 0">${fmtDate(meeting.started_at)} · <span class="pill block">● recording</span></div>`
+          : chipRow}
         <div class="tag-row" id="tag-row"></div>
       </div>
       <span class="spacer"></span>
-      <span id="mode-slot"></span>
-      <button class="copybtn" id="more" style="margin:0">⋯</button>
+      <div class="ws-actions">
+        <span id="mode-slot"></span>
+        <button class="copybtn" id="more" style="margin:0" title="More actions" aria-label="More actions">${icon("kebab", 15)}</button>
+      </div>
     </div>
     <div class="workspace ${panelState.open ? "" : "collapsed"}" style="--panel-w:${panelState.width}px">
       <div class="ws-main">
@@ -1933,6 +2575,25 @@ async function renderMeeting(id, opts = {}) {
 
   wireTags(id, projects, live ? [] : suggestions);
   wirePanelChrome(id);
+  $("#edit-time")?.addEventListener("click", (e) =>
+    openTimeEditor(e.currentTarget, { id, started_at: meeting.started_at, duration_minutes: meeting.duration_minutes ?? null }, () => renderMeeting(id)));
+  // Same topic picker as everywhere else (new topics included), hung off a chip.
+  $("#chip-topic")?.addEventListener("click", async (e) => {
+    const anchor = e.currentTarget;
+    const { html } = await topicOptions(projects.map((p) => p.id));
+    openPopover(anchor, `
+      <div class="pop-title">${icon("tag", 13)}Add to topic</div>
+      <select class="topic-select" id="pop-topic">${html}</select>`, (pop, close) => {
+      const sel = pop.querySelector("#pop-topic");
+      sel.addEventListener("change", () =>
+        topicSelectChange(sel, async (tid) => {
+          await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: tid, meeting_id: id }) });
+          loadSidebar();
+          close();
+          renderMeeting(id);
+        }));
+    });
+  });
   $("#rec-inline")?.addEventListener("click", async () => {
     const r = await fetch("/api/record/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ meeting_id: id }) }).then((x) => x.json());
     if (r.error) return alert(r.error);
@@ -1983,31 +2644,43 @@ async function renderMeeting(id, opts = {}) {
     if (label && data?.chat) label.textContent = data.chat.available ? data.chat.model : "no OpenAI key";
   });
 
-  // Overflow menu (regenerate / file / advanced correct)
-  $("#more").addEventListener("click", async () => {
-    const pick = prompt("1. Regenerate extraction\n2. Tag topic…\n3. Advanced find & replace…\n4. Delete meeting", "1");
-    if (pick === "1") {
+  // Overflow menu (regenerate / file / advanced correct) — a glass dropdown
+  // over the exact same four actions the prompt() list ran.
+  const moreActions = {
+    async regenerate() {
       const out = await fetch("/api/meeting/regenerate", { method: "POST", body: JSON.stringify({ id }) }).then((r) => r.json());
       if (out.error) return alert(out.error);
       renderMeeting(id);
-    } else if (pick === "2") {
+    },
+    async tagTopic() {
       const projects = await api("/api/projects");
       if (!projects.length) return alert("No topics yet — create one with + in the sidebar first.");
       const p = projects[Number(prompt("Tag this meeting with which topic?\n" + projects.map((x, i) => `${i + 1}. ${x.name}`).join("\n"), "1")) - 1];
       if (!p) return;
       await fetch("/api/project/assign", { method: "POST", body: JSON.stringify({ project_id: p.id, meeting_id: id }) });
       loadSidebar();
-    } else if (pick === "4") {
-      if (!confirm("Delete this meeting and its notes, transcript and threads? This cannot be undone.")) return;
-      await fetch("/api/meeting/delete", { method: "POST", body: JSON.stringify({ id }) });
-      state.meetingId = null; state.view = "today"; render();
-    } else if (pick === "3") {
+    },
+    async findReplace() {
       const from = prompt("Find:", ""); if (!from?.trim()) return;
       const to = prompt(`Replace "${from}" with:`, ""); if (!to?.trim()) return;
       const { occurrences } = await fetch("/api/correction/preview", { method: "POST", body: JSON.stringify({ meeting_id: id, from_text: from, to_text: to }) }).then((r) => r.json());
       if (!occurrences?.length) return alert("No occurrences found.");
       correctionModal(id, from.trim(), to.trim(), occurrences);
-    }
+    },
+    async deleteMeeting() {
+      if (!confirm("Delete this meeting and its notes, transcript and threads? This cannot be undone.")) return;
+      await fetch("/api/meeting/delete", { method: "POST", body: JSON.stringify({ id }) });
+      state.meetingId = null; state.view = "today"; render();
+    },
+  };
+  $("#more").addEventListener("click", (e) => {
+    openMenuPopover(e.currentTarget, [
+      { id: "regen", icon: "sparkle", label: "Regenerate extraction", run: moreActions.regenerate },
+      { id: "tag", icon: "tag", label: "Tag topic…", run: moreActions.tagTopic },
+      { id: "find", icon: "search", label: "Advanced find & replace…", run: moreActions.findReplace },
+      { sep: true },
+      { id: "del", icon: "trash", label: "Delete meeting", danger: true, run: moreActions.deleteMeeting },
+    ]);
   });
 
   wireCorrections(id);
@@ -3588,7 +4261,7 @@ recBtn.addEventListener("click", async () => {
   } catch (err) {
     recording = false;
     recBtn.disabled = false;
-    recBtn.textContent = "● Record";
+    recBtn.textContent = "Record";
     recBtn.classList.remove("recording");
     console.error("record click failed:", err);
     alert(`Recording failed: ${err.message}\n\nMake sure you opened http://localhost:4640 (served by \`npm run dev\`), not the file directly or another preview server.`);
@@ -3602,7 +4275,7 @@ async function startRecording(title) {
   if (r.error) { alert(r.error); return false; }
   recording = true;
   recTitle = title;
-  recBtn.textContent = "■ Stop & stitch";
+  recBtn.textContent = "Stop & stitch";
   recBtn.classList.add("recording");
   $("#pip-btn").style.display = "";
   state.meetingId = r.meetingId;
@@ -3613,12 +4286,12 @@ async function startRecording(title) {
 }
 
 async function stopRecording() {
-  recBtn.textContent = "… stitching";
+  recBtn.textContent = "Stitching…";
   recBtn.disabled = true;
   const r = await fetch("/api/record/stop", { method: "POST" }).then((x) => x.json());
   recording = false;
   recBtn.disabled = false;
-  recBtn.textContent = "● Record";
+  recBtn.textContent = "Record";
   recBtn.classList.remove("recording");
   $("#pip-btn").style.display = "none";
   evtSource?.close();
@@ -3737,35 +4410,6 @@ async function openCompanion(title, manual) {
   pipWin.addEventListener("pagehide", () => { pipWin = null; });
 }
 
-/** live partial: updates the pill's sense of "now" inside the feed */
-function companionLine(speaker, text) {
-  const doc = pipWin?.document;
-  if (!doc) return;
-  const feed = doc.getElementById("feed");
-  let p = doc.getElementById("pp");
-  if (!p) {
-    p = doc.createElement("div");
-    p.id = "pp"; p.className = "u partial";
-    feed.appendChild(p);
-  }
-  p.innerHTML = `<b>${esc(speaker)}</b>${esc(text)}`;
-  feed.scrollTop = 1e9;
-}
-
-/** a finished line joins the transcript feed */
-function companionFinal(speaker, text) {
-  const doc = pipWin?.document;
-  if (!doc) return;
-  const feed = doc.getElementById("feed");
-  doc.getElementById("pp")?.remove();
-  const d = doc.createElement("div");
-  d.className = "u";
-  d.innerHTML = `<b>${esc(speaker)}</b>${esc(text)}`;
-  feed.appendChild(d);
-  while (feed.children.length > 60) feed.firstChild.remove();
-  feed.scrollTop = 1e9;
-}
-
 // ── Meeting-start notifications ─────────────────────────────────────────
 async function checkUpcomingNotifications() {
   if (Notification.permission !== "granted" || recording) return;
@@ -3792,13 +4436,13 @@ setInterval(async () => {
   if (s.recording && !recording) {
     recording = true;
     recTitle = s.title ?? "Recording";
-    recBtn.textContent = "■ Stop";
+    recBtn.textContent = "Stop";
     recBtn.classList.add("recording");
     $("#pip-btn").style.display = "";
     if (s.meetingId) { state.meetingId = s.meetingId; renderMeeting(s.meetingId, { live: true }); liveMetaBar(); }
   } else if (!s.recording && recording && !recBtn.disabled) {
     recording = false;
-    recBtn.textContent = "● Record";
+    recBtn.textContent = "Record";
     recBtn.classList.remove("recording");
     $("#pip-btn").style.display = "none";
     evtSource?.close();
@@ -3807,39 +4451,6 @@ setInterval(async () => {
     render();
   }
 }, 4000);
-
-function renderLive(title) {
-  main.innerHTML = `<h1>${esc(title)}</h1><div class="sub">Recording — no bot in your call. Words land as they're said.</div>
-    <div class="card"><h2>Your notes · type while you talk</h2>
-      <textarea class="notes" id="live-notes" placeholder="Jot anything — it's saved with the meeting when you stop."></textarea></div>
-    <div class="card"><h2>Live transcript</h2><div id="live-feed"><div class="empty">${SPOOL_SVG}listening…</div></div></div>
-    <div class="card"><h2>Capture status</h2><div id="live-status"></div></div>`;
-  const feed = $("#live-feed"), statusBox = $("#live-status");
-  const partials = {};
-  evtSource = new EventSource("/api/record/events");
-  evtSource.onmessage = (ev) => {
-    const e = JSON.parse(ev.data);
-    if (e.type === "status") {
-      statusBox.insertAdjacentHTML("beforeend", `<div class="live-status">${esc(e.message)}</div>`);
-    } else if (e.type === "partial") {
-      if (feed.querySelector(".empty")) feed.innerHTML = "";
-      let el = partials[e.speaker];
-      if (!el) {
-        feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}" id="p-${e.speaker}"><div class="who">${e.speaker}</div><div class="live-partial"></div></div>`);
-        el = partials[e.speaker] = feed.lastElementChild;
-      }
-      el.querySelector(".live-partial").textContent = e.text;
-      companionLine(e.speaker, e.text);
-    } else if (e.type === "final") {
-      if (feed.querySelector(".empty")) feed.innerHTML = "";
-      const el = partials[e.speaker];
-      if (el) { delete partials[e.speaker]; el.remove(); }
-      feed.insertAdjacentHTML("beforeend", `<div class="utt ${e.speaker === "You" ? "live-you" : ""}"><div class="ts">${fmtTs(e.offsetS)}</div><div class="who">${e.speaker}</div><div>${esc(e.text)}</div></div>`);
-      companionFinal(e.speaker, e.text);
-      window.scrollTo(0, document.body.scrollHeight);
-    }
-  };
-}
 
 // ── Hotkey guide (⌨ in the header): both record-from-anywhere methods ────
 $("#hotkey-help").addEventListener("click", async () => {
@@ -3925,9 +4536,14 @@ async function showNamingModal(meetingId) {
 
 let searchTimer;
 let askSeq = 0; // superseded asks must not overwrite newer ones
-$("#search").addEventListener("input", (e) => {
+/**
+ * Full-page search results. The header input is gone — search now lives in the
+ * Spotlight palette (⌘K / the centered pill / the rail's Search button), so this
+ * renders on demand rather than off a keystroke listener.
+ */
+function renderSearchView(q) {
   clearTimeout(searchTimer);
-  const q = e.target.value.trim();
+  q = String(q ?? "").trim();
   if (!q) return render();
   searchTimer = setTimeout(async () => {
     const hits = await api(`/api/search?q=${encodeURIComponent(q)}`);
@@ -3943,12 +4559,10 @@ $("#search").addEventListener("input", (e) => {
     wireMeetingLinks();
     $("#ask-btn")?.addEventListener("click", () => runAsk(q));
   }, 250);
-});
-
-// Ask fires on Enter or the button — NEVER per keystroke: it can cost an LLM call.
-$("#search").addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && e.target.value.trim()) runAsk(e.target.value.trim());
-});
+}
+window.renderSearchView = renderSearchView;
+// Ask still fires only on an explicit action (button / palette ↵) — never per keystroke:
+// it can cost an LLM call.
 
 async function runAsk(q) {
   const seq = ++askSeq;
@@ -3984,7 +4598,6 @@ async function runAsk(q) {
     };
     const { id } = await fetch("/api/needle/new", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ seed }) }).then((x) => x.json());
-    $("#search").value = "";
     state.needleId = id; state.view = "needle"; state.meetingId = null;
     render();
   });
@@ -3997,7 +4610,11 @@ async function runAsk(q) {
 document.body.insertAdjacentHTML("beforeend", `
   <div id="palette-veil">
     <div id="palette">
-      <input id="pal-input" placeholder="Ask your meetings anything…" autocomplete="off">
+      <div class="pal-search">
+        ${icon("search", 19)}
+        <input id="pal-input" placeholder="Pull a thread… search every meeting" autocomplete="off">
+        <span class="kbd">esc</span>
+      </div>
       <div id="palette-body">
         <div class="pal-hint"><span><b>↵</b> ask</span><span><b>esc</b> close</span><span>Answers come only from your meeting notes.</span></div>
       </div>
@@ -4005,6 +4622,14 @@ document.body.insertAdjacentHTML("beforeend", `
   </div>`);
 const veil = $("#palette-veil"), palInput = $("#pal-input"), palBody = $("#palette-body");
 let palTimer, palSeq = 0;
+
+/** The centered glass search pill — Home and Meetings both open Spotlight with it. */
+const searchPill = () => `
+  <button class="search-pill" onclick="palOpen()" title="Search every meeting (⌘K)">
+    ${icon("search", 17)}
+    <span class="lbl">Pull a thread… search every meeting</span>
+    <span class="kbd">⌘K</span>
+  </button>`;
 
 function palOpen() {
   veil.classList.add("open");
@@ -4014,6 +4639,16 @@ function palOpen() {
 function palClose() { veil.classList.remove("open"); }
 function palReset() {
   palBody.innerHTML = `<div class="pal-hint"><span><b>↵</b> ask</span><span><b>esc</b> close</span><span>Answers come only from your meeting notes.</span></div>`;
+}
+/** Arrow-key highlight over whatever rows are currently listed. */
+function palRows() { return [...palBody.querySelectorAll(".pal-row")]; }
+function palMove(delta) {
+  const rows = palRows();
+  if (!rows.length) return;
+  const cur = rows.findIndex((r) => r.classList.contains("sel"));
+  const next = cur < 0 ? (delta > 0 ? 0 : rows.length - 1) : (cur + delta + rows.length) % rows.length;
+  rows.forEach((r, i) => r.classList.toggle("sel", i === next));
+  rows[next].scrollIntoView({ block: "nearest" });
 }
 
 document.addEventListener("keydown", (e) => {
@@ -4038,20 +4673,33 @@ palInput.addEventListener("input", () => {
   palTimer = setTimeout(async () => {
     const hits = await api(`/api/search?q=${encodeURIComponent(q)}`);
     if (palInput.value.trim() !== q) return;
+    // Grouped, Spotlight-style: an eyebrow header per result type, icon rows,
+    // right-aligned meta. Only meeting lines come back from /api/search today —
+    // People/Topics groups light up as the API grows.
+    const groups = [
+      { key: "Meetings", ic: "doc", rows: hits.slice(0, 8) },
+    ].filter((g) => g.rows.length);
     palBody.innerHTML = `
       <div class="pal-hint"><span><b>↵</b> ask across all meetings</span><span>${hits.length} matching line${hits.length === 1 ? "" : "s"}</span></div>
-      ${hits.slice(0, 8).map((h) => `
-        <div class="pal-row" data-pmid="${h.meeting_id}" data-poff="${h.offset_s}">
-          <span class="ts">${esc(h.title.slice(0, 16))} · ${fmtTs(h.offset_s)}</span>
-          <span class="txt">${h.hit}</span>
-        </div>`).join("") || `<div class="pal-hint">No matching lines.</div>`}`;
+      ${groups.map((g) => `
+        <div class="pal-group eyebrow">${g.key}</div>
+        ${g.rows.map((h) => `
+          <div class="pal-row" data-pmid="${h.meeting_id}" data-poff="${h.offset_s}">
+            ${icon(g.ic, 16)}
+            <span class="txt"><b style="font-weight:600;color:var(--ink)">${esc(h.title)}</b> — ${h.hit}</span>
+            <span class="meta">${fmtDate(h.started_at)} · ${fmtTs(h.offset_s)}</span>
+          </div>`).join("")}`).join("") || `<div class="pal-hint">No matching lines.</div>`}`;
     palBody.querySelectorAll("[data-pmid]").forEach((el) =>
       el.addEventListener("click", () => palGoto(el.dataset.pmid, el.dataset.poff)));
   }, 200);
 });
 
 palInput.addEventListener("keydown", async (e) => {
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); return palMove(e.key === "ArrowDown" ? 1 : -1); }
   if (e.key !== "Enter") return;
+  // A highlighted row wins; otherwise ↵ still means "ask across all meetings".
+  const sel = palBody.querySelector(".pal-row.sel");
+  if (sel) { e.preventDefault(); return palGoto(sel.dataset.pmid, sel.dataset.poff); }
   const q = palInput.value.trim();
   if (!q) return;
   const seq = ++palSeq;

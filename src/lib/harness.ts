@@ -195,27 +195,6 @@ export async function retry<T>(
   };
 }
 
-/**
- * Safe parallelism: reads fan out, writes are serialised. Meeting extraction
- * runs several independent passes over one transcript, but only one of them is
- * allowed to touch the local database at a time.
- */
-export async function fanOut<T>(tasks: (() => Promise<T>)[], limit = 4): Promise<PromiseSettledResult<T>[]> {
-  const results: PromiseSettledResult<T>[] = new Array(tasks.length);
-  let cursor = 0;
-  const workers = Array.from({ length: Math.min(limit, tasks.length) }, async () => {
-    while (cursor < tasks.length) {
-      const i = cursor++;
-      try {
-        results[i] = { status: "fulfilled", value: await tasks[i]() };
-      } catch (reason) {
-        results[i] = { status: "rejected", reason };
-      }
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
 
 /** Decides the run's single named exit from what actually happened. */
 export function decideExit(steps: StepRecord[], budget: Budget): Outcome {

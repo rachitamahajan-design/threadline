@@ -17,6 +17,7 @@ import { reindexMeeting } from "./extract.js";
 import { bulletAt, walkBullets, type StructuredSummary } from "../lib/summary.js";
 import type { Utterance } from "../lib/pyai.js";
 
+const MEETING_FIELDS = ["title", "headline", "summary", "my_notes"];
 export type Occurrence = {
   target: "utterance" | "claim" | "summary" | "node" | "meeting_field";
   /** Deterministic address: "<target>:<key>#<field>#<matched token>". */
@@ -236,6 +237,7 @@ export function applyCorrection(
         }
         summaryTouched = true;
       } else if (o.target === "meeting_field") {
+        if (!MEETING_FIELDS.includes(key)) continue; // same allowlist the undo path enforces
         const row = db
           .prepare(`SELECT ${key} AS v FROM meetings WHERE id = ?`)
           .get(meetingId) as { v: string | null } | undefined;

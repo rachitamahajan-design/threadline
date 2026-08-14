@@ -9,18 +9,6 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
-export type MeetingRow = {
-  id: string;
-  title: string;
-  mode: string;
-  started_at: number;
-  duration_s: number;
-  exit: string | null;
-  headline: string | null;
-  summary: string | null;
-  summary_json: string | null;
-};
-
 let db: DatabaseSync | null = null;
 
 export function openDb(dir = "data"): DatabaseSync {
@@ -253,6 +241,21 @@ export function openDb(dir = "data"): DatabaseSync {
   }
   try {
     db.exec("ALTER TABLE claims ADD COLUMN source TEXT DEFAULT 'model'");
+  } catch {
+    /* column already exists */
+  }
+  // Additive migration: a meeting's length as the user says it is. NULL means
+  // "nobody told us" — the list SQL then falls back to the transcript's own
+  // last offset, so a duration always shows.
+  try {
+    db.exec("ALTER TABLE meetings ADD COLUMN duration_minutes INTEGER");
+  } catch {
+    /* column already exists */
+  }
+  // Additive migration: manually-added upcoming meetings can carry an end,
+  // the same way Google events do.
+  try {
+    db.exec("ALTER TABLE upcoming ADD COLUMN end_ms INTEGER");
   } catch {
     /* column already exists */
   }
