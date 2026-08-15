@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Call — Threadline demo</title>
+<style>
+  * { margin:0; box-sizing:border-box; }
+  body {
+    min-height:100vh; display:grid; place-items:center; padding:40px 20px;
+    background-color:#181512;
+    background-image:radial-gradient(900px 600px at 20% 0%, rgba(147,164,242,.10), transparent 60%),
+                     radial-gradient(800px 600px at 85% 100%, rgba(230,185,94,.08), transparent 60%);
+    color:#f1ece4; font:16px/1.6 -apple-system, BlinkMacSystemFont, sans-serif; text-align:center;
+  }
+  .stage { max-width:560px; }
+  .kicker { font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#8b8175; }
+  .orb { position:relative; width:220px; height:220px; margin:34px auto 20px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .ring { position:absolute; inset:0; border-radius:50%; border:1.5px solid rgba(147,164,242,.45); opacity:0; transform:scale(1); pointer-events:none; }
+  img.face {
+    position:absolute; inset:10px; width:200px; height:200px; border-radius:50%; object-fit:cover;
+    border:1px solid rgba(255,246,235,.18);
+    box-shadow:0 30px 80px rgb(0 0 0 / .55), 0 0 60px rgb(147 164 242 / .12);
+    transition:box-shadow .18s ease; will-change:transform;
+  }
+  .orb.playing img.face { box-shadow:0 30px 80px rgb(0 0 0 / .55), 0 0 90px rgb(147 164 242 / .34); }
+  .orb .hintplay {
+    position:absolute; inset:10px; border-radius:50%; display:grid; place-items:center;
+    background:rgb(0 0 0 / .34); opacity:0; transition:opacity .2s; pointer-events:none;
+  }
+  .orb:hover .hintplay { opacity:1; }
+  .orb.playing .hintplay { opacity:0; }
+  .hintplay svg { width:52px; height:52px; fill:#f1ece4; filter:drop-shadow(0 2px 8px rgb(0 0 0 / .6)); }
+  h1 { font-family:ui-serif,'New York',Georgia,serif; font-size:38px; font-weight:600; letter-spacing:-0.02em; }
+  .sub { color:#b4aa9c; margin:8px 0 6px; }
+  .sub b { color:#e6b95e; font-weight:600; }
+  .state { font-size:13px; color:#8b8175; min-height:20px; font-variant-numeric:tabular-nums; }
+  .hint { margin-top:26px; font-size:13.5px; color:#8b8175; }
+  .hint .kbd { font:600 12px ui-monospace,Menlo,monospace; border:1px solid rgba(255,246,235,.22); border-radius:6px; padding:2px 8px; color:#b4aa9c; }
+  a.back { display:inline-block; margin-top:30px; color:#93a4f2; text-decoration:none; font-size:14px; }
+  a.back:hover { text-decoration:underline; }
+  @media (prefers-reduced-motion: reduce) { .ring { display:none; } }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="kicker">Threadline demo · the other side of the call</div>
+  <div class="orb" id="orb" role="button" tabindex="0" aria-label="Play sample call">
+    <div class="ring" id="r1"></div><div class="ring" id="r2"></div><div class="ring" id="r3"></div>
+    <img class="face" id="face" src="data:image/jpeg;base64,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" alt="Melon Tusk">
+    <div class="hintplay"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></div>
+  </div>
+  <h1>Melon Tusk</h1>
+  <div class="sub">Live from the <b>Mars Program</b></div>
+  <div class="state" id="state">tap the face to start the call</div>
+  <div class="hint">Play, then double-tap <span class="kbd">fn</span> — Threadline hears the room, no bot required.</div>
+  <a class="back" href="/landing.html">⟨ Back to Threadline</a>
+</div>
+<audio id="a" src="/demo-call.mp3" preload="auto"></audio>
+<script>
+(function () {
+  var a = document.getElementById('a'), orb = document.getElementById('orb'),
+      face = document.getElementById('face'), state = document.getElementById('state');
+  var rings = [document.getElementById('r1'), document.getElementById('r2'), document.getElementById('r3')];
+  var ctx = null, analyser = null, data = null, raf = 0, ringT = [0, 0.33, 0.66];
+
+  function ensureGraph() {
+    if (ctx) return;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var src = ctx.createMediaElementSource(a);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 256; analyser.smoothingTimeConstant = 0.75;
+      src.connect(analyser); analyser.connect(ctx.destination);
+      data = new Uint8Array(analyser.frequencyBinCount);
+    } catch (e) { ctx = null; }
+  }
+
+  // heartbeat: the face swells with the actual loudness of the voice,
+  // rings ripple outward while audio plays
+  function frame() {
+    var level = 0.5;
+    if (analyser) {
+      analyser.getByteFrequencyData(data);
+      var sum = 0, n = Math.min(48, data.length);   // voice band
+      for (var i = 2; i < n; i++) sum += data[i];
+      level = sum / (n - 2) / 255;                   // 0..1
+    }
+    var s = 1 + level * 0.16;
+    face.style.transform = 'scale(' + s.toFixed(3) + ')';
+    for (var j = 0; j < rings.length; j++) {
+      ringT[j] += 0.008 + level * 0.012;
+      if (ringT[j] > 1) ringT[j] -= 1;
+      var t = ringT[j];
+      rings[j].style.transform = 'scale(' + (1 + t * 0.55) + ')';
+      rings[j].style.opacity = String((1 - t) * (0.28 + level * 0.5));
+    }
+    state.textContent = fmt(a.currentTime) + ' / ' + fmt(a.duration || 33) + ' — click to pause';
+    raf = requestAnimationFrame(frame);
+  }
+  function fmt(t) { t = Math.floor(t || 0); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+  function still() {
+    cancelAnimationFrame(raf);
+    face.style.transform = 'scale(1)';
+    rings.forEach(function (r) { r.style.opacity = '0'; });
+  }
+  function toggle() {
+    if (a.paused) {
+      ensureGraph();
+      if (ctx && ctx.state === 'suspended') ctx.resume();
+      a.play();
+    } else a.pause();
+  }
+  a.addEventListener('play', function () { orb.classList.add('playing'); raf = requestAnimationFrame(frame); });
+  a.addEventListener('pause', function () { orb.classList.remove('playing'); still(); state.textContent = 'paused — click the face to resume'; });
+  a.addEventListener('ended', function () { orb.classList.remove('playing'); still(); a.currentTime = 0; state.textContent = 'call ended — click to replay'; });
+  orb.addEventListener('click', toggle);
+  orb.addEventListener('keydown', function (e) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } });
+})();
+</script>
+</body>
+</html>
